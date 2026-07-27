@@ -1,0 +1,417 @@
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import {
+  MapPin, Fuel, Settings2, Wallet, Calendar, ShieldCheck, AlertTriangle,
+  Heart, Share2, Flag, ArrowLeft, MessageSquare, CheckCircle2, Star, Send,
+} from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
+import { useToast } from '@/components/Toast';
+import type { VehicleWithRelations, Application, Review } from '@/lib/types';
+import { Avatar } from '@/components/Avatar';
+import { Rating } from '@/components/Rating';
+import { VerifiedBadge } from '@/components/VerifiedBadge';
+import { EmptyState } from '@/components/EmptyState';
+import { Modal } from '@/components/Modal';
+import { ConnectionButton } from '@/components/ConnectionButton';
+import { formatKES, formatDate, timeAgo, expiryStatus, titleCase, cn } from '@/lib/utils';
+
+export function VehicleDetailsPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { user, profile } = useAuth();
+  const { toast } = useToast();
+
+  const [vehicle, setVehicle] = useState<VehicleWithRelations | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [activePhoto, setActivePhoto] = useState(0);
+  const [saved, setSaved] = useState(false);
+  const [favId, setFavId] = useState<string | null>(null);
+  const [application, setApplication] = useState<Application | null>(null);
+  const [showApply, setShowApply] = useState(false);
+  const [applyMsg, setApplyMsg] = useState('');
+  const [applying, setApplying] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+
+  useEffect(() => {
+    if (!id) return;
+    (async () => {
+      setLoading(true);
+      const { data } = await supabase
+        .from('vehicles')
+        .select('*, owner:profiles(*), photos:vehicle_photos(*), issues:vehicle_issues(*)')
+        .eq('id', id)
+        .maybeSingle();
+      setVehicle(data as VehicleWithRelations);
+      if (data) {
+        const { data: revs } = await supabase
+          .from('reviews')
+          .select('*, reviewer:profiles(*)')
+          .eq('reviewee_id', (data as VehicleWithRelations).owner_id)
+          .order('created_at', { ascending: false });
+        setReviews((revs as Review[]) || []);
+      }
+      setLoading(false);
+    })();
+  }, [id]);
+
+  useEffect(() => {
+    if (!user || !vehicle) return;
+    (async () => {
+      const { data: fav } = await supabase
+        .from('favorites')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('vehicle_id', vehicle.id)
+        .maybeSingle();
+      if (fav) { setSaved(true); setFavId(fav.id); }
+      if (profile?.role === 'driver') {
+        const { data: app } = await supabase
+          .from('applications')
+          .select('*')
+          .eq('vehicle_id', vehicle.id)
+          .eq('driver_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (app) setApplication(app as Application);
+      }
+    })();
+  }, [user, vehicle, profile]);
+
+  const toggleSave = async () => {
+    if (!user) { navigate('/login', { state: { from: `/vehicles/${id}` } }); return; }
+    if (saved && favId) {
+      await supabase.from('favorites').delete().eq('id', favId);
+      setSaved(false); setFavId(null);
+      toast('Removed from saved.');
+    } else {
+      const { data } = await supabase.from('favorites').insert({ user_id: user.id, vehicle_id: vehicle!.id }).select().maybeSingle();
+      if (data) { setSaved(true); setFavId(data.id); toast('Saved to your favourites.'); }
+    }
+  };
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: `${vehicle?.make} ${vehicle?.model} on GariLink`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast('Link copied to clipboard.');
+      }
+    } catch { /* user cancelled */ }
+  };
+
+  const submitApply = async () => {
+    if (!user) { navigate('/login'); return; }
+    if (!vehicle) return;
+    setApplying(true);
+    const { data, error } = await supabase
+      .from('applications')
+      .insert({ vehicle_id: vehicle.id, driver_id: user.id, owner_id: vehicle.owner_id, message: applyMsg })
+      .select()
+      .maybeSingle();
+    if (error) {
+      toast(error.message, 'error');
+    } else if (data) {
+      setApplication(data as Application);
+      await supabase.from('notifications').insert({
+        user_id: vehicle.owner_id, type: 'application', title: 'New application',
+        body: `${profile?.full_name} applied to your ${vehicle.make} ${vehicle.model}`,
+        data: { application_id: (data as Application).id, vehicle_id: vehicle.id },
+      });
+      toast('Application sent. The owner will be notified.');
+      setShowApply(false);
+    }
+    setApplying(false);
+  };
+
+  if (loading) {
+    return (
+      <div className="container-content py-8">
+        <div className="card h-96 animate-pulse" />
+      </div>
+    );
+  }
+  if (!vehicle) {
+    return (
+      <div className="container-content py-12">
+        <EmptyState title="Vehicle not found" description="This listing may have been removed." action={<Link to="/browse-cars" className="btn-primary">Browse cars</Link>} />
+      </div>
+    );
+  }
+
+  const isOwner = user?.id === vehicle.owner_id;
+  const insStatus = expiryStatus(vehicle.insurance_expiry);
+  const photos = vehicle.photos?.length ? vehicle.photos : [];
+
+  return (
+    <div className="container-content py-6 md:py-8">
+      <Link to="/browse-cars" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-800">
+        <ArrowLeft className="h-4 w-4" /> Back to browse
+      </Link>
+
+      <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px]">
+        {/* LEFT */}
+        <div>
+          {/* Gallery */}
+          <div className="overflow-hidden rounded-2xl bg-ink-100">
+            {photos.length > 0 ? (
+              <>
+                <div className="aspect-[16/10] bg-ink-100">
+                  <img src={photos[activePhoto]?.photo_url} alt={`${vehicle.make} ${vehicle.model}`} className="h-full w-full object-cover" />
+                </div>
+                {photos.length > 1 && (
+                  <div className="flex gap-2 overflow-x-auto p-3">
+                    {photos.map((p, i) => (
+                      <button key={p.id} onClick={() => setActivePhoto(i)} className={cn('h-16 w-24 shrink-0 overflow-hidden rounded-lg ring-2', i === activePhoto ? 'ring-brand-500' : 'ring-transparent')}>
+                        <img src={p.photo_url} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="flex aspect-[16/10] items-center justify-center text-ink-400">No photos uploaded</div>
+            )}
+          </div>
+
+          {/* Title + actions */}
+          <div className="mt-5 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">
+                {vehicle.make} {vehicle.model}
+              </h1>
+              <p className="mt-1 text-sm text-ink-500">{vehicle.year} · {titleCase(vehicle.transmission)} · {titleCase(vehicle.fuel_type)}</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={toggleSave} className={cn('btn-secondary', saved && 'text-brand-700 ring-brand-300')}>
+                <Heart className={cn('h-4 w-4', saved && 'fill-brand-600 text-brand-600')} /> {saved ? 'Saved' : 'Save'}
+              </button>
+              <button onClick={handleShare} className="btn-secondary"><Share2 className="h-4 w-4" /> Share</button>
+              <button onClick={() => setShowReport(true)} className="btn-ghost text-ink-500"><Flag className="h-4 w-4" /></button>
+            </div>
+          </div>
+
+          {/* Key facts */}
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Fact icon={<MapPin className="h-4 w-4" />} label="Location" value={vehicle.location} />
+            <Fact icon={<Settings2 className="h-4 w-4" />} label="Transmission" value={titleCase(vehicle.transmission)} />
+            <Fact icon={<Fuel className="h-4 w-4" />} label="Fuel" value={titleCase(vehicle.fuel_type)} />
+            <Fact icon={<Calendar className="h-4 w-4" />} label="Posted" value={formatDate(vehicle.created_at)} />
+          </div>
+
+          {/* Targets */}
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {vehicle.weekly_target != null && <Fact icon={<Wallet className="h-4 w-4" />} label="Weekly target" value={formatKES(vehicle.weekly_target)} />}
+            {vehicle.monthly_target != null && <Fact icon={<Wallet className="h-4 w-4" />} label="Monthly target" value={formatKES(vehicle.monthly_target)} />}
+            <Fact icon={<Wallet className="h-4 w-4" />} label="Deposit" value={vehicle.deposit > 0 ? formatKES(vehicle.deposit) : 'None'} />
+          </div>
+
+          {/* Insurance */}
+          <Section title="Insurance">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className={cn('h-5 w-5', insStatus === 'valid' && 'text-brand-600', insStatus === 'soon' && 'text-amber-500', insStatus === 'expired' && 'text-danger', insStatus === 'none' && 'text-ink-300')} />
+              <div>
+                <p className="font-medium text-ink-900">{titleCase(vehicle.insurance_type)} insurance</p>
+                <p className="text-xs text-ink-500">
+                  {vehicle.insurance_expiry ? `Expires ${formatDate(vehicle.insurance_expiry)}` : 'No expiry date provided'}
+                  {insStatus === 'soon' && <span className="text-amber-600"> · expiring soon</span>}
+                  {insStatus === 'expired' && <span className="text-danger"> · expired</span>}
+                </p>
+              </div>
+            </div>
+          </Section>
+
+          {/* Known issues */}
+          <Section title="Known issues" icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}>
+            {vehicle.issues?.length ? (
+              <ul className="space-y-2">
+                {vehicle.issues.map((iss) => (
+                  <li key={iss.id} className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-ink-700 ring-1 ring-amber-100">
+                    <span className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', iss.severity === 'minor' && 'bg-amber-400', iss.severity === 'moderate' && 'bg-orange-500', iss.severity === 'major' && 'bg-red-500')} />
+                    <div>
+                      <p>{iss.description}</p>
+                      <p className="text-xs capitalize text-ink-400">{iss.severity} severity</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-ink-500">The owner has not reported any known issues with this vehicle.</p>
+            )}
+          </Section>
+
+          {/* Requirements */}
+          {(vehicle.driver_experience || vehicle.requirements) && (
+            <Section title="Driver requirements">
+              {vehicle.driver_experience && <p className="text-sm text-ink-700"><span className="font-medium">Experience:</span> {vehicle.driver_experience}</p>}
+              {vehicle.requirements && <p className="mt-1 text-sm text-ink-700">{vehicle.requirements}</p>}
+            </Section>
+          )}
+
+          {/* Owner reviews */}
+          <Section title={`Reviews of ${vehicle.owner?.full_name}`}>
+            {reviews.length > 0 ? (
+              <div className="space-y-4">
+                {reviews.map((r) => (
+                  <div key={r.id} className="border-b border-ink-100 pb-4 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <Avatar name={r.reviewer?.full_name || 'User'} src={r.reviewer?.avatar_url} size={32} />
+                      <div>
+                        <p className="text-sm font-medium text-ink-900">{r.reviewer?.full_name}</p>
+                        <p className="text-xs text-ink-400">{timeAgo(r.created_at)}</p>
+                      </div>
+                      <Rating value={r.rating} size={12} className="ml-auto" />
+                    </div>
+                    {r.content && <p className="mt-2 text-sm text-ink-700">{r.content}</p>}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-ink-500">No reviews yet. Reviews appear after a completed match.</p>
+            )}
+          </Section>
+        </div>
+
+        {/* RIGHT — sticky sidebar */}
+        <aside className="lg:sticky lg:top-20 lg:self-start">
+          <div className="card p-5">
+            {vehicle.weekly_target != null && (
+              <div className="flex items-end justify-between">
+                <div>
+                  <p className="font-display text-2xl font-bold text-ink-900">{formatKES(vehicle.weekly_target)}</p>
+                  <p className="text-xs text-ink-500">weekly target</p>
+                </div>
+                {vehicle.deposit > 0 && (
+                  <div className="text-right">
+                    <p className="text-sm font-semibold text-ink-800">{formatKES(vehicle.deposit)}</p>
+                    <p className="text-xs text-ink-500">deposit</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center gap-2 rounded-lg bg-ink-50 px-3 py-2 text-sm">
+              {vehicle.availability === 'available'
+                ? <><CheckCircle2 className="h-4 w-4 text-brand-600" /><span className="text-brand-700 font-medium">Available now</span></>
+                : <><span className="h-2 w-2 rounded-full bg-amber-500" /><span className="text-amber-700 font-medium">Currently taken</span></>}
+            </div>
+
+            {/* Owner card */}
+            {vehicle.owner && (
+              <Link to={`/drivers/${vehicle.owner.id}`} className="mt-4 flex items-center gap-3 rounded-xl border border-ink-100 p-3 hover:bg-ink-50">
+                <Avatar name={vehicle.owner.full_name} src={vehicle.owner.avatar_url} size={44} verified={vehicle.owner.is_verified} />
+                <div className="min-w-0">
+                  <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
+                    {vehicle.owner.full_name} <VerifiedBadge verified={vehicle.owner.is_verified} size={12} />
+                  </p>
+                  <Rating value={vehicle.owner.rating} size={11} showValue count={vehicle.owner.rating_count} />
+                </div>
+              </Link>
+            )}
+
+            {/* Actions */}
+            <div className="mt-5 space-y-2">
+              {isOwner ? (
+                <Link to={`/vehicles/${vehicle.id}/edit`} className="btn-secondary w-full">Edit listing</Link>
+              ) : (
+                <>
+                  <button onClick={() => user ? setShowApply(true) : navigate('/login', { state: { from: `/vehicles/${id}` } })} className="btn-primary w-full">
+                    Apply now
+                  </button>
+                  <ConnectionButton otherUserId={vehicle.owner_id} vehicleId={vehicle.id} className="w-full" />
+                </>
+              )}
+            </div>
+          </div>
+        </aside>
+      </div>
+
+      {/* Apply modal */}
+      {showApply && (
+        <Modal title="Apply to this vehicle" onClose={() => setShowApply(false)}>
+          <textarea
+            value={applyMsg}
+            onChange={(e) => setApplyMsg(e.target.value)}
+            rows={4}
+            placeholder="Introduce yourself — your experience, platforms, availability…"
+            className="input"
+          />
+          <button onClick={submitApply} disabled={applying} className="btn-primary mt-4 w-full">
+            {applying ? 'Sending…' : 'Send application'} <Send className="h-4 w-4" />
+          </button>
+        </Modal>
+      )}
+
+      {/* Report modal */}
+      {showReport && (
+        <ReportModal
+          targetType="listing"
+          targetId={vehicle.id}
+          reportedId={vehicle.owner_id}
+          onClose={() => setShowReport(false)}
+          onDone={() => { setShowReport(false); toast('Report submitted. Our team will review it.'); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function Fact({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+  return (
+    <div className="rounded-xl bg-white p-3 ring-1 ring-ink-100">
+      <p className="flex items-center gap-1.5 text-xs text-ink-400">{icon} {label}</p>
+      <p className="mt-1 text-sm font-semibold text-ink-900">{value}</p>
+    </div>
+  );
+}
+
+function Section({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <section className="mt-6">
+      <h2 className="flex items-center gap-2 font-display text-lg font-bold text-ink-900">{icon}{title}</h2>
+      <div className="mt-3">{children}</div>
+    </section>
+  );
+}
+
+export function ReportModal({ targetType, targetId, reportedId, onClose, onDone }: { targetType: 'user' | 'listing' | 'conversation' | 'review'; targetId: string; reportedId: string; onClose: () => void; onDone: () => void }) {
+  const { user } = useAuth();
+  const [reason, setReason] = useState('');
+  const [desc, setDesc] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const submit = async () => {
+    if (!user) return;
+    setLoading(true);
+    await supabase.from('reports').insert({
+      reporter_id: user.id, reported_id: reportedId, target_type: targetType, target_id: targetId, reason, description: desc,
+    });
+    setLoading(false);
+    onDone();
+  };
+
+  return (
+    <Modal title="Report" onClose={onClose}>
+      <div>
+        <label className="label">Reason</label>
+        <select value={reason} onChange={(e) => setReason(e.target.value)} className="input">
+          <option value="">Select a reason…</option>
+          <option>Fraud or scam</option>
+          <option>Fake listing</option>
+          <option>Abusive behaviour</option>
+          <option>Spam</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div className="mt-4">
+        <label className="label">Details (optional)</label>
+        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="input" placeholder="Tell us what happened…" />
+      </div>
+      <button onClick={submit} disabled={loading || !reason} className="btn-danger mt-4 w-full">{loading ? 'Submitting…' : 'Submit report'}</button>
+    </Modal>
+  );
+}
