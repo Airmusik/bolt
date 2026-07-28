@@ -1,32 +1,45 @@
-import { useEffect, useState } from 'react';
-import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { Profile, Vehicle, Report } from '@/lib/types';
+import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { cn, timeAgo } from '@/lib/utils';
 import { useToast } from '@/components/Toast';
+import { useAuth } from '@/lib/auth';
+
+type Tab = 'overview' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'chat';
 
 export function AdminPage() {
+  const { user } = useAuth();
   const { toast } = useToast();
-  const [tab, setTab] = useState<'overview' | 'users' | 'listings' | 'verifications' | 'reports'>('overview');
+  const [tab, setTab] = useState<Tab>('overview');
   const [users, setUsers] = useState<Profile[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [vehicles, setVehicles] = useState<(Vehicle & { owner?: Profile; photos?: { photo_url: string }[] })[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [documents, setDocuments] = useState<(DocumentRow & { user?: Profile })[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
 
   const load = async () => {
-    const [{ data: u }, { data: v }, { data: r }] = await Promise.all([
+    const [{ data: u }, { data: v }, { data: r }, { data: d }] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-      supabase.from('vehicles').select('*').order('created_at', { ascending: false }),
+      supabase.from('vehicles').select('*, owner:profiles!vehicles_owner_id_fkey(*), photos:vehicle_photos(photo_url)').order('created_at', { ascending: false }),
       supabase.from('reports').select('*').order('created_at', { ascending: false }),
+      supabase.from('documents').select('*, user:profiles!documents_user_id_fkey(*)').order('created_at', { ascending: false }),
     ]);
     setUsers((u as Profile[]) || []);
-    setVehicles((v as Vehicle[]) || []);
+    setVehicles((v as any) || []);
     setReports((r as Report[]) || []);
+    setDocuments((d as any) || []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
+
+  const drivers = users.filter((u) => u.role === 'driver');
+  const owners = users.filter((u) => u.role === 'owner');
+  const pendingVerifications = users.filter((u) => u.verification_status === 'pending');
+  const pendingDocs = documents.filter((d) => !d.verified);
 
   const approveVerification = async (p: Profile) => {
     await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', p.id);
@@ -49,23 +62,55 @@ export function AdminPage() {
     toast('Report ' + status + '.');
     load();
   };
+  const verifyDoc = async (d: DocumentRow) => {
+    await supabase.from('documents').update({ verified: true }).eq('id', d.id);
+    await supabase.from('notifications').insert({ user_id: d.user_id, type: 'verification', title: 'Document verified', body: `Your ${d.label || d.type.replace(/_/g, ' ')} was verified.` });
+    toast('Document verified.');
+    load();
+  };
+  const rejectDoc = async (d: DocumentRow) => {
+    await supabase.from('documents').update({ verified: false }).eq('id', d.id);
+    await supabase.from('notifications').insert({ user_id: d.user_id, type: 'verification', title: 'Document rejected', body: `Your ${d.label || d.type.replace(/_/g, ' ')} was rejected. Please re-upload.` });
+    toast('Document rejected.');
+    load();
+  };
+  const toggleVehicle = async (v: Vehicle) => {
+    await supabase.from('vehicles').update({ status: v.status === 'active' ? 'closed' : 'active' }).eq('id', v.id);
+    load();
+  };
 
-  const pendingVerifications = users.filter((u) => u.verification_status === 'pending');
   const stats = [
     { label: 'Total users', value: users.length, icon: Users },
+    { label: 'Drivers', value: drivers.length, icon: Users },
+    { label: 'Car owners', value: owners.length, icon: ShieldCheck },
     { label: 'Active listings', value: vehicles.filter((v) => v.status === 'active').length, icon: Car },
-    { label: 'Verified drivers', value: users.filter((u) => u.role === 'driver' && u.is_verified).length, icon: BadgeCheck },
-    { label: 'Verified owners', value: users.filter((u) => u.role === 'owner' && u.is_verified).length, icon: ShieldCheck },
     { label: 'Pending verifications', value: pendingVerifications.length, icon: TrendingUp },
+    { label: 'Pending documents', value: pendingDocs.length, icon: FileText },
     { label: 'Open reports', value: reports.filter((r) => r.status === 'open').length, icon: Flag },
-    { label: 'New registrations', value: users.length, icon: Bell },
-    { label: 'Total listings', value: vehicles.length, icon: Car },
+    { label: 'Verified drivers', value: drivers.filter((u) => u.is_verified).length, icon: BadgeCheck },
   ];
+
+  const tabs: { key: Tab; label: string; icon: any; badge?: number }[] = [
+    { key: 'overview', label: 'Overview', icon: TrendingUp },
+    { key: 'drivers', label: 'Drivers', icon: Users, badge: drivers.length },
+    { key: 'owners', label: 'Car Owners', icon: ShieldCheck, badge: owners.length },
+    { key: 'cars', label: 'Cars', icon: Car, badge: vehicles.length },
+    { key: 'documents', label: 'Documents', icon: FileText, badge: pendingDocs.length },
+    { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
+    { key: 'chat', label: 'Chat', icon: MessageSquare },
+  ];
+
+  const filteredDrivers = drivers.filter((d) => d.full_name.toLowerCase().includes(search.toLowerCase()) || (d.phone || '').includes(search));
+  const filteredOwners = owners.filter((o) => o.full_name.toLowerCase().includes(search.toLowerCase()) || (o.phone || '').includes(search));
+  const filteredVehicles = vehicles.filter((v) => `${v.make} ${v.model}`.toLowerCase().includes(search.toLowerCase()) || v.location.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="container-content py-8">
-      <h1 className="font-display text-2xl font-bold text-ink-900">Admin dashboard</h1>
-      <p className="mt-1 text-sm text-ink-500">Moderate users, listings, verifications and reports.</p>
+      <div className="flex items-center gap-2">
+        <ShieldCheck className="h-7 w-7 text-brand-600" />
+        <h1 className="font-display text-2xl font-bold text-ink-900">Admin Portal</h1>
+      </div>
+      <p className="mt-1 text-sm text-ink-500">Manage drivers, car owners, listings, document reviews and chat with all users.</p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
@@ -78,13 +123,26 @@ export function AdminPage() {
       </div>
 
       <div className="mt-8 flex gap-1 overflow-x-auto border-b border-ink-100">
-        {(['overview', 'users', 'listings', 'verifications', 'reports'] as const).map((t) => (
-          <button key={t} onClick={() => setTab(t)} className={cn('whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium capitalize', tab === t ? 'border-brand-600 text-brand-700' : 'border-transparent text-ink-500 hover:text-ink-800')}>{t}</button>
+        {tabs.map((t) => (
+          <button key={t.key} onClick={() => setTab(t.key)} className={cn('flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium', tab === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-ink-500 hover:text-ink-800')}>
+            <t.icon className="h-4 w-4" /> {t.label}
+            {t.badge !== undefined && t.badge > 0 && <span className="ml-0.5 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{t.badge}</span>}
+          </button>
         ))}
       </div>
 
       <div className="mt-6">
-        {tab === 'overview' && (
+        {(tab === 'drivers' || tab === 'owners' || tab === 'cars') && (
+          <div className="mb-4 flex items-center gap-2">
+            <Search className="h-4 w-4 text-ink-400" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search ${tab}…`} className="input max-w-xs" />
+          </div>
+        )}
+
+        {loading && <div className="card h-64 animate-pulse" />}
+
+        {/* ---------- Overview ---------- */}
+        {tab === 'overview' && !loading && (
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card p-5">
               <h3 className="font-semibold text-ink-900">Pending verifications</h3>
@@ -99,69 +157,121 @@ export function AdminPage() {
               </div>
             </div>
             <div className="card p-5">
-              <h3 className="font-semibold text-ink-900">Open reports</h3>
+              <h3 className="font-semibold text-ink-900">Pending documents</h3>
               <div className="mt-3 space-y-2">
-                {reports.filter((r) => r.status === 'open').slice(0, 5).map((r) => (
-                  <div key={r.id} className="flex items-center justify-between">
-                    <span className="text-sm text-ink-700">{r.reason} <span className="capitalize text-ink-400">({r.target_type})</span></span>
-                    <button onClick={() => resolveReport(r, 'resolved')} className="btn-secondary px-3 py-1 text-xs">Resolve</button>
+                {pendingDocs.slice(0, 5).map((d) => (
+                  <div key={d.id} className="flex items-center justify-between">
+                    <span className="text-sm text-ink-700">{d.user?.full_name} — {d.label || d.type.replace(/_/g, ' ')}</span>
+                    <div className="flex gap-1">
+                      <button onClick={() => verifyDoc(d)} className="btn-primary px-2 py-1 text-xs"><Check className="h-3 w-3" /></button>
+                      <button onClick={() => rejectDoc(d)} className="btn-secondary px-2 py-1 text-xs"><X className="h-3 w-3" /></button>
+                    </div>
                   </div>
                 ))}
-                {reports.filter((r) => r.status === 'open').length === 0 && <p className="text-sm text-ink-400">No open reports.</p>}
+                {pendingDocs.length === 0 && <p className="text-sm text-ink-400">No pending documents.</p>}
               </div>
             </div>
           </div>
         )}
 
-        {tab === 'users' && (
+        {/* ---------- Drivers ---------- */}
+        {tab === 'drivers' && !loading && (
           <div className="space-y-2">
-            {users.map((u) => (
+            {filteredDrivers.map((u) => (
               <div key={u.id} className="card flex items-center gap-3 p-4">
                 <Avatar name={u.full_name} src={u.avatar_url} size={40} verified={u.is_verified} />
                 <div className="flex-1">
                   <p className="flex items-center gap-1 font-medium text-ink-900">{u.full_name} <VerifiedBadge verified={u.is_verified} size={12} /></p>
-                  <p className="text-xs capitalize text-ink-500">{u.role} · {u.phone} · {timeAgo(u.created_at)}</p>
+                  <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'} · {timeAgo(u.created_at)}</p>
+                  {u.licence_number && <p className="text-xs text-ink-400">Licence: {u.licence_number} (exp. {u.licence_expiry || '—'})</p>}
                 </div>
-                <button onClick={() => suspend(u)} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
+                <div className="flex gap-2">
+                  {u.verification_status === 'pending' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
+                  {u.verification_status === 'pending' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
+                  <button onClick={() => startAdminChat(u.id)} className="btn-ghost text-brand-600 text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
+                  <button onClick={() => suspend(u)} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /></button>
+                </div>
               </div>
             ))}
+            {filteredDrivers.length === 0 && <p className="text-sm text-ink-500">No drivers found.</p>}
           </div>
         )}
 
-        {tab === 'listings' && (
+        {/* ---------- Owners ---------- */}
+        {tab === 'owners' && !loading && (
           <div className="space-y-2">
-            {vehicles.map((v) => (
+            {filteredOwners.map((u) => (
+              <div key={u.id} className="card flex items-center gap-3 p-4">
+                <Avatar name={u.full_name} src={u.avatar_url} size={40} verified={u.is_verified} />
+                <div className="flex-1">
+                  <p className="flex items-center gap-1 font-medium text-ink-900">{u.full_name} <VerifiedBadge verified={u.is_verified} size={12} /></p>
+                  <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'} · {timeAgo(u.created_at)}</p>
+                  <p className="text-xs text-ink-400">{vehicles.filter((v) => v.owner_id === u.id).length} car(s) listed</p>
+                </div>
+                <div className="flex gap-2">
+                  {u.verification_status === 'pending' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
+                  {u.verification_status === 'pending' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
+                  <button onClick={() => startAdminChat(u.id)} className="btn-ghost text-brand-600 text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
+                  <button onClick={() => suspend(u)} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /></button>
+                </div>
+              </div>
+            ))}
+            {filteredOwners.length === 0 && <p className="text-sm text-ink-500">No owners found.</p>}
+          </div>
+        )}
+
+        {/* ---------- Cars ---------- */}
+        {tab === 'cars' && !loading && (
+          <div className="space-y-2">
+            {filteredVehicles.map((v) => (
               <div key={v.id} className="card flex items-center gap-3 p-4">
+                <div className="h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-ink-100">
+                  {v.photos && v.photos[0] ? (
+                    <img src={v.photos[0].photo_url} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full items-center justify-center"><Car className="h-6 w-6 text-ink-300" /></div>
+                  )}
+                </div>
                 <div className="flex-1">
                   <p className="font-medium text-ink-900">{v.make} {v.model} ({v.year})</p>
-                  <p className="text-xs text-ink-500">{v.location} · {v.status} · {timeAgo(v.created_at)}</p>
+                  <p className="text-xs text-ink-500">{v.location} · {v.transmission} · {v.fuel_type} · KES {v.weekly_target || 0}/week</p>
+                  <p className="text-xs text-ink-400">Owner: {v.owner?.full_name || 'Unknown'} · {v.status} · {timeAgo(v.created_at)}</p>
                 </div>
-                <button onClick={async () => { await supabase.from('vehicles').update({ status: v.status === 'active' ? 'closed' : 'active' }).eq('id', v.id); load(); }} className="btn-secondary text-sm">
+                <button onClick={() => toggleVehicle(v)} className={cn('text-sm', v.status === 'active' ? 'btn-secondary' : 'btn-primary')}>
                   {v.status === 'active' ? 'Remove' : 'Restore'}
                 </button>
               </div>
             ))}
+            {filteredVehicles.length === 0 && <p className="text-sm text-ink-500">No cars found.</p>}
           </div>
         )}
 
-        {tab === 'verifications' && (
+        {/* ---------- Documents ---------- */}
+        {tab === 'documents' && !loading && (
           <div className="space-y-2">
-            {pendingVerifications.map((p) => (
-              <div key={p.id} className="card flex items-center gap-3 p-4">
-                <Avatar name={p.full_name} src={p.avatar_url} size={40} />
+            {documents.map((d) => (
+              <div key={d.id} className="card flex items-center gap-3 p-4">
+                <FileText className={cn('h-8 w-8', d.verified ? 'text-success' : 'text-amber-500')} />
                 <div className="flex-1">
-                  <p className="font-medium text-ink-900">{p.full_name}</p>
-                  <p className="text-xs capitalize text-ink-500">{p.role} · {p.phone}</p>
+                  <p className="font-medium text-ink-900">{d.label || d.type.replace(/_/g, ' ')}</p>
+                  <p className="text-xs text-ink-500">{d.user?.full_name} ({d.user?.role}) · {timeAgo(d.created_at)}</p>
+                  {d.expiry_date && <p className="text-xs text-ink-400">Expires: {d.expiry_date}</p>}
                 </div>
-                <button onClick={() => approveVerification(p)} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Approve</button>
-                <button onClick={() => rejectVerification(p)} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button>
+                <a href={d.file_url} target="_blank" rel="noopener noreferrer" className="btn-ghost text-sm">View</a>
+                {!d.verified ? (
+                  <button onClick={() => verifyDoc(d)} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Verify</button>
+                ) : (
+                  <span className="badge badge-success">Verified</span>
+                )}
+                <button onClick={() => rejectDoc(d)} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button>
               </div>
             ))}
-            {pendingVerifications.length === 0 && <p className="text-sm text-ink-500">No pending verifications.</p>}
+            {documents.length === 0 && <p className="text-sm text-ink-500">No documents uploaded yet.</p>}
           </div>
         )}
 
-        {tab === 'reports' && (
+        {/* ---------- Reports ---------- */}
+        {tab === 'reports' && !loading && (
           <div className="space-y-2">
             {reports.map((r) => (
               <div key={r.id} className="card p-4">
@@ -180,6 +290,179 @@ export function AdminPage() {
               </div>
             ))}
             {reports.length === 0 && <p className="text-sm text-ink-500">No reports.</p>}
+          </div>
+        )}
+
+        {/* ---------- Chat ---------- */}
+        {tab === 'chat' && !loading && <AdminChat user={user} />}
+      </div>
+    </div>
+  );
+
+  async function startAdminChat(userId: string) {
+    if (!user) return;
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .or(`and(admin_id.eq.${user.id},driver_id.eq.${userId}),and(admin_id.eq.${user.id},owner_id.eq.${userId})`)
+      .maybeSingle();
+    if (existing) {
+      setTab('chat');
+      window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: (existing as any).id }));
+      return;
+    }
+    const { data: conv } = await supabase
+      .from('conversations')
+      .insert({ admin_id: user.id, driver_id: userId, owner_id: null, vehicle_id: null })
+      .select()
+      .maybeSingle();
+    if (conv) {
+      setTab('chat');
+      window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: (conv as any).id }));
+    } else {
+      toast('Could not start chat.', 'error');
+    }
+  }
+}
+
+// ---------- Admin Chat component ----------
+function AdminChat({ user }: { user: { id: string; email: string } | null }) {
+  const { toast } = useToast();
+  const [conversations, setConversations] = useState<(Conversation & { driver?: Profile; owner?: Profile })[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [text, setText] = useState('');
+  const [loading, setLoading] = useState(true);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const loadConversations = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('conversations')
+      .select('*, driver:profiles!conversations_driver_id_fkey(*), owner:profiles!conversations_owner_id_fkey(*)')
+      .not('admin_id', 'is', null)
+      .eq('admin_id', user.id)
+      .order('last_message_at', { ascending: false, nullsFirst: false });
+    setConversations((data as any) || []);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => { loadConversations(); }, [loadConversations]);
+
+  useEffect(() => {
+    const handler = (e: Event) => setActiveId((e as CustomEvent).detail as string);
+    window.addEventListener('admin-open-chat', handler);
+    return () => window.removeEventListener('admin-open-chat', handler);
+  }, []);
+
+  const active = conversations.find((c) => c.id === activeId) || null;
+
+  const loadMessages = useCallback(async () => {
+    if (!activeId) return;
+    const { data } = await supabase.from('messages').select('*').eq('conversation_id', activeId).order('created_at', { ascending: true });
+    setMessages((data as Message[]) || []);
+    if (user) {
+      await supabase.from('messages').update({ read: true }).eq('conversation_id', activeId).neq('sender_id', user.id).eq('read', false);
+    }
+  }, [activeId, user]);
+
+  useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase.channel('admin-chat-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const m = payload.new as Message;
+        if (activeId && m.conversation_id === activeId) {
+          setMessages((prev) => [...prev, m]);
+          if (m.sender_id !== user.id) supabase.from('messages').update({ read: true }).eq('id', m.id);
+        }
+        loadConversations();
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, activeId, loadConversations]);
+
+  useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
+
+  const send = async () => {
+    if (!user || !activeId || !text.trim()) return;
+    const { data } = await supabase.from('messages').insert({ conversation_id: activeId, sender_id: user.id, content: text.trim(), type: 'text' }).select().maybeSingle();
+    if (data) {
+      setMessages((prev) => [...prev, data as Message]);
+      await supabase.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', activeId);
+      const otherId = active?.driver_id || active?.owner_id;
+      if (otherId) {
+        await supabase.from('notifications').insert({ user_id: otherId, type: 'message', title: 'New message from admin', body: 'You have a new message from GariLink admin.', data: { conversation_id: activeId } });
+      }
+    }
+    setText('');
+    loadConversations();
+  };
+
+  if (loading) return <div className="card h-64 animate-pulse" />;
+
+  if (conversations.length === 0) {
+    return (
+      <div className="card p-8 text-center">
+        <MessageSquare className="mx-auto h-10 w-10 text-ink-300" />
+        <p className="mt-3 text-sm text-ink-500">No admin chats yet. Click "Chat" on any driver or owner to start a conversation.</p>
+      </div>
+    );
+  }
+
+  const other = active?.driver || active?.owner;
+
+  return (
+    <div className="grid h-[70vh] gap-4 lg:grid-cols-[300px_1fr]">
+      <div className={cn('card overflow-y-auto', active && 'hidden lg:block')}>
+        {conversations.map((c) => {
+          const u = c.driver || c.owner;
+          return (
+            <button key={c.id} onClick={() => setActiveId(c.id)} className={cn('flex w-full items-center gap-3 border-b border-ink-50 p-3 text-left hover:bg-ink-50', activeId === c.id && 'bg-brand-50')}>
+              <Avatar name={u?.full_name || 'User'} src={u?.avatar_url} size={44} verified={u?.is_verified} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink-900">{u?.full_name}</p>
+                <p className="text-xs capitalize text-ink-500">{u?.role}</p>
+              </div>
+              {c.last_message_at && <span className="text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className={cn('card flex flex-col overflow-hidden', !active && 'hidden lg:flex')}>
+        {active && other ? (
+          <>
+            <div className="flex items-center gap-3 border-b border-ink-100 p-4">
+              <button onClick={() => setActiveId(null)} className="lg:hidden"><ArrowLeft className="h-5 w-5 text-ink-500" /></button>
+              <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.is_verified} />
+              <div>
+                <p className="font-semibold text-ink-900">{other.full_name}</p>
+                <p className="text-xs capitalize text-brand-600">{other.role}</p>
+              </div>
+            </div>
+            <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-ink-50/50 p-4">
+              {messages.map((m) => {
+                const mine = m.sender_id === user?.id;
+                return (
+                  <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
+                    <div className={cn('max-w-[75%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100')}>
+                      <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                      <div className={cn('mt-0.5 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{timeAgo(m.created_at)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex items-center gap-2 border-t border-ink-100 p-3">
+              <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Type a message…" className="input flex-1" />
+              <button onClick={send} disabled={!text.trim()} className="btn-primary px-3"><Send className="h-4 w-4" /></button>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center text-ink-400">
+            <p className="text-sm">Select a conversation to start chatting.</p>
           </div>
         )}
       </div>

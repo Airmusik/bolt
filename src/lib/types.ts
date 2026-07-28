@@ -115,14 +115,16 @@ export interface Conversation {
   id: string;
   application_id: string | null;
   connection_id: string | null;
-  vehicle_id: string;
-  driver_id: string;
-  owner_id: string;
+  vehicle_id: string | null;
+  driver_id: string | null;
+  owner_id: string | null;
+  admin_id: string | null;
   last_message_at: string | null;
   created_at: string;
   vehicle?: Vehicle;
   driver?: Profile;
   owner?: Profile;
+  admin?: Profile;
 }
 
 export interface Message {

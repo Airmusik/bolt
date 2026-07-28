@@ -47,6 +47,8 @@ export function Header() {
     { to: '/how-it-works', label: 'How it works' },
   ];
 
+  const isAdmin = profile?.role === 'admin';
+
   return (
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur-md">
       <div className="container-content flex h-16 items-center justify-between gap-4">
@@ -72,6 +74,17 @@ export function Header() {
               {l.label}
             </Link>
           ))}
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className={cn(
+                'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                location.pathname.startsWith('/admin') ? 'bg-brand-50 text-brand-700' : 'text-brand-600 hover:bg-brand-50 hover:text-brand-700'
+              )}
+            >
+              <ShieldCheck className="h-4 w-4" /> Admin
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -160,6 +173,11 @@ export function Header() {
             {user && (
               <Link to="/dashboard" className="rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100">
                 Dashboard
+              </Link>
+            )}
+            {isAdmin && (
+              <Link to="/admin" className="rounded-lg px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
+                Admin
               </Link>
             )}
           </div>
