@@ -7,6 +7,8 @@ import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { EmptyState } from '@/components/EmptyState';
+import { AvailabilityBadge } from '@/components/AvailabilityBadge';
+import { ConnectionButton } from '@/components/ConnectionButton';
 import { ALL_LOCATIONS } from '@/lib/locations';
 import { titleCase } from '@/lib/utils';
 
@@ -70,29 +72,35 @@ export function BrowseDriversPage() {
         ) : filtered.length > 0 ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((d) => (
-              <Link key={d.id} to={`/drivers/${d.id}`} className="card card-hover p-5">
-                <div className="flex items-center gap-3">
-                  <Avatar name={d.full_name} src={d.avatar_url} size={56} verified={d.is_verified} />
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-1 truncate font-semibold text-ink-900">
-                      {d.full_name} <VerifiedBadge verified={d.is_verified} size={13} />
-                    </p>
-                    <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Kenya'}</p>
+              <div key={d.id} className="card card-hover p-5">
+                <Link to={`/drivers/${d.id}`}>
+                  <div className="flex items-center gap-3">
+                    <Avatar name={d.full_name} src={d.avatar_url} size={56} verified={d.is_verified} />
+                    <div className="min-w-0 flex-1">
+                      <p className="flex items-center gap-1 truncate font-semibold text-ink-900">
+                        {d.full_name} <VerifiedBadge verified={d.is_verified} size={13} />
+                      </p>
+                      <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Kenya'}</p>
+                    </div>
+                    <AvailabilityBadge availability={d.availability} />
                   </div>
+                  <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-3" />
+                  <div className="mt-3 space-y-1.5 text-xs text-ink-500">
+                    <p className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> {d.driving_experience_years} yrs experience</p>
+                    {d.languages?.length > 0 && (
+                      <p className="flex items-center gap-1.5"><Languages className="h-3.5 w-3.5" /> {d.languages.slice(0, 3).join(', ')}</p>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-1">
+                    {(d.platforms_worked || []).slice(0, 4).map((p) => (
+                      <span key={p} className="badge-neutral">{titleCase(p)}</span>
+                    ))}
+                  </div>
+                </Link>
+                <div className="mt-3">
+                  <ConnectionButton otherUserId={d.id} size="sm" className="w-full" />
                 </div>
-                <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-3" />
-                <div className="mt-3 space-y-1.5 text-xs text-ink-500">
-                  <p className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> {d.driving_experience_years} yrs experience</p>
-                  {d.languages?.length > 0 && (
-                    <p className="flex items-center gap-1.5"><Languages className="h-3.5 w-3.5" /> {d.languages.slice(0, 3).join(', ')}</p>
-                  )}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {(d.platforms_worked || []).slice(0, 4).map((p) => (
-                    <span key={p} className="badge-neutral">{titleCase(p)}</span>
-                  ))}
-                </div>
-              </Link>
+              </div>
             ))}
           </div>
         ) : (

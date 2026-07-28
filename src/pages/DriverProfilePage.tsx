@@ -10,6 +10,7 @@ import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { Modal } from '@/components/Modal';
 import { ConnectionButton } from '@/components/ConnectionButton';
+import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { ReportModal } from './VehicleDetailsPage';
 import { formatDate, expiryStatus, titleCase, timeAgo, cn } from '@/lib/utils';
 
@@ -73,6 +74,9 @@ export function DriverProfilePage() {
                   <span className="inline-flex items-center gap-1"><Briefcase className="h-4 w-4" /> {profile.driving_experience_years} yrs experience</span>
                 </div>
                 <Rating value={profile.rating} size={15} showValue count={profile.rating_count} className="mt-2" />
+                <div className="mt-2">
+                  <AvailabilityBadge availability={profile.availability} size="md" />
+                </div>
               </div>
               {user?.id !== profile.id && (
                 <button onClick={() => setShowReport(true)} className="btn-ghost text-ink-500"><Flag className="h-4 w-4" /> Report</button>
@@ -84,7 +88,6 @@ export function DriverProfilePage() {
             <div className="mt-5 flex flex-wrap gap-2">
               <span className="badge-brand"><BadgeCheck className="h-3.5 w-3.5" /> {profile.contracts_completed} contracts completed</span>
               {(profile.platforms_worked || []).map((p) => <span key={p} className="badge-neutral">{titleCase(p)}</span>)}
-              {profile.availability === 'available' && <span className="badge-brand">Available now</span>}
             </div>
           </div>
 

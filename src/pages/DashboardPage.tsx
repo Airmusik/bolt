@@ -12,6 +12,7 @@ import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { Modal } from '@/components/Modal';
 import { ConnectionButton } from '@/components/ConnectionButton';
+import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { updateConnectionStatus } from '@/lib/connections';
 import { formatKES, timeAgo, titleCase, cn } from '@/lib/utils';
 
@@ -192,10 +193,11 @@ function OverviewTab({ profile, drivers, conversations, isOwner, pendingConnecti
               <Link key={d.id} to={`/drivers/${d.id}`} className="card card-hover p-4">
                 <div className="flex items-center gap-3">
                   <Avatar name={d.full_name} src={d.avatar_url} size={44} verified={d.is_verified} />
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">{d.full_name} <VerifiedBadge verified={d.is_verified} size={11} /></p>
                     <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Kenya'}</p>
                   </div>
+                  <AvailabilityBadge availability={d.availability} />
                 </div>
                 <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-2" />
                 <div className="mt-2 flex items-center gap-1 text-xs text-ink-500"><Briefcase className="h-3 w-3" /> {d.driving_experience_years || 0} yrs</div>
@@ -218,10 +220,11 @@ function DriversTab({ users, loading }: { users: Profile[]; loading: boolean }) 
           <Link to={`/drivers/${d.id}`}>
             <div className="flex items-center gap-3">
               <Avatar name={d.full_name} src={d.avatar_url} size={48} verified={d.is_verified} />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">{d.full_name} <VerifiedBadge verified={d.is_verified} size={12} /></p>
                 <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Kenya'}</p>
               </div>
+              <AvailabilityBadge availability={d.availability} />
             </div>
             <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-3" />
             <div className="mt-2 flex flex-wrap gap-1">
