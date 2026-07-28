@@ -93,18 +93,20 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
         <button onClick={() => setShowModal(true)} className={cn('btn-primary', btnSize, className)}>
           <Link2 className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> Connect
         </button>
-        <Modal title="Send connection request" onClose={() => setShowModal(false)}>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={3}
-            placeholder="Introduce yourself…"
-            className="input"
-          />
-          <button onClick={handleSend} disabled={sending} className="btn-primary mt-4 w-full">
-            {sending ? 'Sending…' : 'Send request'} <Send className="h-4 w-4" />
-          </button>
-        </Modal>
+        {showModal && (
+          <Modal title="Send connection request" onClose={() => setShowModal(false)}>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={3}
+              placeholder="Introduce yourself…"
+              className="input"
+            />
+            <button onClick={handleSend} disabled={sending} className="btn-primary mt-4 w-full">
+              {sending ? 'Sending…' : 'Send request'} <Send className="h-4 w-4" />
+            </button>
+          </Modal>
+        )}
       </>
     );
   }
@@ -146,10 +148,12 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
       <button onClick={() => setShowModal(true)} className={cn('btn-secondary', btnSize, className)}>
         <Link2 className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> Connect
       </button>
-      <Modal title="Send connection request" onClose={() => setShowModal(false)}>
-        <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder="Introduce yourself…" className="input" />
-        <button onClick={handleSend} disabled={sending} className="btn-primary mt-4 w-full">{sending ? 'Sending…' : 'Send request'} <Send className="h-4 w-4" /></button>
-      </Modal>
+      {showModal && (
+        <Modal title="Send connection request" onClose={() => setShowModal(false)}>
+          <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder="Introduce yourself…" className="input" />
+          <button onClick={handleSend} disabled={sending} className="btn-primary mt-4 w-full">{sending ? 'Sending…' : 'Send request'} <Send className="h-4 w-4" /></button>
+        </Modal>
+      )}
     </>
   );
 }
