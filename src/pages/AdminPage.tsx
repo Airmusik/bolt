@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search } from 'lucide-react';
+import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
@@ -7,6 +7,10 @@ import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { cn, timeAgo } from '@/lib/utils';
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth';
+import { BackButton } from '@/components/BackButton';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { DocumentViewer } from '@/components/DocumentViewer';
+import { Modal } from '@/components/Modal';
 
 type Tab = 'overview' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'chat';
 
@@ -20,6 +24,12 @@ export function AdminPage() {
   const [documents, setDocuments] = useState<(DocumentRow & { user?: Profile })[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [viewingDoc, setViewingDoc] = useState<DocumentRow | null>(null);
+  const [rejectingDoc, setRejectingDoc] = useState<DocumentRow | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
+  const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void; label: string } | null>(null);
+  const [editingVehicle, setEditingVehicle] = useState<(Vehicle & { owner?: Profile; photos?: { photo_url: string }[] }) | null>(null);
+  const [editingUser, setEditingUser] = useState<Profile | null>(null);
 
   const load = async () => {
     const [{ data: u }, { data: v }, { data: r }, { data: d }] = await Promise.all([
@@ -62,20 +72,62 @@ export function AdminPage() {
     toast('Report ' + status + '.');
     load();
   };
+
   const verifyDoc = async (d: DocumentRow) => {
-    await supabase.from('documents').update({ verified: true }).eq('id', d.id);
+    await supabase.from('documents').update({ verified: true, rejected: false, rejection_reason: null }).eq('id', d.id);
     await supabase.from('notifications').insert({ user_id: d.user_id, type: 'verification', title: 'Document verified', body: `Your ${d.label || d.type.replace(/_/g, ' ')} was verified.` });
+
+    // Check if all the user's documents are now verified; if so, auto-approve the user
+    const { data: userDocs } = await supabase.from('documents').select('verified, rejected').eq('user_id', d.user_id);
+    const allVerified = (userDocs || []).length > 0 && (userDocs || []).every((doc: any) => doc.verified);
+    if (allVerified) {
+      const { data: prof } = await supabase.from('profiles').select('is_verified, verification_status, full_name').eq('id', d.user_id).maybeSingle();
+      if (prof && !prof.is_verified) {
+        await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', d.user_id);
+        await supabase.from('notifications').insert({
+          user_id: d.user_id,
+          type: 'verification',
+          title: 'Welcome to GariLink!',
+          body: `All your documents are verified. Welcome to the platform, ${prof.full_name?.split(' ')[0] || 'driver'}! You can now apply to vehicles and connect with owners.`,
+        });
+        toast(`${prof.full_name?.split(' ')[0] || 'User'} auto-approved — all documents verified.`);
+      }
+    }
     toast('Document verified.');
     load();
   };
-  const rejectDoc = async (d: DocumentRow) => {
-    await supabase.from('documents').update({ verified: false }).eq('id', d.id);
-    await supabase.from('notifications').insert({ user_id: d.user_id, type: 'verification', title: 'Document rejected', body: `Your ${d.label || d.type.replace(/_/g, ' ')} was rejected. Please re-upload.` });
-    toast('Document rejected.');
+
+  const rejectDoc = async (d: DocumentRow, reason: string) => {
+    await supabase.from('documents').update({ verified: false, rejected: true, rejection_reason: reason }).eq('id', d.id);
+    await supabase.from('notifications').insert({
+      user_id: d.user_id,
+      type: 'verification',
+      title: 'Document rejected',
+      body: `Your ${d.label || d.type.replace(/_/g, ' ')} was rejected: ${reason}. Please re-upload a corrected version.`,
+    });
+    toast('Document rejected with reason.');
+    setRejectingDoc(null);
+    setRejectReason('');
     load();
   };
+
   const toggleVehicle = async (v: Vehicle) => {
-    await supabase.from('vehicles').update({ status: v.status === 'active' ? 'closed' : 'active' }).eq('id', v.id);
+    const newStatus = v.status === 'active' ? 'closed' : 'active';
+    await supabase.from('vehicles').update({ status: newStatus }).eq('id', v.id);
+    toast(`Vehicle ${newStatus === 'active' ? 'restored' : 'removed'}.`);
+    load();
+  };
+
+  const deleteVehicle = async (id: string) => {
+    await supabase.from('vehicle_photos').delete().eq('vehicle_id', id);
+    await supabase.from('vehicles').delete().eq('id', id);
+    toast('Vehicle listing deleted.');
+    load();
+  };
+
+  const deleteDoc = async (id: string) => {
+    await supabase.from('documents').delete().eq('id', id);
+    toast('Document deleted.');
     load();
   };
 
@@ -106,7 +158,8 @@ export function AdminPage() {
 
   return (
     <div className="container-content py-8">
-      <div className="flex items-center gap-2">
+      <BackButton to="/" />
+      <div className="mt-4 flex items-center gap-2">
         <ShieldCheck className="h-7 w-7 text-brand-600" />
         <h1 className="font-display text-2xl font-bold text-ink-900">Admin Portal</h1>
       </div>
@@ -164,7 +217,7 @@ export function AdminPage() {
                     <span className="text-sm text-ink-700">{d.user?.full_name} — {d.label || d.type.replace(/_/g, ' ')}</span>
                     <div className="flex gap-1">
                       <button onClick={() => verifyDoc(d)} className="btn-primary px-2 py-1 text-xs"><Check className="h-3 w-3" /></button>
-                      <button onClick={() => rejectDoc(d)} className="btn-secondary px-2 py-1 text-xs"><X className="h-3 w-3" /></button>
+                      <button onClick={() => { setRejectingDoc(d); }} className="btn-secondary px-2 py-1 text-xs"><X className="h-3 w-3" /></button>
                     </div>
                   </div>
                 ))}
@@ -188,8 +241,9 @@ export function AdminPage() {
                 <div className="flex gap-2">
                   {u.verification_status === 'pending' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
                   {u.verification_status === 'pending' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
+                  <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => startAdminChat(u.id)} className="btn-ghost text-brand-600 text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
-                  <button onClick={() => suspend(u)} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /></button>
+                  <button onClick={() => setConfirmAction({ message: `Suspend ${u.full_name}? They will lose verified status.`, label: 'Suspend', onConfirm: () => suspend(u) })} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /></button>
                 </div>
               </div>
             ))}
@@ -211,8 +265,9 @@ export function AdminPage() {
                 <div className="flex gap-2">
                   {u.verification_status === 'pending' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
                   {u.verification_status === 'pending' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
+                  <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => startAdminChat(u.id)} className="btn-ghost text-brand-600 text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
-                  <button onClick={() => suspend(u)} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /></button>
+                  <button onClick={() => setConfirmAction({ message: `Suspend ${u.full_name}? They will lose verified status.`, label: 'Suspend', onConfirm: () => suspend(u) })} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /></button>
                 </div>
               </div>
             ))}
@@ -237,9 +292,13 @@ export function AdminPage() {
                   <p className="text-xs text-ink-500">{v.location} · {v.transmission} · {v.fuel_type} · KES {v.weekly_target || 0}/week</p>
                   <p className="text-xs text-ink-400">Owner: {v.owner?.full_name || 'Unknown'} · {v.status} · {timeAgo(v.created_at)}</p>
                 </div>
-                <button onClick={() => toggleVehicle(v)} className={cn('text-sm', v.status === 'active' ? 'btn-secondary' : 'btn-primary')}>
-                  {v.status === 'active' ? 'Remove' : 'Restore'}
-                </button>
+                <div className="flex gap-2">
+                  <button onClick={() => setEditingVehicle(v)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /> Edit</button>
+                  <button onClick={() => setConfirmAction({ message: `${v.status === 'active' ? 'Remove' : 'Restore'} "${v.make} ${v.model}"?`, label: v.status === 'active' ? 'Remove' : 'Restore', onConfirm: () => toggleVehicle(v) })} className={cn('text-sm', v.status === 'active' ? 'btn-secondary' : 'btn-primary')}>
+                    {v.status === 'active' ? 'Remove' : 'Restore'}
+                  </button>
+                  <button onClick={() => setConfirmAction({ message: `Permanently delete "${v.make} ${v.model}"? This cannot be undone.`, label: 'Delete', onConfirm: () => deleteVehicle(v.id) })} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /></button>
+                </div>
               </div>
             ))}
             {filteredVehicles.length === 0 && <p className="text-sm text-ink-500">No cars found.</p>}
@@ -251,19 +310,23 @@ export function AdminPage() {
           <div className="space-y-2">
             {documents.map((d) => (
               <div key={d.id} className="card flex items-center gap-3 p-4">
-                <FileText className={cn('h-8 w-8', d.verified ? 'text-success' : 'text-amber-500')} />
+                <FileText className={cn('h-8 w-8', d.verified ? 'text-success' : d.rejected ? 'text-danger' : 'text-amber-500')} />
                 <div className="flex-1">
                   <p className="font-medium text-ink-900">{d.label || d.type.replace(/_/g, ' ')}</p>
                   <p className="text-xs text-ink-500">{d.user?.full_name} ({d.user?.role}) · {timeAgo(d.created_at)}</p>
                   {d.expiry_date && <p className="text-xs text-ink-400">Expires: {d.expiry_date}</p>}
+                  {d.rejected && d.rejection_reason && <p className="mt-1 text-xs text-danger">Rejected: {d.rejection_reason}</p>}
                 </div>
-                <a href={d.file_url} target="_blank" rel="noopener noreferrer" className="btn-ghost text-sm">View</a>
+                <button onClick={() => setViewingDoc(d)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
                 {!d.verified ? (
-                  <button onClick={() => verifyDoc(d)} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Verify</button>
+                  <>
+                    <button onClick={() => verifyDoc(d)} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Verify</button>
+                    <button onClick={() => setRejectingDoc(d)} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button>
+                  </>
                 ) : (
                   <span className="badge badge-success">Verified</span>
                 )}
-                <button onClick={() => rejectDoc(d)} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button>
+                <button onClick={() => setConfirmAction({ message: 'Delete this document? This cannot be undone.', label: 'Delete', onConfirm: () => deleteDoc(d.id) })} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
             {documents.length === 0 && <p className="text-sm text-ink-500">No documents uploaded yet.</p>}
@@ -296,6 +359,51 @@ export function AdminPage() {
         {/* ---------- Chat ---------- */}
         {tab === 'chat' && !loading && <AdminChat user={user} />}
       </div>
+
+      {/* Document viewer modal */}
+      {viewingDoc && (
+        <DocumentViewer url={viewingDoc.file_url} onClose={() => setViewingDoc(null)} />
+      )}
+
+      {/* Rejection reason modal */}
+      {rejectingDoc && (
+        <Modal title={`Reject: ${rejectingDoc.label || rejectingDoc.type.replace(/_/g, ' ')}`} onClose={() => { setRejectingDoc(null); setRejectReason(''); }}>
+          <p className="text-sm text-ink-600">The user will see this reason and be prompted to re-upload.</p>
+          <textarea
+            value={rejectReason}
+            onChange={(e) => setRejectReason(e.target.value)}
+            rows={4}
+            placeholder="e.g. The document is blurry, please upload a clearer photo."
+            className="input mt-3"
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <button onClick={() => { setRejectingDoc(null); setRejectReason(''); }} className="btn-secondary">Cancel</button>
+            <button onClick={() => rejectDoc(rejectingDoc, rejectReason || 'Document does not meet requirements.')} disabled={!rejectReason.trim()} className="btn bg-danger text-white hover:bg-red-700">Reject document</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Confirm dialog */}
+      {confirmAction && (
+        <ConfirmDialog
+          title="Please confirm"
+          message={confirmAction.message}
+          confirmLabel={confirmAction.label}
+          danger={confirmAction.label === 'Delete' || confirmAction.label === 'Suspend'}
+          onConfirm={confirmAction.onConfirm}
+          onClose={() => setConfirmAction(null)}
+        />
+      )}
+
+      {/* Edit vehicle modal */}
+      {editingVehicle && (
+        <EditVehicleModal vehicle={editingVehicle} onClose={() => setEditingVehicle(null)} onDone={() => { setEditingVehicle(null); load(); }} toast={toast} />
+      )}
+
+      {/* Edit user modal */}
+      {editingUser && (
+        <EditUserModal user={editingUser} onClose={() => setEditingUser(null)} onDone={() => { setEditingUser(null); load(); }} toast={toast} />
+      )}
     </div>
   );
 
@@ -323,6 +431,92 @@ export function AdminPage() {
       toast('Could not start chat.', 'error');
     }
   }
+}
+
+// ---------- Edit Vehicle Modal ----------
+function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: any; onClose: () => void; onDone: () => void; toast: (m: string, t?: any) => void }) {
+  const [form, setForm] = useState({
+    make: vehicle.make || '',
+    model: vehicle.model || '',
+    year: vehicle.year || '',
+    location: vehicle.location || '',
+    transmission: vehicle.transmission || 'manual',
+    fuel_type: vehicle.fuel_type || 'petrol',
+    weekly_target: vehicle.weekly_target || 0,
+    status: vehicle.status || 'active',
+    description: vehicle.description || '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase.from('vehicles').update(form).eq('id', vehicle.id);
+    setSaving(false);
+    if (error) { toast('Failed to save.', 'error'); return; }
+    toast('Vehicle updated.');
+    onDone();
+  };
+
+  return (
+    <Modal title={`Edit: ${vehicle.make} ${vehicle.model}`} onClose={onClose}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Make"><input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} className="input" /></Field>
+        <Field label="Model"><input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="input" /></Field>
+        <Field label="Year"><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: +e.target.value })} className="input" /></Field>
+        <Field label="Location"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input" /></Field>
+        <Field label="Transmission"><select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value })} className="input"><option value="manual">Manual</option><option value="automatic">Automatic</option></select></Field>
+        <Field label="Fuel type"><select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value })} className="input"><option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="hybrid">Hybrid</option><option value="electric">Electric</option></select></Field>
+        <Field label="Weekly target (KES)"><input type="number" value={form.weekly_target} onChange={(e) => setForm({ ...form, weekly_target: +e.target.value })} className="input" /></Field>
+        <Field label="Status"><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="input"><option value="active">Active</option><option value="closed">Closed</option></select></Field>
+      </div>
+      <Field label="Description"><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="input mt-3" /></Field>
+      <button onClick={save} disabled={saving} className="btn-primary mt-4 w-full">{saving ? 'Saving…' : 'Save changes'}</button>
+    </Modal>
+  );
+}
+
+// ---------- Edit User Modal ----------
+function EditUserModal({ user, onClose, onDone, toast }: { user: Profile; onClose: () => void; onDone: () => void; toast: (m: string, t?: any) => void }) {
+  const [form, setForm] = useState({
+    full_name: user.full_name || '',
+    phone: user.phone || '',
+    location: user.location || '',
+    is_verified: user.is_verified || false,
+    verification_status: user.verification_status || 'pending',
+    availability: user.availability || 'available',
+  });
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase.from('profiles').update(form).eq('id', user.id);
+    setSaving(false);
+    if (error) { toast('Failed to save.', 'error'); return; }
+    toast('Profile updated.');
+    onDone();
+  };
+
+  return (
+    <Modal title={`Edit: ${user.full_name}`} onClose={onClose}>
+      <div className="space-y-3">
+        <Field label="Full name"><input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="input" /></Field>
+        <Field label="Phone"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" /></Field>
+        <Field label="Location"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input" /></Field>
+        <Field label="Availability"><select value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} className="input"><option value="available">Available</option><option value="busy">Busy</option><option value="unavailable">Unavailable</option></select></Field>
+        <Field label="Verification status"><select value={form.verification_status} onChange={(e) => setForm({ ...form, verification_status: e.target.value, is_verified: e.target.value === 'approved' })} className="input"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>
+      </div>
+      <button onClick={save} disabled={saving} className="btn-primary mt-4 w-full">{saving ? 'Saving…' : 'Save changes'}</button>
+    </Modal>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      {children}
+    </div>
+  );
 }
 
 // ---------- Admin Chat component ----------

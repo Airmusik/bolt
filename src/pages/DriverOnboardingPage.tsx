@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, X, Plus, Trash2, BadgeCheck, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Upload, X, Plus, Trash2, BadgeCheck, CheckCircle2, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import type { DocumentRow, PlatformHistory } from '@/lib/types';
 import { cn, titleCase, formatDate, expiryStatus } from '@/lib/utils';
+import { BackButton } from '@/components/BackButton';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 
-interface DocDraft { id?: string; type: string; file_url: string; label: string; expiry_date: string; }
+interface DocDraft { id?: string; type: string; file_url: string; label: string; expiry_date: string; verified?: boolean; rejected?: boolean; rejection_reason?: string | null; }
 
 export function DriverOnboardingPage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -43,7 +44,7 @@ export function DriverOnboardingPage() {
     if (user) {
       (async () => {
         const { data: d } = await supabase.from('documents').select('*').eq('user_id', user.id);
-        setDocs(((d as DocumentRow[]) || []).map((x) => ({ id: x.id, type: x.type, file_url: x.file_url, label: x.label || '', expiry_date: x.expiry_date || '' })));
+        setDocs(((d as DocumentRow[]) || []).map((x) => ({ id: x.id, type: x.type, file_url: x.file_url, label: x.label || '', expiry_date: x.expiry_date || '', verified: x.verified, rejected: x.rejected, rejection_reason: x.rejection_reason })));
         const { data: h } = await supabase.from('driver_platform_history').select('*').eq('driver_id', user.id);
         setHistory((h as PlatformHistory[]) || []);
       })();
@@ -61,8 +62,8 @@ export function DriverOnboardingPage() {
     // upsert doc
     const existing = docs.find((d) => d.type === type);
     if (existing?.id) {
-      await supabase.from('documents').update({ file_url: pub.publicUrl }).eq('id', existing.id);
-      setDocs(docs.map((d) => d.type === type ? { ...d, file_url: pub.publicUrl } : d));
+      await supabase.from('documents').update({ file_url: pub.publicUrl, verified: false, rejected: false, rejection_reason: null }).eq('id', existing.id);
+      setDocs(docs.map((d) => d.type === type ? { ...d, file_url: pub.publicUrl, verified: false, rejected: false, rejection_reason: null } : d));
     } else {
       const { data } = await supabase.from('documents').insert({ user_id: user.id, type, file_url: pub.publicUrl }).select().maybeSingle();
       if (data) setDocs([...docs, { id: (data as DocumentRow).id, type, file_url: pub.publicUrl, label: '', expiry_date: '' }]);
@@ -141,7 +142,8 @@ export function DriverOnboardingPage() {
 
   return (
     <div className="container-content py-8">
-      <h1 className="font-display text-2xl font-bold text-ink-900">Complete your driver profile</h1>
+      <BackButton to="/dashboard" />
+      <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Complete your driver profile</h1>
       <p className="mt-1 text-sm text-ink-500">Add your details and upload documents to get verified. Expiry dates help owners know when renewals are due.</p>
 
       <div className="mt-6 space-y-6">
@@ -191,17 +193,28 @@ export function DriverOnboardingPage() {
             {docTypes.map((dt) => {
               const doc = docs.find((d) => d.type === dt.type);
               return (
-                <div key={dt.type} className="rounded-xl border border-ink-100 p-4">
+                <div key={dt.type} className={cn('rounded-xl border p-4', doc?.rejected ? 'border-danger/30 bg-red-50/30' : 'border-ink-100')}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-ink-900">{dt.label}</span>
-                      {doc && <CheckCircle2 className="h-4 w-4 text-brand-600" />}
+                      {doc?.verified && <CheckCircle2 className="h-4 w-4 text-success" />}
+                      {doc?.rejected && <AlertCircle className="h-4 w-4 text-danger" />}
                     </div>
-                    <label className="btn-secondary cursor-pointer px-3 py-1.5 text-xs">
+                    <label className={cn('cursor-pointer px-3 py-1.5 text-xs', doc?.rejected ? 'btn-primary' : 'btn-secondary')}>
                       <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadDoc(f, dt.type); e.target.value = ''; }} disabled={uploadingType === dt.type} />
-                      <Upload className="h-3.5 w-3.5" /> {uploadingType === dt.type ? 'Uploading…' : doc ? 'Replace' : 'Upload'}
+                      {uploadingType === dt.type ? <><Upload className="h-3.5 w-3.5" /> Uploading…</> : doc?.rejected ? <><RefreshCw className="h-3.5 w-3.5" /> Re-upload</> : <><Upload className="h-3.5 w-3.5" /> {doc ? 'Replace' : 'Upload'}</>}
                     </label>
                   </div>
+                  {doc?.rejected && doc.rejection_reason && (
+                    <div className="mt-2 rounded-lg bg-red-100 px-3 py-2 text-xs text-danger">
+                      <span className="font-semibold">Rejected:</span> {doc.rejection_reason}
+                    </div>
+                  )}
+                  {doc?.verified && (
+                    <div className="mt-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-success">
+                      <CheckCircle2 className="mr-1 inline h-3 w-3" /> Verified
+                    </div>
+                  )}
                   {dt.expiry && doc && (
                     <div className="mt-3">
                       <label className="label text-xs">Expiry date</label>

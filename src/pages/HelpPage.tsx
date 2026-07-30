@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, LifeBuoy } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 
 const FAQS = [
   { q: 'Does GariLink process payments between users?', a: 'No. GariLink only connects car owners with drivers. Any payments (targets, deposits) are arranged directly between you.' },
@@ -14,7 +15,8 @@ export function HelpPage() {
   const [open, setOpen] = useState<number | null>(0);
   return (
     <div className="container-content py-12">
-      <div className="flex items-center gap-3">
+      <BackButton to="/" />
+      <div className="mt-4 flex items-center gap-3">
         <LifeBuoy className="h-7 w-7 text-brand-600" />
         <h1 className="font-display text-3xl font-bold text-ink-900">Help center</h1>
       </div>

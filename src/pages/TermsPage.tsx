@@ -1,6 +1,9 @@
+import { BackButton } from '@/components/BackButton';
+
 export function TermsPage() {
   return (
     <div className="container-content py-12 prose max-w-3xl">
+      <BackButton to="/" />
       <h1 className="font-display text-3xl font-bold text-ink-900">Terms of Service</h1>
       <div className="mt-6 space-y-4 text-sm text-ink-700">
         <p>By using GariLink, you agree to these terms. GariLink is a connection platform only and does not process payments between users.</p>

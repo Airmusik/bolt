@@ -163,7 +163,7 @@ export function DriverProfilePage() {
             </p>
             {!user && <Link to="/login" className="btn-primary mt-3 w-full">Sign in</Link>}
             {user && user.id !== profile.id && (
-              <ConnectionButton otherUserId={profile.id} className="w-full" />
+              <Link to="/browse-cars" className="btn-primary mt-3 w-full">Apply to vehicles</Link>
             )}
           </div>
         </aside>

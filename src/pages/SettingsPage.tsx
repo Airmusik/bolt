@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
+import { BackButton } from '@/components/BackButton';
 
 export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
@@ -27,7 +28,8 @@ export function SettingsPage() {
 
   return (
     <div className="container-content py-8">
-      <h1 className="font-display text-2xl font-bold text-ink-900">Settings</h1>
+      <BackButton to="/dashboard" />
+      <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Settings</h1>
       <div className="mt-6 max-w-2xl space-y-6">
         {/* Profile */}
         <div className="card p-5">

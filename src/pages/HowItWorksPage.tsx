@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom';
 import { Car, Users, BadgeCheck, Bell, CheckCircle2, Search, TrendingUp, ArrowRight } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 
 export function HowItWorksPage() {
   return (
     <div className="container-content py-12">
-      <h1 className="font-display text-3xl font-bold text-ink-900">How GariLink works</h1>
+      <BackButton to="/" />
+      <h1 className="mt-4 font-display text-3xl font-bold text-ink-900">How GariLink works</h1>
       <p className="mt-2 text-ink-600">Two simple paths to earning or renting out your car.</p>
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">

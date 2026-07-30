@@ -84,6 +84,8 @@ export interface DocumentRow {
   label: string | null;
   expiry_date: string | null;
   verified: boolean;
+  rejected: boolean;
+  rejection_reason: string | null;
   created_at: string;
 }
 

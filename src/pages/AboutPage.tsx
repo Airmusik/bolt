@@ -1,9 +1,11 @@
 import { ShieldCheck, Users, Car, Heart } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 
 export function AboutPage() {
   return (
     <div className="container-content py-12">
-      <h1 className="font-display text-3xl font-bold text-ink-900">About GariLink</h1>
+      <BackButton to="/" />
+      <h1 className="mt-4 font-display text-3xl font-bold text-ink-900">About GariLink</h1>
       <p className="mt-3 max-w-2xl text-ink-600">
         GariLink is a Kenyan platform that connects verified car owners with trusted ride-hailing drivers.
         We believe in transparency: insurance status, known vehicle issues and document expiry are visible upfront,

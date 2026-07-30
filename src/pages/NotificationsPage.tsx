@@ -6,6 +6,7 @@ import { useAuth } from '@/lib/auth';
 import type { Notification } from '@/lib/types';
 import { EmptyState } from '@/components/EmptyState';
 import { timeAgo, cn } from '@/lib/utils';
+import { BackButton } from '@/components/BackButton';
 
 export function NotificationsPage() {
   const { user } = useAuth();
@@ -32,7 +33,8 @@ export function NotificationsPage() {
 
   return (
     <div className="container-content py-8">
-      <div className="flex items-center justify-between">
+      <BackButton to="/dashboard" />
+      <div className="mt-4 flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold text-ink-900">Notifications</h1>
         {notifications.some((n) => !n.read) && <button onClick={markAllRead} className="btn-secondary text-sm"><Check className="h-4 w-4" /> Mark all read</button>}
       </div>

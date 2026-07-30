@@ -5,6 +5,7 @@ import type { VehicleWithRelations } from '@/lib/types';
 import { VehicleCard } from '@/components/VehicleCard';
 import { EmptyState } from '@/components/EmptyState';
 import { Link } from 'react-router-dom';
+import { BackButton } from '@/components/BackButton';
 
 export function SavedPage() {
   const { user } = useAuth();
@@ -29,7 +30,8 @@ export function SavedPage() {
 
   return (
     <div className="container-content py-8">
-      <h1 className="font-display text-2xl font-bold text-ink-900">Saved listings</h1>
+      <BackButton to="/dashboard" />
+      <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Saved listings</h1>
       <p className="mt-1 text-sm text-ink-500">Vehicles you've saved for later.</p>
       <div className="mt-6">
         {loading ? <div className="card h-48 animate-pulse" /> : vehicles.length === 0 ? (

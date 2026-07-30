@@ -1,6 +1,9 @@
+import { BackButton } from '@/components/BackButton';
+
 export function PrivacyPage() {
   return (
     <div className="container-content py-12 max-w-3xl">
+      <BackButton to="/" />
       <h1 className="font-display text-3xl font-bold text-ink-900">Privacy Policy</h1>
       <div className="mt-6 space-y-4 text-sm text-ink-700">
         <p>GariLink respects your privacy. This policy explains what we collect and how we use it.</p>

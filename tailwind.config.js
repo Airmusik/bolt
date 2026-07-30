@@ -73,11 +73,16 @@ export default {
           '0%': { opacity: '0', transform: 'scale(0.96)' },
           '100%': { opacity: '1', transform: 'scale(1)' },
         },
+        'blink': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.4s ease-out both',
         'slide-up': 'slide-up 0.5s cubic-bezier(0.16,1,0.3,1) both',
         'scale-in': 'scale-in 0.2s ease-out both',
+        'blink': 'blink 0.8s step-end infinite',
       },
     },
   },

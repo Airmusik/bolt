@@ -6,6 +6,7 @@ import type { VehicleWithRelations } from '@/lib/types';
 import { VehicleCard } from '@/components/VehicleCard';
 import { EmptyState } from '@/components/EmptyState';
 import { ALL_LOCATIONS, VEHICLE_MAKES } from '@/lib/locations';
+import { BackButton } from '@/components/BackButton';
 
 const FUELS = ['petrol', 'diesel', 'hybrid', 'electric'];
 const TRANSMISSIONS = ['automatic', 'manual'];
@@ -76,7 +77,10 @@ export function BrowseCarsPage() {
 
   return (
     <div className="container-content py-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex items-center justify-between">
+        <BackButton to="/" />
+      </div>
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink-900">Browse cars</h1>
           <p className="mt-1 text-sm text-ink-500">{filtered.length} vehicle{filtered.length !== 1 ? 's' : ''} available</p>

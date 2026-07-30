@@ -11,6 +11,7 @@ import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { ConnectionButton } from '@/components/ConnectionButton';
 import { ALL_LOCATIONS } from '@/lib/locations';
 import { titleCase } from '@/lib/utils';
+import { BackButton } from '@/components/BackButton';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras'];
 
@@ -46,7 +47,8 @@ export function BrowseDriversPage() {
 
   return (
     <div className="container-content py-8">
-      <h1 className="font-display text-2xl font-bold text-ink-900">Browse drivers</h1>
+      <BackButton to="/" />
+      <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Browse drivers</h1>
       <p className="mt-1 text-sm text-ink-500">{filtered.length} driver{filtered.length !== 1 ? 's' : ''}</p>
 
       <div className="mt-6 flex flex-wrap gap-3">

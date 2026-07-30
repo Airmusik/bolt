@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Mail, MapPin, Phone, Send } from 'lucide-react';
 import { useToast } from '@/components/Toast';
+import { BackButton } from '@/components/BackButton';
 
 export function ContactPage() {
   const { toast } = useToast();
@@ -15,7 +16,8 @@ export function ContactPage() {
 
   return (
     <div className="container-content py-12">
-      <h1 className="font-display text-3xl font-bold text-ink-900">Contact us</h1>
+      <BackButton to="/" />
+      <h1 className="mt-4 font-display text-3xl font-bold text-ink-900">Contact us</h1>
       <p className="mt-2 text-ink-600">Questions, feedback or need help? Reach out.</p>
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <div className="space-y-4">

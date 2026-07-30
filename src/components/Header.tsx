@@ -74,6 +74,17 @@ export function Header() {
               {l.label}
             </Link>
           ))}
+          {user && !isAdmin && (
+            <Link
+              to="/dashboard"
+              className={cn(
+                'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                location.pathname === '/dashboard' ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
+              )}
+            >
+              <LayoutDashboard className="h-4 w-4" /> Dashboard
+            </Link>
+          )}
           <Link
             to={isAdmin ? '/admin' : '/admin/login'}
             className={cn(
@@ -162,6 +173,11 @@ export function Header() {
                 {l.label}
               </Link>
             ))}
+            {user && !isAdmin && (
+              <Link to="/dashboard" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100">
+                <LayoutDashboard className="h-4 w-4" /> Dashboard
+              </Link>
+            )}
             {!user && (
               <div className="mt-2 flex gap-2 border-t border-ink-100 pt-3">
                 <Link to="/login" className="btn-secondary flex-1">Sign in</Link>
