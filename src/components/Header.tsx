@@ -74,17 +74,15 @@ export function Header() {
               {l.label}
             </Link>
           ))}
-          {isAdmin && (
-            <Link
-              to="/admin"
-              className={cn(
-                'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                location.pathname.startsWith('/admin') ? 'bg-brand-50 text-brand-700' : 'text-brand-600 hover:bg-brand-50 hover:text-brand-700'
-              )}
-            >
-              <ShieldCheck className="h-4 w-4" /> Admin
-            </Link>
-          )}
+          <Link
+            to={isAdmin ? '/admin' : '/admin/login'}
+            className={cn(
+              'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+              location.pathname.startsWith('/admin') ? 'bg-brand-50 text-brand-700' : 'text-brand-600 hover:bg-brand-50 hover:text-brand-700'
+            )}
+          >
+            <ShieldCheck className="h-4 w-4" /> Admin
+          </Link>
         </nav>
 
         <div className="flex items-center gap-2">
@@ -175,11 +173,9 @@ export function Header() {
                 Dashboard
               </Link>
             )}
-            {isAdmin && (
-              <Link to="/admin" className="rounded-lg px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
-                Admin
-              </Link>
-            )}
+            <Link to={isAdmin ? '/admin' : '/admin/login'} className="rounded-lg px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
+              Admin
+            </Link>
           </div>
         </div>
       )}
