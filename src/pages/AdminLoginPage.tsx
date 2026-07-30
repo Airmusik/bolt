@@ -19,24 +19,12 @@ export function AdminLoginPage() {
   const [showPw, setShowPw] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [adminExists, setAdminExists] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (user && profile?.role === 'admin') {
       navigate('/admin', { replace: true });
     }
   }, [user, profile, navigate]);
-
-  // Check if an admin account already exists by attempting a dummy sign-in
-  useEffect(() => {
-    supabase.auth.signInWithPassword({ email: ADMIN_EMAIL, password: '__probe__' }).then(({ error }) => {
-      if (error && error.message.toLowerCase().includes('invalid login')) {
-        setAdminExists(true);
-      } else {
-        setAdminExists(false);
-      }
-    });
-  }, []);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,15 +153,13 @@ export function AdminLoginPage() {
               {loading ? 'Signing in…' : 'Sign in to admin'} <ArrowRight className="h-4 w-4" />
             </button>
 
-            {adminExists === false && (
-              <button
-                type="button"
-                onClick={() => { setMode('setup'); setError(null); setEmail(ADMIN_EMAIL); }}
-                className="mt-4 flex w-full items-center justify-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700"
-              >
-                <UserPlus className="h-4 w-4" /> First-time setup? Create admin account
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => { setMode('setup'); setError(null); setEmail(ADMIN_EMAIL); }}
+              className="mt-4 flex w-full items-center justify-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700"
+            >
+              <UserPlus className="h-4 w-4" /> First-time setup? Create admin account
+            </button>
           </form>
         ) : (
           <form onSubmit={handleSetup} className="card p-6">
