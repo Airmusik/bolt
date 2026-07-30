@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Car, Phone, Lock, User, Eye, EyeOff, ArrowRight, Check } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
+import { BackButton } from '@/components/BackButton';
 import type { Role } from '@/lib/types';
 
 export function RegisterPage() {
@@ -38,6 +39,7 @@ export function RegisterPage() {
   return (
     <div className="container-content flex min-h-[80vh] items-center justify-center py-12">
       <div className="w-full max-w-md">
+        <BackButton to="/" className="mb-4" />
         <div className="mb-8 text-center">
           <Link to="/" className="inline-flex items-center gap-2">
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">

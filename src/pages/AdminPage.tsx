@@ -242,7 +242,6 @@ export function AdminPage() {
                   {u.verification_status === 'pending' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
                   {u.verification_status === 'pending' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={() => startAdminChat(u.id)} className="btn-ghost text-brand-600 text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
                   <button onClick={() => setConfirmAction({ message: `Suspend ${u.full_name}? They will lose verified status.`, label: 'Suspend', onConfirm: () => suspend(u) })} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /></button>
                 </div>
               </div>
@@ -266,7 +265,6 @@ export function AdminPage() {
                   {u.verification_status === 'pending' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
                   {u.verification_status === 'pending' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={() => startAdminChat(u.id)} className="btn-ghost text-brand-600 text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
                   <button onClick={() => setConfirmAction({ message: `Suspend ${u.full_name}? They will lose verified status.`, label: 'Suspend', onConfirm: () => suspend(u) })} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /></button>
                 </div>
               </div>
@@ -362,7 +360,7 @@ export function AdminPage() {
 
       {/* Document viewer modal */}
       {viewingDoc && (
-        <DocumentViewer url={viewingDoc.file_url} onClose={() => setViewingDoc(null)} />
+        <DocumentViewer doc={viewingDoc} onClose={() => setViewingDoc(null)} />
       )}
 
       {/* Rejection reason modal */}
@@ -406,31 +404,6 @@ export function AdminPage() {
       )}
     </div>
   );
-
-  async function startAdminChat(userId: string) {
-    if (!user) return;
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id')
-      .or(`and(admin_id.eq.${user.id},driver_id.eq.${userId}),and(admin_id.eq.${user.id},owner_id.eq.${userId})`)
-      .maybeSingle();
-    if (existing) {
-      setTab('chat');
-      window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: (existing as any).id }));
-      return;
-    }
-    const { data: conv } = await supabase
-      .from('conversations')
-      .insert({ admin_id: user.id, driver_id: userId, owner_id: null, vehicle_id: null })
-      .select()
-      .maybeSingle();
-    if (conv) {
-      setTab('chat');
-      window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: (conv as any).id }));
-    } else {
-      toast('Could not start chat.', 'error');
-    }
-  }
 }
 
 // ---------- Edit Vehicle Modal ----------

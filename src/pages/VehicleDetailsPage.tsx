@@ -13,8 +13,9 @@ import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { Modal } from '@/components/Modal';
-import { ConnectionButton } from '@/components/ConnectionButton';
 import { formatKES, formatDate, timeAgo, expiryStatus, titleCase, cn } from '@/lib/utils';
+import { getConnectionBetween } from '@/lib/connections';
+import type { Connection } from '@/lib/types';
 
 export function VehicleDetailsPage() {
   const { id } = useParams();
@@ -33,6 +34,7 @@ export function VehicleDetailsPage() {
   const [applying, setApplying] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [connection, setConnection] = useState<Connection | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -76,6 +78,18 @@ export function VehicleDetailsPage() {
           .limit(1)
           .maybeSingle();
         if (app) setApplication(app as Application);
+      }
+      if (user && user.id !== vehicle.owner_id) {
+        const conn = await getConnectionBetween(user.id, vehicle.owner_id);
+        if (conn && conn.status === 'accepted') {
+          const { data: conv } = await supabase
+            .from('conversations')
+            .select('id')
+            .eq('connection_id', conn.id)
+            .maybeSingle();
+          if (conv) setConnection({ ...conn, conversation_id: (conv as any).id });
+          else setConnection(conn);
+        }
       }
     })();
   }, [user, vehicle, profile]);
@@ -322,7 +336,14 @@ export function VehicleDetailsPage() {
                   <button onClick={() => user ? setShowApply(true) : navigate('/login', { state: { from: `/vehicles/${id}` } })} className="btn-primary w-full">
                     Apply now
                   </button>
-                  <ConnectionButton otherUserId={vehicle.owner_id} vehicleId={vehicle.id} className="w-full" />
+                  {connection && connection.conversation_id && (
+                    <Link to={`/chat/${connection.conversation_id}`} className="btn-secondary w-full">
+                      <MessageSquare className="h-4 w-4" /> Chat with owner
+                    </Link>
+                  )}
+                  {application && !connection && (
+                    <p className="text-center text-xs text-ink-400">Application sent — chat unlocks once the owner accepts.</p>
+                  )}
                 </>
               )}
             </div>

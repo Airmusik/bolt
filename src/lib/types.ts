@@ -194,4 +194,5 @@ export interface Connection {
   requester?: Profile;
   recipient?: Profile;
   vehicle?: Vehicle;
+  conversation_id?: string;
 }

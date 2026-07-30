@@ -109,7 +109,8 @@ export function DashboardPage() {
 
   return (
     <div className="container-content py-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <BackButton to="/" />
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink-900">Dashboard</h1>
           <p className="mt-1 text-sm text-ink-500">Welcome back, {profile.full_name.split(' ')[0]}.</p>
