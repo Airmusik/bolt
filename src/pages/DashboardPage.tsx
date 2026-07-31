@@ -234,7 +234,7 @@ function DriversTab({ users, loading }: { users: Profile[]; loading: boolean }) 
           </Link>
           <div className="mt-3">
             <Link to={isOwner ? `/drivers/${d.id}` : '/browse-cars'} className="btn-primary w-full px-3 py-1.5 text-xs">
-              {isOwner ? 'View profile' : 'Apply to vehicles'}
+              {isOwner ? 'View profile' : 'Browse cars'}
             </Link>
           </div>
         </div>
@@ -274,7 +274,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
     onAction();
   };
 
-  if (applications.length === 0) return <EmptyState title="No applications yet" description="When drivers apply to your vehicles, they'll appear here." />;
+  if (applications.length === 0) return <EmptyState title="No applications yet" description="When drivers connect with you, they'll appear here." />;
   return (
     <div className="space-y-3">
       {applications.map((a) => (
@@ -316,7 +316,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
 }
 
 function DriverApplicationsTab({ applications }: { applications: any[] }) {
-  if (applications.length === 0) return <EmptyState title="No applications yet" description="Browse cars and apply to vehicles you like." action={<Link to="/browse-cars" className="btn-primary">Browse cars</Link>} />;
+  if (applications.length === 0) return <EmptyState title="No applications yet" description="Browse cars and connect with owners you'd like to work with." action={<Link to="/browse-cars" className="btn-primary">Browse cars</Link>} />;
   return (
     <div className="space-y-3">
       {applications.map((a) => (

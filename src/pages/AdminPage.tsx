@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye } from 'lucide-react';
+import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, ShieldOff, CheckCircle2, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
@@ -28,8 +28,12 @@ export function AdminPage() {
   const [rejectingDoc, setRejectingDoc] = useState<DocumentRow | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void; label: string } | null>(null);
+  const [suspendingUser, setSuspendingUser] = useState<Profile | null>(null);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [suspending, setSuspending] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<(Vehicle & { owner?: Profile; photos?: { photo_url: string }[] }) | null>(null);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [statusFlash, setStatusFlash] = useState<{ id: string; status: 'approved' | 'rejected' } | null>(null);
 
   const load = async () => {
     const [{ data: u }, { data: v }, { data: r }, { data: d }] = await Promise.all([
@@ -54,17 +58,29 @@ export function AdminPage() {
   const approveVerification = async (p: Profile) => {
     await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', p.id);
     await supabase.from('notifications').insert({ user_id: p.id, type: 'verification', title: 'Verification approved', body: 'Your account is now verified on GariLink.' });
-    toast('Verification approved.');
+    setStatusFlash({ id: p.id, status: 'approved' });
+    setTimeout(() => setStatusFlash(null), 3000);
     load();
   };
   const rejectVerification = async (p: Profile) => {
     await supabase.from('profiles').update({ is_verified: false, verification_status: 'rejected' }).eq('id', p.id);
-    toast('Verification rejected.');
+    setStatusFlash({ id: p.id, status: 'rejected' });
+    setTimeout(() => setStatusFlash(null), 3000);
     load();
   };
-  const suspend = async (p: Profile) => {
-    await supabase.from('profiles').update({ verification_status: 'rejected', is_verified: false }).eq('id', p.id);
+  const suspend = async (p: Profile, reason: string) => {
+    setSuspending(true);
+    await supabase.from('profiles').update({ is_suspended: true, suspension_reason: reason, suspended_at: new Date().toISOString(), verification_status: 'rejected', is_verified: false }).eq('id', p.id);
+    await supabase.from('notifications').insert({ user_id: p.id, type: 'suspension', title: 'Account suspended', body: `Your account has been suspended: ${reason}` });
     toast('User suspended.');
+    setSuspendingUser(null);
+    setSuspendReason('');
+    setSuspending(false);
+    load();
+  };
+  const unban = async (p: Profile) => {
+    await supabase.from('profiles').update({ is_suspended: false, suspension_reason: null, suspended_at: null }).eq('id', p.id);
+    toast('User reinstated.');
     load();
   };
   const resolveReport = async (r: Report, status: 'resolved' | 'dismissed') => {
@@ -242,7 +258,16 @@ export function AdminPage() {
                   {u.verification_status === 'pending' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
                   {u.verification_status === 'pending' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={() => setConfirmAction({ message: `Suspend ${u.full_name}? They will lose verified status.`, label: 'Suspend', onConfirm: () => suspend(u) })} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /></button>
+                  {u.is_suspended ? (
+                    <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
+                  ) : (
+                    <button onClick={() => { setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
+                  )}
+                  {statusFlash?.id === u.id && (
+                    <span className={cn('text-xs font-semibold', statusFlash.status === 'approved' ? 'text-success' : 'text-danger')}>
+                      {statusFlash.status === 'approved' ? <><CheckCircle2 className="inline h-3.5 w-3.5" /> Approved</> : <><XCircle className="inline h-3.5 w-3.5" /> Rejected</>}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}
@@ -377,6 +402,26 @@ export function AdminPage() {
           <div className="mt-4 flex justify-end gap-2">
             <button onClick={() => { setRejectingDoc(null); setRejectReason(''); }} className="btn-secondary">Cancel</button>
             <button onClick={() => rejectDoc(rejectingDoc, rejectReason || 'Document does not meet requirements.')} disabled={!rejectReason.trim()} className="btn bg-danger text-white hover:bg-red-700">Reject document</button>
+          </div>
+        </Modal>
+      )}
+
+      {/* Suspend user modal */}
+      {suspendingUser && (
+        <Modal title={`Suspend ${suspendingUser.full_name}`} onClose={() => { setSuspendingUser(null); setSuspendReason(''); }}>
+          <p className="text-sm text-ink-600">This user will be immediately logged out and shown a suspension message. They will not be able to use GariLink until reinstated.</p>
+          <textarea
+            value={suspendReason}
+            onChange={(e) => setSuspendReason(e.target.value)}
+            rows={4}
+            placeholder="Why is this user being suspended? This reason will be shown to them."
+            className="input mt-4"
+          />
+          <div className="mt-4 flex gap-2">
+            <button onClick={() => { setSuspendingUser(null); setSuspendReason(''); }} className="btn-secondary flex-1">Cancel</button>
+            <button onClick={() => suspend(suspendingUser, suspendReason.trim() || 'Violation of platform rules.')} disabled={suspending} className="btn flex-1 bg-danger text-white hover:bg-red-700">
+              {suspending ? 'Suspending…' : 'Suspend user'}
+            </button>
           </div>
         </Modal>
       )}

@@ -12,7 +12,6 @@ import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { ALL_LOCATIONS } from '@/lib/locations';
 import { titleCase } from '@/lib/utils';
-import { TypedText } from '@/components/TypedText';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -66,7 +65,7 @@ export function HomePage() {
               <ShieldCheck className="h-3.5 w-3.5" /> Verified owners & drivers across Kenya
             </span>
             <h1 className="font-display text-4xl font-extrabold leading-[1.1] text-ink-950 sm:text-5xl md:text-6xl">
-              <TypedText text="GariLink" speed={140} className="text-brand-600" />
+              <span className="text-brand-600">GariLink</span>
               <br />
               <span className="text-ink-950">Find the Right Driver or the Right Car.</span>
             </h1>

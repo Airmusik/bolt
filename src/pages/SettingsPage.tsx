@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, LogOut, Ban, Camera, Loader2 } from 'lucide-react';
+import { User, Shield, Bell, LogOut, Ban, Camera, Loader2, Check } from 'lucide-react';
 import { supabase, VEHICLE_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
@@ -16,6 +16,7 @@ export function SettingsPage() {
   const [bio, setBio] = useState(profile?.bio || '');
   const [location, setLocation] = useState(profile?.location || '');
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const save = async () => {
@@ -24,7 +25,9 @@ export function SettingsPage() {
     await supabase.from('profiles').update({ full_name: fullName, bio, location }).eq('id', user.id);
     await refreshProfile();
     setSaving(false);
+    setJustSaved(true);
     toast('Settings saved.');
+    setTimeout(() => setJustSaved(false), 2500);
   };
 
   const uploadAvatar = async (file: File) => {
@@ -75,7 +78,9 @@ export function SettingsPage() {
             <div><label className="label">Location</label><input value={location} onChange={(e) => setLocation(e.target.value)} className="input" /></div>
             <div><label className="label">Bio</label><textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="input" /></div>
           </div>
-          <button onClick={save} disabled={saving} className="btn-primary mt-4">{saving ? 'Saving…' : 'Save changes'}</button>
+          <button onClick={save} disabled={saving} className="btn-primary mt-4">
+            {saving ? 'Saving…' : justSaved ? <><Check className="h-4 w-4" /> Saved</> : 'Save changes'}
+          </button>
         </div>
 
         {/* Verification */}

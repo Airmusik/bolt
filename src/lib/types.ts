@@ -23,6 +23,9 @@ export interface Profile {
   good_conduct_expiry: string | null;
   is_verified: boolean;
   verification_status: VerificationStatus;
+  is_suspended: boolean;
+  suspension_reason: string | null;
+  suspended_at: string | null;
   rating: number;
   rating_count: number;
   contracts_completed: number;

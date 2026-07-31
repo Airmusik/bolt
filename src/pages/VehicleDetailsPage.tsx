@@ -2,20 +2,19 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   MapPin, Fuel, Settings2, Wallet, Calendar, ShieldCheck, AlertTriangle,
-  Heart, Share2, Flag, ArrowLeft, MessageSquare, CheckCircle2, Star, Send,
+  Heart, Share2, Flag, ArrowLeft, Star, CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
-import type { VehicleWithRelations, Application, Review } from '@/lib/types';
+import type { VehicleWithRelations, Review } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { Modal } from '@/components/Modal';
+import { ConnectionButton } from '@/components/ConnectionButton';
 import { formatKES, formatDate, timeAgo, expiryStatus, titleCase, cn } from '@/lib/utils';
-import { getConnectionBetween } from '@/lib/connections';
-import type { Connection } from '@/lib/types';
 
 export function VehicleDetailsPage() {
   const { id } = useParams();
@@ -28,13 +27,8 @@ export function VehicleDetailsPage() {
   const [activePhoto, setActivePhoto] = useState(0);
   const [saved, setSaved] = useState(false);
   const [favId, setFavId] = useState<string | null>(null);
-  const [application, setApplication] = useState<Application | null>(null);
-  const [showApply, setShowApply] = useState(false);
-  const [applyMsg, setApplyMsg] = useState('');
-  const [applying, setApplying] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [connection, setConnection] = useState<Connection | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -68,29 +62,6 @@ export function VehicleDetailsPage() {
         .eq('vehicle_id', vehicle.id)
         .maybeSingle();
       if (fav) { setSaved(true); setFavId(fav.id); }
-      if (profile?.role === 'driver') {
-        const { data: app } = await supabase
-          .from('applications')
-          .select('*')
-          .eq('vehicle_id', vehicle.id)
-          .eq('driver_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (app) setApplication(app as Application);
-      }
-      if (user && user.id !== vehicle.owner_id) {
-        const conn = await getConnectionBetween(user.id, vehicle.owner_id);
-        if (conn && conn.status === 'accepted') {
-          const { data: conv } = await supabase
-            .from('conversations')
-            .select('id')
-            .eq('connection_id', conn.id)
-            .maybeSingle();
-          if (conv) setConnection({ ...conn, conversation_id: (conv as any).id });
-          else setConnection(conn);
-        }
-      }
     })();
   }, [user, vehicle, profile]);
 
@@ -118,29 +89,7 @@ export function VehicleDetailsPage() {
     } catch { /* user cancelled */ }
   };
 
-  const submitApply = async () => {
-    if (!user) { navigate('/login'); return; }
-    if (!vehicle) return;
-    setApplying(true);
-    const { data, error } = await supabase
-      .from('applications')
-      .insert({ vehicle_id: vehicle.id, driver_id: user.id, owner_id: vehicle.owner_id, message: applyMsg })
-      .select()
-      .maybeSingle();
-    if (error) {
-      toast(error.message, 'error');
-    } else if (data) {
-      setApplication(data as Application);
-      await supabase.from('notifications').insert({
-        user_id: vehicle.owner_id, type: 'application', title: 'New application',
-        body: `${profile?.full_name} applied to your ${vehicle.make} ${vehicle.model}`,
-        data: { application_id: (data as Application).id, vehicle_id: vehicle.id },
-      });
-      toast('Application sent. The owner will be notified.');
-      setShowApply(false);
-    }
-    setApplying(false);
-  };
+  const submitApply = async () => {};
 
   if (loading) {
     return (
@@ -332,40 +281,12 @@ export function VehicleDetailsPage() {
               {isOwner ? (
                 <Link to={`/vehicles/${vehicle.id}/edit`} className="btn-secondary w-full">Edit listing</Link>
               ) : (
-                <>
-                  <button onClick={() => user ? setShowApply(true) : navigate('/login', { state: { from: `/vehicles/${id}` } })} className="btn-primary w-full">
-                    Apply now
-                  </button>
-                  {connection && connection.conversation_id && (
-                    <Link to={`/chat/${connection.conversation_id}`} className="btn-secondary w-full">
-                      <MessageSquare className="h-4 w-4" /> Chat with owner
-                    </Link>
-                  )}
-                  {application && !connection && (
-                    <p className="text-center text-xs text-ink-400">Application sent — chat unlocks once the owner accepts.</p>
-                  )}
-                </>
+                <ConnectionButton otherUserId={vehicle.owner_id} vehicleId={vehicle.id} className="w-full" />
               )}
             </div>
           </div>
         </aside>
       </div>
-
-      {/* Apply modal */}
-      {showApply && (
-        <Modal title="Apply to this vehicle" onClose={() => setShowApply(false)}>
-          <textarea
-            value={applyMsg}
-            onChange={(e) => setApplyMsg(e.target.value)}
-            rows={4}
-            placeholder="Introduce yourself — your experience, platforms, availability…"
-            className="input"
-          />
-          <button onClick={submitApply} disabled={applying} className="btn-primary mt-4 w-full">
-            {applying ? 'Sending…' : 'Send application'} <Send className="h-4 w-4" />
-          </button>
-        </Modal>
-      )}
 
       {/* Report modal */}
       {showReport && (

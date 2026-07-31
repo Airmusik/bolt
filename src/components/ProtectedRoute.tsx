@@ -17,6 +17,9 @@ export function ProtectedRoute({ children, roles }: { children: ReactNode; roles
   if (!user) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
+  if (profile?.is_suspended && location.pathname !== '/suspended') {
+    return <Navigate to="/suspended" replace />;
+  }
   if (roles && profile && !roles.includes(profile.role)) {
     return <Navigate to="/dashboard" replace />;
   }

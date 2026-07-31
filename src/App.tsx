@@ -24,6 +24,7 @@ import { TermsPage } from '@/pages/TermsPage';
 import { PrivacyPage } from '@/pages/PrivacyPage';
 import { AdminPage } from '@/pages/AdminPage';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
+import { SuspendedPage } from '@/pages/SuspendedPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 
 export default function App() {
@@ -53,6 +54,7 @@ export default function App() {
         <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
         <Route path="/saved" element={<ProtectedRoute><SavedPage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/suspended" element={<ProtectedRoute><SuspendedPage /></ProtectedRoute>} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminPage /></ProtectedRoute>} />
 
