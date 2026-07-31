@@ -16,7 +16,7 @@ import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { updateConnectionStatus } from '@/lib/connections';
 import { formatKES, timeAgo, titleCase, cn } from '@/lib/utils';
 
-type Tab = 'overview' | 'drivers' | 'vehicles' | 'applications' | 'connections' | 'chats';
+type Tab = 'overview' | 'drivers' | 'vehicles' | 'cars' | 'applications' | 'connections' | 'chats';
 
 export function DashboardPage() {
   const { user, profile } = useAuth();
@@ -28,6 +28,7 @@ export function DashboardPage() {
   const [myApplications, setMyApplications] = useState<(Application & { vehicle?: VehicleWithRelations })[]>([]);
   const [conversations, setConversations] = useState<(Conversation & { vehicle?: VehicleWithRelations; driver?: Profile; owner?: Profile })[]>([]);
   const [drivers, setDrivers] = useState<Profile[]>([]);
+  const [availableCars, setAvailableCars] = useState<VehicleWithRelations[]>([]);
   const [incomingConnections, setIncomingConnections] = useState<(Connection & { requester?: Profile })[]>([]);
   const [outgoingConnections, setOutgoingConnections] = useState<(Connection & { recipient?: Profile })[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,15 +52,13 @@ export function DashboardPage() {
         .eq('driver_id', user.id)
         .order('created_at', { ascending: false });
       setMyApplications((apps as any) || []);
-      // drivers can also see available owners
-      const { data: owners } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'owner')
-        .order('is_verified', { ascending: false })
-        .order('rating', { ascending: false })
+      const { data: cars } = await supabase
+        .from('vehicles')
+        .select('*, owner:profiles(*), photos:vehicle_photos(*), issues:vehicle_issues(*)')
+        .eq('status', 'active')
+        .order('created_at', { ascending: false })
         .limit(24);
-      setDrivers((owners as Profile[]) || []);
+      setAvailableCars((cars as VehicleWithRelations[]) || []);
     }
     const { data: convs } = await supabase
       .from('conversations')
@@ -100,7 +99,9 @@ export function DashboardPage() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'overview', label: 'Overview' },
-    { id: 'drivers', label: isOwner ? 'Available drivers' : 'Car owners' },
+    ...(isOwner
+      ? [{ id: 'drivers' as Tab, label: 'Available drivers' }]
+      : [{ id: 'cars' as Tab, label: 'Available cars' }]),
     ...(isOwner ? [{ id: 'vehicles' as Tab, label: 'My vehicles' }] : []),
     { id: 'applications', label: isOwner ? 'Applications' : 'My applications' },
     { id: 'connections', label: `Connections${pendingConnections.length > 0 ? ` (${pendingConnections.length})` : ''}` },
@@ -140,8 +141,9 @@ export function DashboardPage() {
       </div>
 
       <div className="mt-6">
-        {tab === 'overview' && <OverviewTab profile={profile} drivers={drivers} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
-        {tab === 'drivers' && <DriversTab users={drivers} loading={loading} />}
+        {tab === 'overview' && <OverviewTab profile={profile} drivers={drivers} availableCars={availableCars} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
+        {tab === 'drivers' && isOwner && <DriversTab users={drivers} loading={loading} />}
+        {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars} loading={loading} />}
         {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} />}
         {tab === 'applications' && isOwner && <OwnerApplicationsTab applications={applications} onAction={load} toast={toast} />}
         {tab === 'applications' && isDriver && <DriverApplicationsTab applications={myApplications} />}
@@ -233,14 +235,18 @@ function DriversTab({ users, loading }: { users: Profile[]; loading: boolean }) 
             </div>
           </Link>
           <div className="mt-3">
-            <Link to={isOwner ? `/drivers/${d.id}` : '/browse-cars'} className="btn-primary w-full px-3 py-1.5 text-xs">
-              {isOwner ? 'View profile' : 'Browse cars'}
-            </Link>
+            <Link to={`/drivers/${d.id}`} className="btn-primary w-full px-3 py-1.5 text-xs">View profile</Link>
           </div>
         </div>
       ))}
     </div>
   );
+}
+
+function AvailableCarsTab({ vehicles, loading }: { vehicles: VehicleWithRelations[]; loading: boolean }) {
+  if (loading) return <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="card h-48 animate-pulse" />)}</div>;
+  if (vehicles.length === 0) return <EmptyState title="No cars available" description="Check back soon as owners list new vehicles." action={<Link to="/browse-cars" className="btn-primary">Browse all cars</Link>} />;
+  return <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <VehicleCard key={v.id} vehicle={v} />)}</div>;
 }
 
 function VehiclesTab({ vehicles, loading }: { vehicles: VehicleWithRelations[]; loading: boolean }) {

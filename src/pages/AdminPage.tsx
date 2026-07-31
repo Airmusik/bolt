@@ -255,18 +255,15 @@ export function AdminPage() {
                   {u.licence_number && <p className="text-xs text-ink-400">Licence: {u.licence_number} (exp. {u.licence_expiry || '—'})</p>}
                 </div>
                 <div className="flex gap-2">
-                  {u.verification_status === 'pending' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
-                  {u.verification_status === 'pending' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
+                  {u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>}
+                  {u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> Rejected</span>}
+                  {u.verification_status !== 'approved' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
+                  {u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
                   ) : (
                     <button onClick={() => { setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
-                  )}
-                  {statusFlash?.id === u.id && (
-                    <span className={cn('text-xs font-semibold', statusFlash.status === 'approved' ? 'text-success' : 'text-danger')}>
-                      {statusFlash.status === 'approved' ? <><CheckCircle2 className="inline h-3.5 w-3.5" /> Approved</> : <><XCircle className="inline h-3.5 w-3.5" /> Rejected</>}
-                    </span>
                   )}
                 </div>
               </div>
@@ -287,10 +284,16 @@ export function AdminPage() {
                   <p className="text-xs text-ink-400">{vehicles.filter((v) => v.owner_id === u.id).length} car(s) listed</p>
                 </div>
                 <div className="flex gap-2">
-                  {u.verification_status === 'pending' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
-                  {u.verification_status === 'pending' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
+                  {u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>}
+                  {u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> Rejected</span>}
+                  {u.verification_status !== 'approved' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
+                  {u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={() => setConfirmAction({ message: `Suspend ${u.full_name}? They will lose verified status.`, label: 'Suspend', onConfirm: () => suspend(u) })} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /></button>
+                  {u.is_suspended ? (
+                    <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
+                  ) : (
+                    <button onClick={() => { setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
+                  )}
                 </div>
               </div>
             ))}
