@@ -20,7 +20,7 @@ import { BackButton } from '@/components/BackButton';
 type Tab = 'overview' | 'drivers' | 'vehicles' | 'cars' | 'applications' | 'connections' | 'chats';
 
 export function DashboardPage() {
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>('overview');
 
@@ -148,7 +148,7 @@ export function DashboardPage() {
         {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} />}
         {tab === 'applications' && isOwner && <OwnerApplicationsTab applications={applications} onAction={load} toast={toast} />}
         {tab === 'applications' && isDriver && <DriverApplicationsTab applications={myApplications} />}
-        {tab === 'connections' && <ConnectionsTab incoming={incomingConnections} outgoing={outgoingConnections} onAction={load} toast={toast} />}
+        {tab === 'connections' && <ConnectionsTab incoming={incomingConnections} outgoing={outgoingConnections} onAction={async () => { await load(); await refreshProfile(); }} toast={toast} />}
         {tab === 'chats' && <ChatsTab conversations={conversations} loading={loading} />}
       </div>
     </div>
@@ -387,7 +387,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
     const driverId = c.requester_id;
     const { error } = await endConnection(c.id, driverId);
     if (error) { toast(error, 'error'); return; }
-    toast('Connection ended. You are now available again.');
+    toast('Connection ended. Driver is now available again.');
     onAction();
   };
 

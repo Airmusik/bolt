@@ -55,10 +55,9 @@ export async function endConnection(
     .update({ status: 'ended' })
     .eq('id', connectionId);
   if (error) return { error: error.message };
-  await supabase
-    .from('profiles')
-    .update({ availability: 'available' })
-    .eq('id', driverId);
+  // Only owners/admins can mark a driver available — call the RPC
+  const { error: rpcError } = await supabase.rpc('set_driver_available', { p_driver_id: driverId });
+  if (rpcError) return { error: rpcError.message };
   return { error: null };
 }
 

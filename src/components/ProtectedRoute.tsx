@@ -3,6 +3,8 @@ import { ReactNode } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
 
+const SUSPENDED_ALLOWED = ['/suspended', '/about', '/contact', '/terms', '/privacy'];
+
 export function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: string[] }) {
   const { user, profile, loading } = useAuth();
   const location = useLocation();
@@ -17,7 +19,7 @@ export function ProtectedRoute({ children, roles }: { children: ReactNode; roles
   if (!user) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
-  if (profile?.is_suspended && location.pathname !== '/suspended') {
+  if (profile?.is_suspended && !SUSPENDED_ALLOWED.includes(location.pathname)) {
     return <Navigate to="/suspended" replace />;
   }
   if (roles && profile && !roles.includes(profile.role)) {

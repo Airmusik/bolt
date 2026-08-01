@@ -44,13 +44,21 @@ export function Header() {
   const isAdmin = profile?.role === 'admin';
   const isOwner = profile?.role === 'owner';
   const isDriver = profile?.role === 'driver';
+  const isSuspended = !!profile?.is_suspended;
 
-  const navLinks = [
-    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: !!user && !isAdmin },
-    { to: '/browse-cars', label: 'Browse Cars', show: !isOwner },
-    { to: '/browse-drivers', label: 'Browse Drivers', show: !isDriver },
-    { to: '/how-it-works', label: 'How it works', show: true },
-  ].filter((l) => l.show) as { to: string; label: string; icon?: any }[];
+  const navLinks = isSuspended
+    ? [
+        { to: '/about', label: 'About', icon: undefined, show: true },
+        { to: '/contact', label: 'Contact', icon: undefined, show: true },
+        { to: '/terms', label: 'Terms', icon: undefined, show: true },
+        { to: '/privacy', label: 'Privacy', icon: undefined, show: true },
+      ]
+    : [
+        { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: !!user && !isAdmin },
+        { to: '/browse-cars', label: 'Browse Cars', icon: undefined, show: !isOwner },
+        { to: '/browse-drivers', label: 'Browse Drivers', icon: undefined, show: !isDriver },
+        { to: '/how-it-works', label: 'How it works', icon: undefined, show: true },
+      ].filter((l) => l.show) as { to: string; label: string; icon?: any }[];
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur-md">
@@ -94,18 +102,20 @@ export function Header() {
         <div className="flex items-center gap-2">
           {user ? (
             <>
-              <Link
-                to="/notifications"
-                className="relative rounded-full p-2 text-ink-600 hover:bg-ink-100"
-                aria-label="Notifications"
-              >
-                <Bell className="h-5 w-5" />
-                {unread > 0 && (
-                  <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
-                    {unread > 9 ? '9+' : unread}
-                  </span>
-                )}
-              </Link>
+              {!isSuspended && (
+                <Link
+                  to="/notifications"
+                  className="relative rounded-full p-2 text-ink-600 hover:bg-ink-100"
+                  aria-label="Notifications"
+                >
+                  <Bell className="h-5 w-5" />
+                  {unread > 0 && (
+                    <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
+                      {unread > 9 ? '9+' : unread}
+                    </span>
+                  )}
+                </Link>
+              )}
 
               <div className="relative">
                 <button
@@ -125,13 +135,17 @@ export function Header() {
                         <p className="truncate text-sm font-semibold text-ink-900">{profile?.full_name}</p>
                         <p className="text-xs capitalize text-ink-500">{profile?.role}</p>
                       </div>
-                      <MenuItem to="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />}>Dashboard</MenuItem>
-                      <MenuItem to="/saved" icon={<Heart className="h-4 w-4" />}>Saved listings</MenuItem>
-                      <MenuItem to="/settings" icon={<Settings className="h-4 w-4" />}>Settings</MenuItem>
-                      {profile?.role === 'admin' && (
-                        <MenuItem to="/admin" icon={<ShieldCheck className="h-4 w-4" />}>Admin</MenuItem>
+                      {!isSuspended && (
+                        <>
+                          <MenuItem to="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />}>Dashboard</MenuItem>
+                          <MenuItem to="/saved" icon={<Heart className="h-4 w-4" />}>Saved listings</MenuItem>
+                          <MenuItem to="/settings" icon={<Settings className="h-4 w-4" />}>Settings</MenuItem>
+                          {profile?.role === 'admin' && (
+                            <MenuItem to="/admin" icon={<ShieldCheck className="h-4 w-4" />}>Admin</MenuItem>
+                          )}
+                          <MenuItem to="/help" icon={<LifeBuoy className="h-4 w-4" />}>Help center</MenuItem>
+                        </>
                       )}
-                      <MenuItem to="/help" icon={<LifeBuoy className="h-4 w-4" />}>Help center</MenuItem>
                       <button
                         onClick={async () => { await signOut(); navigate('/'); }}
                         className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-danger hover:bg-red-50"
@@ -175,9 +189,11 @@ export function Header() {
                 <Link to="/register" className="btn-primary flex-1">Get started</Link>
               </div>
             )}
-            <Link to={isAdmin ? '/admin' : '/admin/login'} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
-              <ShieldCheck className="h-4 w-4" /> Admin
-            </Link>
+            {!isSuspended && (
+              <Link to={isAdmin ? '/admin' : '/admin/login'} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
+                <ShieldCheck className="h-4 w-4" /> Admin
+              </Link>
+            )}
           </div>
         </div>
       )}

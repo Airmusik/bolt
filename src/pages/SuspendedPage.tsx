@@ -1,6 +1,6 @@
-import { ShieldOff, LogOut } from 'lucide-react';
+import { ShieldOff, LogOut, FileText, Mail, Info, Shield } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
 export function SuspendedPage() {
   const { profile, signOut } = useAuth();
@@ -36,6 +36,24 @@ export function SuspendedPage() {
         >
           <LogOut className="h-4 w-4" /> Sign out
         </button>
+
+        <div className="mt-8 border-t border-ink-100 pt-6">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-400">You can still access</p>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link to="/about" className="flex items-center gap-2 rounded-lg border border-ink-100 px-3 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+              <Info className="h-4 w-4 text-ink-400" /> About
+            </Link>
+            <Link to="/contact" className="flex items-center gap-2 rounded-lg border border-ink-100 px-3 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+              <Mail className="h-4 w-4 text-ink-400" /> Contact
+            </Link>
+            <Link to="/terms" className="flex items-center gap-2 rounded-lg border border-ink-100 px-3 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+              <FileText className="h-4 w-4 text-ink-400" /> Terms
+            </Link>
+            <Link to="/privacy" className="flex items-center gap-2 rounded-lg border border-ink-100 px-3 py-2.5 text-sm text-ink-700 hover:bg-ink-50">
+              <Shield className="h-4 w-4 text-ink-400" /> Privacy
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
