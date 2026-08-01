@@ -45,7 +45,7 @@ export default function App() {
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
 
-        <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute roles={['owner', 'driver']}><DashboardPage /></ProtectedRoute>} />
         <Route path="/vehicles/new" element={<ProtectedRoute roles={['owner']}><VehicleFormPage /></ProtectedRoute>} />
         <Route path="/vehicles/:id/edit" element={<ProtectedRoute roles={['owner']}><VehicleFormPage /></ProtectedRoute>} />
         <Route path="/onboarding" element={<ProtectedRoute><DriverOnboardingPage /></ProtectedRoute>} />

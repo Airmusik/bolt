@@ -123,6 +123,20 @@ export function DriverOnboardingPage() {
     if (data) setHistory([...history, data as PlatformHistory]);
   };
 
+  const uploadHistoryProof = async (h: PlatformHistory, file: File) => {
+    if (!user) return;
+    setUploadingType(`history-${h.id}`);
+    const ext = file.name.split('.').pop();
+    const path = `${user.id}/history-${h.id}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
+    if (error) { toast('Upload failed', 'error'); setUploadingType(null); return; }
+    const { data: pub } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
+    await supabase.from('driver_platform_history').update({ proof_url: pub.publicUrl, approved: false }).eq('id', h.id);
+    setHistory(history.map((x) => x.id === h.id ? { ...x, proof_url: pub.publicUrl, approved: false } : x));
+    setUploadingType(null);
+    toast('Proof uploaded. Pending admin approval.');
+  };
+
   const updateHistory = async (h: PlatformHistory, field: keyof PlatformHistory, value: any) => {
     setHistory(history.map((x) => x.id === h.id ? { ...x, [field]: value } : x));
     await supabase.from('driver_platform_history').update({ [field]: value }).eq('id', h.id);
@@ -231,13 +245,36 @@ export function DriverOnboardingPage() {
         <Section title="Platform history (last 5 months)" desc="Add your activity on each platform so owners can see your track record.">
           <div className="space-y-3">
             {history.map((h) => (
-              <div key={h.id} className="grid gap-3 rounded-xl border border-ink-100 p-4 sm:grid-cols-[1fr_1fr_1fr_auto]">
-                <select value={h.platform} onChange={(e) => updateHistory(h, 'platform', e.target.value)} className="input py-2">
-                  {PLATFORMS.map((p) => <option key={p} value={p}>{titleCase(p)}</option>)}
-                </select>
-                <input type="number" value={h.months_active} onChange={(e) => updateHistory(h, 'months_active', Number(e.target.value))} className="input py-2" placeholder="Months active" />
-                <input type="number" value={h.trips} onChange={(e) => updateHistory(h, 'trips', Number(e.target.value))} className="input py-2" placeholder="Trips" />
-                <button onClick={() => removeHistory(h)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button>
+              <div key={h.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
+                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+                  <select value={h.platform} onChange={(e) => updateHistory(h, 'platform', e.target.value)} className="input py-2">
+                    {PLATFORMS.map((p) => <option key={p} value={p}>{titleCase(p)}</option>)}
+                  </select>
+                  <input type="number" value={h.months_active} onChange={(e) => updateHistory(h, 'months_active', Number(e.target.value))} className="input py-2" placeholder="Months active" />
+                  <input type="number" value={h.trips} onChange={(e) => updateHistory(h, 'trips', Number(e.target.value))} className="input py-2" placeholder="Trips" />
+                  <button onClick={() => removeHistory(h)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <div className="flex items-center gap-2">
+                  {h.proof_url ? (
+                    <>
+                      <a href={h.proof_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline">View proof</a>
+                      {h.approved ? (
+                        <span className="badge badge-success text-xs"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>
+                      ) : (
+                        <span className="badge badge-warning text-xs">Pending approval</span>
+                      )}
+                      <label className="cursor-pointer text-xs text-ink-500 hover:text-ink-800">
+                        <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHistoryProof(h, f); e.target.value = ''; }} />
+                        Replace
+                      </label>
+                    </>
+                  ) : (
+                    <label className="btn-secondary cursor-pointer text-xs">
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHistoryProof(h, f); e.target.value = ''; }} disabled={uploadingType === `history-${h.id}`} />
+                      <Upload className="h-3.5 w-3.5" /> {uploadingType === `history-${h.id}` ? 'Uploading…' : 'Upload proof'}
+                    </label>
+                  )}
+                </div>
               </div>
             ))}
             <button onClick={addHistory} className="btn-secondary"><Plus className="h-4 w-4" /> Add platform</button>

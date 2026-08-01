@@ -14,7 +14,7 @@ import { Modal } from '@/components/Modal';
 import { ConnectionButton } from '@/components/ConnectionButton';
 import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { updateConnectionStatus, endConnection } from '@/lib/connections';
-import { formatKES, timeAgo, titleCase, cn } from '@/lib/utils';
+import { formatKES, timeAgo, titleCase, cn, formatDateTime } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 
 type Tab = 'overview' | 'drivers' | 'vehicles' | 'cars' | 'applications' | 'connections' | 'chats';
@@ -370,6 +370,12 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
   const pendingIn = incoming.filter((c) => c.status === 'pending');
   const acceptedIn = incoming.filter((c) => c.status === 'accepted');
   const acceptedOut = outgoing.filter((c) => c.status === 'accepted');
+  const expiredOut = outgoing.filter((c) => c.status === 'expired');
+  const expiredIn = incoming.filter((c) => c.status === 'expired');
+
+  useEffect(() => {
+    supabase.rpc('expire_old_connections').then(() => onAction());
+  }, []);
 
   const handleAccept = async (c: Connection) => {
     const { error } = await updateConnectionStatus(c.id, 'accepted');
@@ -404,6 +410,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
                 <div className="flex-1">
                   <Link to={`/drivers/${c.requester_id}`} className="flex items-center gap-1 font-semibold text-ink-900 hover:underline">{c.requester?.full_name} <VerifiedBadge verified={!!c.requester?.is_verified} size={12} /></Link>
                   {c.message && <p className="text-sm text-ink-600">"{c.message}"</p>}
+                  <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
                 </div>
                 <button onClick={() => handleAccept(c)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
                 <button onClick={() => handleReject(c)} className="btn-secondary px-3 py-1.5 text-xs"><X className="h-3.5 w-3.5" /> Reject</button>
@@ -427,6 +434,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
                   <div className="flex-1 min-w-0">
                     <Link to={`/drivers/${p?.id}`} className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900 hover:underline">{p?.full_name} <VerifiedBadge verified={!!p?.is_verified} size={11} /></Link>
                     <p className="text-xs text-ink-500 capitalize">{p?.role}</p>
+                    <p className="text-xs text-ink-400">Connected {formatDateTime(c.created_at)}</p>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -450,8 +458,30 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-ink-900">{c.recipient?.full_name}</p>
                   <p className="text-xs text-ink-500 capitalize">{c.recipient?.role} · waiting for response</p>
+                  <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
                 </div>
                 <button onClick={() => handleReject(c)} className="btn-ghost px-3 py-1.5 text-xs text-danger hover:bg-red-50"><X className="h-3.5 w-3.5" /> Cancel</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Expired connections */}
+      {[...expiredIn, ...expiredOut].length > 0 && (
+        <div>
+          <h3 className="font-display text-lg font-bold text-ink-900">Expired requests</h3>
+          <p className="mt-1 text-xs text-ink-500">Requests not accepted within 7 days are automatically expired.</p>
+          <div className="mt-3 space-y-3">
+            {[...expiredIn.map((c) => ({ c, p: c.requester })), ...expiredOut.map((c) => ({ c, p: c.recipient }))].map(({ c, p }) => (
+              <div key={c.id} className="card flex items-center gap-3 p-4 opacity-70">
+                <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={!!p?.is_verified} />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-ink-900">{p?.full_name}</p>
+                  <p className="text-xs text-ink-500 capitalize">{p?.role} · expired</p>
+                  <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
+                </div>
+                <span className="badge badge-neutral text-xs">Expired</span>
               </div>
             ))}
           </div>

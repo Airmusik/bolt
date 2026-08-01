@@ -109,6 +109,12 @@ export function DriverProfilePage() {
                     <div>
                       <p className="font-semibold text-ink-900">{titleCase(h.platform)}</p>
                       <p className="text-xs text-ink-500">{h.months_active} months active · {h.trips} trips</p>
+                      {h.proof_url && h.approved && (
+                        <a href={h.proof_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline">View proof image</a>
+                      )}
+                      {h.proof_url && !h.approved && (
+                        <span className="text-xs text-amber-600">Proof pending approval</span>
+                      )}
                     </div>
                     {h.rating != null && (
                       <div className="flex items-center gap-1">

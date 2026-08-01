@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, ShieldOff, CheckCircle2, XCircle } from 'lucide-react';
+import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, ShieldOff, CheckCircle2, XCircle, Plus } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message } from '@/lib/types';
+import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { cn, timeAgo } from '@/lib/utils';
@@ -24,7 +24,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { Modal } from '@/components/Modal';
 
-type Tab = 'overview' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'chat';
+type Tab = 'overview' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'chat' | 'history';
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -45,18 +45,21 @@ export function AdminPage() {
   const [suspending, setSuspending] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<(Vehicle & { owner?: Profile; photos?: { photo_url: string }[] }) | null>(null);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [history, setHistory] = useState<(PlatformHistory & { driver?: Profile })[]>([]);
 
   const load = async () => {
-    const [{ data: u }, { data: v }, { data: r }, { data: d }] = await Promise.all([
+    const [{ data: u }, { data: v }, { data: r }, { data: d }, { data: h }] = await Promise.all([
       supabase.from('profiles').select('*').order('created_at', { ascending: false }),
       supabase.from('vehicles').select('*, owner:profiles!vehicles_owner_id_fkey(*), photos:vehicle_photos(photo_url)').order('created_at', { ascending: false }),
       supabase.from('reports').select('*').order('created_at', { ascending: false }),
       supabase.from('documents').select('*, user:profiles!documents_user_id_fkey(*)').order('created_at', { ascending: false }),
+      supabase.from('driver_platform_history').select('*, driver:profiles!driver_platform_history_driver_id_fkey(*)').order('created_at', { ascending: false }),
     ]);
     setUsers((u as Profile[]) || []);
     setVehicles((v as any) || []);
     setReports((r as Report[]) || []);
     setDocuments((d as any) || []);
+    setHistory((h as any) || []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -178,6 +181,7 @@ export function AdminPage() {
     { key: 'cars', label: 'Cars', icon: Car, badge: vehicles.length },
     { key: 'documents', label: 'Documents', icon: FileText, badge: pendingDocs.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
+    { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
     { key: 'chat', label: 'Chat', icon: MessageSquare },
   ];
 
@@ -397,6 +401,27 @@ export function AdminPage() {
           </div>
         )}
 
+        {/* ---------- Platform History ---------- */}
+        {tab === 'history' && !loading && (
+          <div className="space-y-2">
+            {history.length === 0 && <p className="text-sm text-ink-500">No platform history entries yet.</p>}
+            {history.map((h) => (
+              <div key={h.id} className="card flex items-center gap-3 p-4">
+                <div className="flex-1">
+                  <p className="font-medium text-ink-900 capitalize">{h.platform} — {h.driver?.full_name || 'Unknown driver'}</p>
+                  <p className="text-xs text-ink-500">{h.months_active} months · {h.trips} trips{h.rating != null ? ` · ${h.rating.toFixed(1)} rating` : ''}</p>
+                  {h.proof_url && <a href={h.proof_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline">View proof image</a>}
+                </div>
+                {h.approved ? (
+                  <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>
+                ) : (
+                  <button onClick={async () => { await supabase.from('driver_platform_history').update({ approved: true }).eq('id', h.id); toast('Platform history approved.'); load(); }} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Approve</button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* ---------- Chat ---------- */}
         {tab === 'chat' && !loading && <AdminChat user={user} />}
       </div>
@@ -493,7 +518,28 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: any; o
     status: vehicle.status || 'active',
     description: vehicle.description || '',
   });
+  const [issues, setIssues] = useState<VehicleIssue[]>([]);
+  const [newIssue, setNewIssue] = useState({ description: '', severity: 'minor' as 'minor' | 'moderate' | 'major' });
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('vehicle_issues').select('*').eq('vehicle_id', vehicle.id);
+      setIssues((data as VehicleIssue[]) || []);
+    })();
+  }, [vehicle.id]);
+
+  const addIssue = async () => {
+    if (!newIssue.description.trim()) return;
+    const { data } = await supabase.from('vehicle_issues').insert({ vehicle_id: vehicle.id, description: newIssue.description, severity: newIssue.severity }).select().maybeSingle();
+    if (data) setIssues([...issues, data as VehicleIssue]);
+    setNewIssue({ description: '', severity: 'minor' });
+  };
+
+  const removeIssue = async (id: string) => {
+    await supabase.from('vehicle_issues').delete().eq('id', id);
+    setIssues(issues.filter((i) => i.id !== id));
+  };
 
   const save = async () => {
     setSaving(true);
@@ -517,6 +563,29 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: any; o
         <Field label="Status"><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="input"><option value="active">Active</option><option value="closed">Closed</option></select></Field>
       </div>
       <Field label="Description"><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="input mt-3" /></Field>
+
+      <div className="mt-4">
+        <label className="label">Known issues</label>
+        <div className="space-y-2">
+          {issues.map((iss) => (
+            <div key={iss.id} className="flex items-center gap-2 rounded-lg bg-amber-50 p-2 ring-1 ring-amber-100">
+              <span className="flex-1 text-sm text-ink-700">{iss.description}</span>
+              <span className="text-xs capitalize text-ink-500">{iss.severity}</span>
+              <button onClick={() => removeIssue(iss.id)} className="text-danger hover:text-red-700"><Trash2 className="h-4 w-4" /></button>
+            </div>
+          ))}
+          <div className="flex gap-2">
+            <input value={newIssue.description} onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })} placeholder="Add an issue…" className="input flex-1" />
+            <select value={newIssue.severity} onChange={(e) => setNewIssue({ ...newIssue, severity: e.target.value as any })} className="input w-auto">
+              <option value="minor">Minor</option>
+              <option value="moderate">Moderate</option>
+              <option value="major">Major</option>
+            </select>
+            <button onClick={addIssue} className="btn-secondary"><Plus className="h-4 w-4" /></button>
+          </div>
+        </div>
+      </div>
+
       <button onClick={save} disabled={saving} className="btn-primary mt-4 w-full">{saving ? 'Saving…' : 'Save changes'}</button>
     </Modal>
   );

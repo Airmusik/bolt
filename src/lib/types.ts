@@ -100,6 +100,7 @@ export interface PlatformHistory {
   trips: number;
   rating: number | null;
   proof_url: string | null;
+  approved: boolean;
   created_at: string;
 }
 
@@ -183,7 +184,7 @@ export interface Favorite {
   created_at: string;
 }
 
-export type ConnectionStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn';
+export type ConnectionStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'expired' | 'ended';
 
 export interface Connection {
   id: string;

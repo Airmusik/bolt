@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, roles }: { children: ReactNode; roles
     return <Navigate to="/suspended" replace />;
   }
   if (roles && profile && !roles.includes(profile.role)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={profile.role === 'admin' ? '/admin' : '/dashboard'} replace />;
   }
   return <>{children}</>;
 }

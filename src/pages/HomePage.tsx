@@ -5,6 +5,7 @@ import {
   CheckCircle2, MessageSquare, Bell, BadgeCheck, TrendingUp,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
 import type { VehicleWithRelations, Profile } from '@/lib/types';
 import { VehicleCard } from '@/components/VehicleCard';
 import { Avatar } from '@/components/Avatar';
@@ -15,6 +16,7 @@ import { titleCase } from '@/lib/utils';
 
 export function HomePage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
   const [featured, setFeatured] = useState<VehicleWithRelations[]>([]);
@@ -55,6 +57,7 @@ export function HomePage() {
   return (
     <div>
       {/* HERO */}
+      {!user && (
       <section className="relative overflow-hidden bg-gradient-to-b from-brand-50/60 to-white">
         <div className="absolute inset-0 -z-10">
           <div className="absolute -top-24 left-1/2 h-72 w-[60rem] -translate-x-1/2 rounded-full bg-brand-100/50 blur-3xl" />
@@ -114,6 +117,7 @@ export function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* FEATURED LISTINGS */}
       <section className="container-content py-16">
