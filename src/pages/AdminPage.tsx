@@ -33,7 +33,6 @@ export function AdminPage() {
   const [suspending, setSuspending] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<(Vehicle & { owner?: Profile; photos?: { photo_url: string }[] }) | null>(null);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
-  const [statusFlash, setStatusFlash] = useState<{ id: string; status: 'approved' | 'rejected' } | null>(null);
 
   const load = async () => {
     const [{ data: u }, { data: v }, { data: r }, { data: d }] = await Promise.all([
@@ -56,21 +55,22 @@ export function AdminPage() {
   const pendingDocs = documents.filter((d) => !d.verified);
 
   const approveVerification = async (p: Profile) => {
-    await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', p.id);
+    const { error } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', p.id);
+    if (error) { toast('Update failed: ' + error.message); return; }
     await supabase.from('notifications').insert({ user_id: p.id, type: 'verification', title: 'Verification approved', body: 'Your account is now verified on GariLink.' });
-    setStatusFlash({ id: p.id, status: 'approved' });
-    setTimeout(() => setStatusFlash(null), 3000);
+    toast('User approved.');
     load();
   };
   const rejectVerification = async (p: Profile) => {
-    await supabase.from('profiles').update({ is_verified: false, verification_status: 'rejected' }).eq('id', p.id);
-    setStatusFlash({ id: p.id, status: 'rejected' });
-    setTimeout(() => setStatusFlash(null), 3000);
+    const { error } = await supabase.from('profiles').update({ is_verified: false, verification_status: 'rejected' }).eq('id', p.id);
+    if (error) { toast('Update failed: ' + error.message); return; }
+    toast('User rejected.');
     load();
   };
   const suspend = async (p: Profile, reason: string) => {
     setSuspending(true);
-    await supabase.from('profiles').update({ is_suspended: true, suspension_reason: reason, suspended_at: new Date().toISOString(), verification_status: 'rejected', is_verified: false }).eq('id', p.id);
+    const { error } = await supabase.from('profiles').update({ is_suspended: true, suspension_reason: reason, suspended_at: new Date().toISOString(), verification_status: 'rejected', is_verified: false }).eq('id', p.id);
+    if (error) { toast('Suspend failed: ' + error.message); setSuspending(false); return; }
     await supabase.from('notifications').insert({ user_id: p.id, type: 'suspension', title: 'Account suspended', body: `Your account has been suspended: ${reason}` });
     toast('User suspended.');
     setSuspendingUser(null);
@@ -79,7 +79,8 @@ export function AdminPage() {
     load();
   };
   const unban = async (p: Profile) => {
-    await supabase.from('profiles').update({ is_suspended: false, suspension_reason: null, suspended_at: null }).eq('id', p.id);
+    const { error } = await supabase.from('profiles').update({ is_suspended: false, suspension_reason: null, suspended_at: null }).eq('id', p.id);
+    if (error) { toast('Reinstate failed: ' + error.message); return; }
     toast('User reinstated.');
     load();
   };
@@ -254,11 +255,12 @@ export function AdminPage() {
                   <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'} · {timeAgo(u.created_at)}</p>
                   {u.licence_number && <p className="text-xs text-ink-400">Licence: {u.licence_number} (exp. {u.licence_expiry || '—'})</p>}
                 </div>
-                <div className="flex gap-2">
-                  {u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>}
-                  {u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> Rejected</span>}
-                  {u.verification_status !== 'approved' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
-                  {u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
+                <div className="flex flex-wrap items-center gap-2">
+                  {u.is_suspended && <span className="badge badge-danger"><Ban className="inline h-3 w-3" /> Suspended</span>}
+                  {!u.is_suspended && u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>}
+                  {!u.is_suspended && u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> Rejected</span>}
+                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
+                  {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
@@ -283,11 +285,12 @@ export function AdminPage() {
                   <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'} · {timeAgo(u.created_at)}</p>
                   <p className="text-xs text-ink-400">{vehicles.filter((v) => v.owner_id === u.id).length} car(s) listed</p>
                 </div>
-                <div className="flex gap-2">
-                  {u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>}
-                  {u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> Rejected</span>}
-                  {u.verification_status !== 'approved' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
-                  {u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
+                <div className="flex flex-wrap items-center gap-2">
+                  {u.is_suspended && <span className="badge badge-danger"><Ban className="inline h-3 w-3" /> Suspended</span>}
+                  {!u.is_suspended && u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>}
+                  {!u.is_suspended && u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> Rejected</span>}
+                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
+                  {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>

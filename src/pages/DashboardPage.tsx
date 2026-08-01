@@ -15,6 +15,7 @@ import { ConnectionButton } from '@/components/ConnectionButton';
 import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { updateConnectionStatus } from '@/lib/connections';
 import { formatKES, timeAgo, titleCase, cn } from '@/lib/utils';
+import { BackButton } from '@/components/BackButton';
 
 type Tab = 'overview' | 'drivers' | 'vehicles' | 'cars' | 'applications' | 'connections' | 'chats';
 
@@ -154,7 +155,7 @@ export function DashboardPage() {
   );
 }
 
-function OverviewTab({ profile, drivers, conversations, isOwner, pendingConnections }: any) {
+function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, pendingConnections }: any) {
   return (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
@@ -185,11 +186,11 @@ function OverviewTab({ profile, drivers, conversations, isOwner, pendingConnecti
         </div>
       </div>
 
-      {/* Available drivers / owners preview */}
-      {drivers.length > 0 && (
+      {/* Available drivers preview (owners only) */}
+      {isOwner && drivers.length > 0 && (
         <div>
           <div className="flex items-center justify-between">
-            <h3 className="font-display text-lg font-bold text-ink-900">{isOwner ? 'Available drivers' : 'Car owners'}</h3>
+            <h3 className="font-display text-lg font-bold text-ink-900">Available drivers</h3>
           </div>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {drivers.slice(0, 8).map((d: Profile) => (
@@ -205,6 +206,20 @@ function OverviewTab({ profile, drivers, conversations, isOwner, pendingConnecti
                 <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-2" />
                 <div className="mt-2 flex items-center gap-1 text-xs text-ink-500"><Briefcase className="h-3 w-3" /> {d.driving_experience_years || 0} yrs</div>
               </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Available cars preview (drivers only) */}
+      {!isOwner && availableCars?.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-lg font-bold text-ink-900">Available cars</h3>
+          </div>
+          <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {availableCars.slice(0, 6).map((v: VehicleWithRelations) => (
+              <VehicleCard key={v.id} vehicle={v} />
             ))}
           </div>
         </div>
