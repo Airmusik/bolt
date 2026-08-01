@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Car, Menu, X, Bell, User, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy, ShieldCheck } from 'lucide-react';
+import { Car, Menu, X, Bell, User, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy, ShieldCheck, Users } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Avatar } from './Avatar';
 import { cn } from '@/lib/utils';
@@ -41,13 +41,16 @@ export function Header() {
     };
   }, [user]);
 
-  const navLinks = [
-    { to: '/browse-cars', label: 'Browse Cars' },
-    { to: '/browse-drivers', label: 'Browse Drivers' },
-    { to: '/how-it-works', label: 'How it works' },
-  ];
-
   const isAdmin = profile?.role === 'admin';
+  const isOwner = profile?.role === 'owner';
+  const isDriver = profile?.role === 'driver';
+
+  const navLinks = [
+    { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: !!user && !isAdmin },
+    { to: '/browse-cars', label: 'Browse Cars', show: !isOwner },
+    { to: '/browse-drivers', label: 'Browse Drivers', show: !isDriver },
+    { to: '/how-it-works', label: 'How it works', show: true },
+  ].filter((l) => l.show) as { to: string; label: string; icon?: any }[];
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur-md">
@@ -67,24 +70,16 @@ export function Header() {
               key={l.to}
               to={l.to}
               className={cn(
-                'rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                location.pathname.startsWith(l.to) ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
+                'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                location.pathname === l.to || (l.to !== '/' && location.pathname.startsWith(l.to))
+                  ? 'bg-brand-50 text-brand-700'
+                  : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
               )}
             >
+              {l.icon && <l.icon className="h-4 w-4" />}
               {l.label}
             </Link>
           ))}
-          {user && !isAdmin && (
-            <Link
-              to="/dashboard"
-              className={cn(
-                'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-                location.pathname === '/dashboard' ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
-              )}
-            >
-              <LayoutDashboard className="h-4 w-4" /> Dashboard
-            </Link>
-          )}
           <Link
             to={isAdmin ? '/admin' : '/admin/login'}
             className={cn(
@@ -169,28 +164,19 @@ export function Header() {
         <div className="border-t border-ink-100 bg-white md:hidden">
           <div className="container-content flex flex-col py-3">
             {navLinks.map((l) => (
-              <Link key={l.to} to={l.to} className="rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100">
+              <Link key={l.to} to={l.to} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100">
+                {l.icon && <l.icon className="h-4 w-4" />}
                 {l.label}
               </Link>
             ))}
-            {user && !isAdmin && (
-              <Link to="/dashboard" className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100">
-                <LayoutDashboard className="h-4 w-4" /> Dashboard
-              </Link>
-            )}
             {!user && (
               <div className="mt-2 flex gap-2 border-t border-ink-100 pt-3">
                 <Link to="/login" className="btn-secondary flex-1">Sign in</Link>
                 <Link to="/register" className="btn-primary flex-1">Get started</Link>
               </div>
             )}
-            {user && (
-              <Link to="/dashboard" className="rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100">
-                Dashboard
-              </Link>
-            )}
-            <Link to={isAdmin ? '/admin' : '/admin/login'} className="rounded-lg px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
-              Admin
+            <Link to={isAdmin ? '/admin' : '/admin/login'} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
+              <ShieldCheck className="h-4 w-4" /> Admin
             </Link>
           </div>
         </div>

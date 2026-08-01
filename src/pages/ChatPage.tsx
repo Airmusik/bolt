@@ -28,6 +28,7 @@ export function ChatPage() {
   const [otherTyping, setOtherTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
@@ -94,6 +95,10 @@ export function ChatPage() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    if (active) inputRef.current?.focus();
+  }, [active]);
 
   const send = async (content?: string, type: 'text' | 'image' = 'text') => {
     if (!user || !active) return;
@@ -226,11 +231,13 @@ export function ChatPage() {
                 <button onClick={() => fileRef.current?.click()} className="rounded-full p-2 text-ink-400 hover:bg-ink-100"><ImageIcon className="h-5 w-5" /></button>
                 <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) sendImage(f); e.target.value = ''; }} />
                 <input
+                  ref={inputRef}
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
                   placeholder="Type a message…"
                   className="input flex-1"
+                  autoFocus
                 />
                 <button onClick={() => send()} disabled={!text.trim()} className="btn-primary px-3"><Send className="h-4 w-4" /></button>
               </div>

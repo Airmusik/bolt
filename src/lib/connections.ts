@@ -46,6 +46,22 @@ export async function sendConnectionRequest(
   return { connection: conn, error: null };
 }
 
+export async function endConnection(
+  connectionId: string,
+  driverId: string,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase
+    .from('connections')
+    .update({ status: 'ended' })
+    .eq('id', connectionId);
+  if (error) return { error: error.message };
+  await supabase
+    .from('profiles')
+    .update({ availability: 'available' })
+    .eq('id', driverId);
+  return { error: null };
+}
+
 export async function updateConnectionStatus(
   connectionId: string,
   status: 'accepted' | 'rejected' | 'withdrawn',
@@ -92,6 +108,8 @@ export async function updateConnectionStatus(
       .select()
       .maybeSingle();
     if (convErr) return { conversationId: null, error: convErr.message };
+    // set driver availability to busy
+    await supabase.from('profiles').update({ availability: 'busy' }).eq('id', driverId);
     // notify requester
     await supabase.from('notifications').insert({
       user_id: requesterId,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, X, Plus, Trash2, BadgeCheck, CheckCircle2, ArrowRight, AlertCircle, RefreshCw } from 'lucide-react';
+import { Upload, X, Plus, Trash2, BadgeCheck, CheckCircle2, ArrowRight, AlertCircle, RefreshCw, MapPin } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';

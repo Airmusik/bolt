@@ -5,6 +5,18 @@ import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message } fro
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { cn, timeAgo } from '@/lib/utils';
+
+const SUSPEND_REASONS = [
+  'Fake or misleading profile',
+  'Fraudulent activity or scam attempt',
+  'Abusive or threatening behaviour',
+  'Spam or repeated unwanted requests',
+  'Invalid or expired documents',
+  'Operating without a valid PSV licence',
+  'Vehicle does not match listing',
+  'Repeated no-shows or cancellations',
+  'Violation of community guidelines',
+];
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth';
 import { BackButton } from '@/components/BackButton';
@@ -416,12 +428,23 @@ export function AdminPage() {
       {suspendingUser && (
         <Modal title={`Suspend ${suspendingUser.full_name}`} onClose={() => { setSuspendingUser(null); setSuspendReason(''); }}>
           <p className="text-sm text-ink-600">This user will be immediately logged out and shown a suspension message. They will not be able to use GariLink until reinstated.</p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {SUSPEND_REASONS.map((r) => (
+              <button
+                key={r}
+                onClick={() => setSuspendReason(r)}
+                className={cn('rounded-full border px-3 py-1.5 text-xs font-medium transition-colors', suspendReason === r ? 'border-danger bg-danger/10 text-danger' : 'border-ink-200 text-ink-600 hover:bg-ink-100')}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
           <textarea
             value={suspendReason}
             onChange={(e) => setSuspendReason(e.target.value)}
-            rows={4}
-            placeholder="Why is this user being suspended? This reason will be shown to them."
-            className="input mt-4"
+            rows={3}
+            placeholder="Select a reason above or type a custom one…"
+            className="input mt-3"
           />
           <div className="mt-4 flex gap-2">
             <button onClick={() => { setSuspendingUser(null); setSuspendReason(''); }} className="btn-secondary flex-1">Cancel</button>

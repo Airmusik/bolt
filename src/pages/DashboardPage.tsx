@@ -13,7 +13,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { Modal } from '@/components/Modal';
 import { ConnectionButton } from '@/components/ConnectionButton';
 import { AvailabilityBadge } from '@/components/AvailabilityBadge';
-import { updateConnectionStatus } from '@/lib/connections';
+import { updateConnectionStatus, endConnection } from '@/lib/connections';
 import { formatKES, timeAgo, titleCase, cn } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 
@@ -185,6 +185,21 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
           </div>
         </div>
       </div>
+
+      {/* Driver availability status */}
+      {!isOwner && (
+        <div className="card p-5">
+          <h3 className="font-semibold text-ink-900">Your availability</h3>
+          <div className="mt-3 flex items-center gap-2">
+            <AvailabilityBadge availability={profile.availability} />
+            <span className="text-sm text-ink-600">
+              {profile.availability === 'available' && 'You are available for new connections.'}
+              {profile.availability === 'busy' && 'You are currently in an active connection.'}
+              {profile.availability === 'unavailable' && 'You are not available for new connections.'}
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Available drivers preview (owners only) */}
       {isOwner && drivers.length > 0 && (
@@ -368,6 +383,13 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
     toast('Connection rejected.');
     onAction();
   };
+  const handleEnd = async (c: Connection) => {
+    const driverId = c.requester_id;
+    const { error } = await endConnection(c.id, driverId);
+    if (error) { toast(error, 'error'); return; }
+    toast('Connection ended. You are now available again.');
+    onAction();
+  };
 
   return (
     <div className="space-y-8">
@@ -399,13 +421,18 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
         ) : (
           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[...acceptedIn.map((c) => ({ c, p: c.requester })), ...acceptedOut.map((c) => ({ c, p: c.recipient }))].map(({ c, p }) => (
-              <div key={c.id} className="card flex items-center gap-3 p-4">
-                <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={!!p?.is_verified} />
-                <div className="flex-1 min-w-0">
-                  <Link to={`/drivers/${p?.id}`} className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900 hover:underline">{p?.full_name} <VerifiedBadge verified={!!p?.is_verified} size={11} /></Link>
-                  <p className="text-xs text-ink-500 capitalize">{p?.role}</p>
+              <div key={c.id} className="card flex flex-col gap-3 p-4">
+                <div className="flex items-center gap-3">
+                  <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={!!p?.is_verified} />
+                  <div className="flex-1 min-w-0">
+                    <Link to={`/drivers/${p?.id}`} className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900 hover:underline">{p?.full_name} <VerifiedBadge verified={!!p?.is_verified} size={11} /></Link>
+                    <p className="text-xs text-ink-500 capitalize">{p?.role}</p>
+                  </div>
                 </div>
-                <Link to="/chat" className="btn-secondary px-3 py-1.5 text-xs"><MessageSquare className="h-3.5 w-3.5" /> Chat</Link>
+                <div className="flex gap-2">
+                  <Link to="/chat" className="btn-secondary flex-1 px-3 py-1.5 text-xs"><MessageSquare className="h-3.5 w-3.5" /> Chat</Link>
+                  <button onClick={() => handleEnd(c)} className="btn-ghost flex-1 px-3 py-1.5 text-xs text-danger hover:bg-red-50"><X className="h-3.5 w-3.5" /> End</button>
+                </div>
               </div>
             ))}
           </div>
@@ -424,7 +451,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
                   <p className="text-sm font-semibold text-ink-900">{c.recipient?.full_name}</p>
                   <p className="text-xs text-ink-500 capitalize">{c.recipient?.role} · waiting for response</p>
                 </div>
-                <span className="badge-warning"><Clock className="h-3.5 w-3.5" /> Pending</span>
+                <button onClick={() => handleReject(c)} className="btn-ghost px-3 py-1.5 text-xs text-danger hover:bg-red-50"><X className="h-3.5 w-3.5" /> Cancel</button>
               </div>
             ))}
           </div>
