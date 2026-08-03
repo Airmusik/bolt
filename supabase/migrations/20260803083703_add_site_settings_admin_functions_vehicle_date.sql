@@ -48,7 +48,8 @@ INSERT INTO site_settings (key, value) VALUES
   ('max_vehicles_per_owner', '10'),
   ('require_email', 'true'),
   ('platform_fee_percent', '0'),
-  ('admin_contact_email', 'admin@garilink.app')
+  ('admin_contact_email', 'airmusikinck@gmail.com'),
+  ('admin_contact_phone', '+254708593011')
 ON CONFLICT (key) DO NOTHING;
 
 -- ---------- vehicles.available_from ----------

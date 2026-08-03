@@ -26,8 +26,26 @@ import { AdminPage } from '@/pages/AdminPage';
 import { AdminLoginPage } from '@/pages/AdminLoginPage';
 import { SuspendedPage } from '@/pages/SuspendedPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
+import { useAuth } from '@/lib/auth';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 export default function App() {
+  const { profile } = useAuth();
+  const { settings, loading } = useSiteSettings();
+  const path = window.location.pathname;
+  const adminAllowed = path.startsWith('/admin') || profile?.role === 'admin';
+
+  if (!loading && settings.maintenance_mode === 'true' && !adminAllowed) {
+    return (
+      <Layout>
+        <div className="container-content flex min-h-[70vh] flex-col items-center justify-center py-16 text-center">
+          <h1 className="font-display text-3xl font-bold text-ink-900">{settings.site_name} is under maintenance</h1>
+          <p className="mt-3 max-w-md text-ink-600">We're making updates right now. Please check back soon.</p>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <Routes>

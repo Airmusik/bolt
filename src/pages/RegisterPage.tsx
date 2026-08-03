@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { BackButton } from '@/components/BackButton';
 import type { Role } from '@/lib/types';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 export function RegisterPage() {
   const { signUp, user } = useAuth();
@@ -19,6 +20,8 @@ export function RegisterPage() {
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { settings } = useSiteSettings();
+  const emailRequired = settings.require_email === 'true';
 
   useEffect(() => {
     if (user) navigate('/dashboard', { replace: true });
@@ -29,8 +32,8 @@ export function RegisterPage() {
     setError(null);
     setLoading(true);
     if (pin !== confirmPin) { setError('PINs do not match. Please re-enter.'); setLoading(false); return; }
-    if (!email.trim()) { setError('Email address is required.'); setLoading(false); return; }
-    const { error } = await signUp(phone, pin, fullName, role, email.trim());
+    if (emailRequired && !email.trim()) { setError('Email address is required.'); setLoading(false); return; }
+    const { error } = await signUp(phone, pin, fullName, role, email.trim() || undefined);
     setLoading(false);
     if (error) {
       setError(error);
@@ -90,12 +93,12 @@ export function RegisterPage() {
             </div>
           </div>
           <div className="mt-4">
-            <label className="label">Email</label>
+            <label className="label">Email{emailRequired ? "" : " (optional)"}</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@example.com" className="input pl-10" />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@example.com" className="input pl-10" required={emailRequired} />
             </div>
-            <p className="mt-1.5 text-xs text-ink-400">Add an email so you can reset your PIN if you forget it.</p>
+            <p className="mt-1.5 text-xs text-ink-400">{emailRequired ? "Email is required by current site settings." : "Add an email so you can reset your PIN if you forget it."}</p>
           </div>
 
           <div className="mt-4">
