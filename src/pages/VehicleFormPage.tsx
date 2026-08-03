@@ -13,7 +13,7 @@ interface IssueDraft { id?: string; description: string; severity: 'minor' | 'mo
 export function VehicleFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const isEdit = Boolean(id);
 
@@ -22,6 +22,7 @@ export function VehicleFormPage() {
     make: '', model: '', year: new Date().getFullYear(), transmission: 'automatic', fuel_type: 'petrol',
     location: '', weekly_target: '', monthly_target: '', deposit: '', driver_experience: '', requirements: '',
     availability: 'available', insurance_type: 'third_party', insurance_expiry: '',
+    available_from: new Date().toISOString().slice(0, 10),
   });
   const [issues, setIssues] = useState<IssueDraft[]>([]);
   const [photos, setPhotos] = useState<VehiclePhoto[]>([]);
@@ -42,6 +43,7 @@ export function VehicleFormPage() {
           location: veh.location, weekly_target: veh.weekly_target?.toString() || '', monthly_target: veh.monthly_target?.toString() || '',
           deposit: veh.deposit?.toString() || '', driver_experience: veh.driver_experience || '', requirements: veh.requirements || '',
           availability: veh.availability, insurance_type: veh.insurance_type, insurance_expiry: veh.insurance_expiry || '',
+          available_from: (veh as any).available_from || new Date().toISOString().slice(0, 10),
         });
       }
       setIssues(((iss as VehicleIssue[]) || []).map((i) => ({ id: i.id, description: i.description, severity: i.severity })));
@@ -77,6 +79,11 @@ export function VehicleFormPage() {
   const save = async () => {
     if (!user) return;
     if (!form.make || !form.model || !form.location) { toast('Make, model and location are required.', 'error'); return; }
+    if (photos.length === 0) { toast('At least one vehicle photo is required for security.', 'error'); return; }
+    if (!isEdit && profile && profile.verification_status !== 'approved') {
+      toast('You must complete KYC verification before listing a vehicle. Go to Settings to upload your documents.', 'error');
+      navigate('/settings'); return;
+    }
     setSaving(true);
     const payload = {
       owner_id: user.id,
@@ -90,6 +97,7 @@ export function VehicleFormPage() {
       availability: form.availability,
       insurance_type: form.insurance_type,
       insurance_expiry: form.insurance_expiry || null,
+      available_from: form.available_from || null,
     };
     let vehicleId = id;
     if (isEdit && id) {
@@ -204,6 +212,7 @@ export function VehicleFormPage() {
               </select>
             </Field>
             <Field label="Insurance expiry date"><input type="date" value={form.insurance_expiry} onChange={(e) => setForm({ ...form, insurance_expiry: e.target.value })} className="input" /></Field>
+            <Field label="Available from"><input type="date" value={form.available_from} onChange={(e) => setForm({ ...form, available_from: e.target.value })} className="input" /></Field>
           </div>
         </Card>
 

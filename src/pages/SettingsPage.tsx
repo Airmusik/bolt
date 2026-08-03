@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, LogOut, Ban, Camera, Loader2, Check, MapPin, ToggleLeft, ToggleRight } from 'lucide-react';
+import { User, Shield, Bell, LogOut, Ban, Camera, Loader2, Check, MapPin, ToggleLeft, ToggleRight, Lock, KeyRound } from 'lucide-react';
 import { supabase, VEHICLE_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { BackButton } from '@/components/BackButton';
+import { pinToPassword } from '@/lib/phoneAuth';
 
 const KENYA_LOCATIONS = [
   'Nairobi CBD', 'Westlands, Nairobi', 'Kilimani, Nairobi', 'Karen, Nairobi',
@@ -172,12 +173,58 @@ export function SettingsPage() {
           )}
         </div>
 
+        {/* Change PIN */}
+        <div className="card p-5">
+          <h2 className="flex items-center gap-2 font-semibold text-ink-900"><KeyRound className="h-5 w-5" /> Change PIN</h2>
+          <p className="mt-1 text-sm text-ink-500">Update your 4-digit PIN used to sign in.</p>
+          <ChangePinSection />
+        </div>
+
         {/* Danger */}
         <div className="card p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink-900"><LogOut className="h-5 w-5" /> Account</h2>
           <button onClick={async () => { await signOut(); navigate('/'); }} className="btn-ghost mt-3 text-danger">Sign out</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ChangePinSection() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [oldPin, setOldPin] = useState('');
+  const [newPin, setNewPin] = useState('');
+  const [confirmNewPin, setConfirmNewPin] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const changePin = async () => {
+    if (!/^\d{4}$/.test(newPin)) { toast('New PIN must be 4 digits.', 'error'); return; }
+    if (newPin !== confirmNewPin) { toast('New PINs do not match.', 'error'); return; }
+    if (!user) return;
+    setSaving(true);
+    // Verify old PIN by attempting sign-in
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email || '',
+      password: pinToPassword(oldPin),
+    });
+    if (signInError) { toast('Current PIN is incorrect.', 'error'); setSaving(false); return; }
+    // Update password
+    const { error: updateError } = await supabase.auth.updateUser({ password: pinToPassword(newPin) });
+    setSaving(false);
+    if (updateError) { toast('Failed to update PIN: ' + updateError.message, 'error'); return; }
+    toast('PIN updated successfully.');
+    setOldPin(''); setNewPin(''); setConfirmNewPin('');
+  };
+
+  return (
+    <div className="mt-3 space-y-3">
+      <input type="password" value={oldPin} onChange={(e) => setOldPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Current PIN" className="input" maxLength={4} />
+      <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="New PIN" className="input" maxLength={4} />
+      <input type="password" value={confirmNewPin} onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Confirm new PIN" className="input" maxLength={4} />
+      <button onClick={changePin} disabled={saving || !oldPin || !newPin || !confirmNewPin} className="btn-primary">
+        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Update PIN
+      </button>
     </div>
   );
 }

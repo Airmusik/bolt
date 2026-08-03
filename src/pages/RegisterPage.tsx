@@ -29,7 +29,8 @@ export function RegisterPage() {
     setError(null);
     setLoading(true);
     if (pin !== confirmPin) { setError('PINs do not match. Please re-enter.'); setLoading(false); return; }
-    const { error } = await signUp(phone, pin, fullName, role, email || undefined);
+    if (!email.trim()) { setError('Email address is required.'); setLoading(false); return; }
+    const { error } = await signUp(phone, pin, fullName, role, email.trim());
     setLoading(false);
     if (error) {
       setError(error);
@@ -89,7 +90,7 @@ export function RegisterPage() {
             </div>
           </div>
           <div className="mt-4">
-            <label className="label">Email <span className="text-ink-400">(optional)</span></label>
+            <label className="label">Email</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@example.com" className="input pl-10" />

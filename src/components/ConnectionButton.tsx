@@ -5,7 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { supabase } from '@/lib/supabase';
 import { getConnectionBetween, sendConnectionRequest, updateConnectionStatus } from '@/lib/connections';
-import type { Connection } from '@/lib/types';
+import type { Connection, Profile } from '@/lib/types';
 import { Modal } from './Modal';
 import { cn } from '@/lib/utils';
 
@@ -17,10 +17,11 @@ interface Props {
 }
 
 export function ConnectionButton({ otherUserId, vehicleId, size = 'md', className }: Props) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [connection, setConnection] = useState<Connection | null>(null);
+  const [otherProfile, setOtherProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [message, setMessage] = useState('');
@@ -30,8 +31,12 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     (async () => {
-      const conn = await getConnectionBetween(user.id, otherUserId);
+      const [conn, { data: other }] = await Promise.all([
+        getConnectionBetween(user.id, otherUserId),
+        supabase.from('profiles').select('*').eq('id', otherUserId).maybeSingle(),
+      ]);
       setConnection(conn);
+      setOtherProfile(other as Profile | null);
       if (conn?.status === 'accepted') {
         const { data: conv } = await supabase
           .from('conversations')
@@ -85,6 +90,15 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   if (user.id === otherUserId) return null;
 
   if (loading) return <div className={cn('h-9 w-24 animate-pulse rounded-lg bg-ink-100', className)} />;
+
+  // If the other user is unavailable, don't show the connect button
+  if (otherProfile && otherProfile.availability === 'unavailable' && (!connection || connection.status === 'rejected' || connection.status === 'withdrawn' || connection.status === 'ended')) {
+    return (
+      <span className={cn('inline-flex items-center gap-1.5 rounded-lg bg-ink-100 px-3 py-1.5 text-xs font-medium text-ink-500', btnSize, className)}>
+        <Clock className="h-3.5 w-3.5" /> Unavailable
+      </span>
+    );
+  }
 
   // No connection yet
   if (!connection) {

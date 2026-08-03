@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, ShieldOff, CheckCircle2, XCircle, Plus } from 'lucide-react';
+import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, ShieldOff, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
@@ -23,7 +23,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { Modal } from '@/components/Modal';
 
-type Tab = 'overview' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'chat' | 'history';
+type Tab = 'overview' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'chat' | 'history' | 'settings';
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -47,6 +47,8 @@ export function AdminPage() {
   const [viewingUser, setViewingUser] = useState<Profile | null>(null);
   const [viewingHistory, setViewingHistory] = useState<(PlatformHistory & { driver?: Profile }) | null>(null);
   const [history, setHistory] = useState<(PlatformHistory & { driver?: Profile })[]>([]);
+  const [changingPinUser, setChangingPinUser] = useState<Profile | null>(null);
+  const [deletingUser, setDeletingUser] = useState<Profile | null>(null);
 
   const load = async () => {
     const [{ data: u }, { data: v }, { data: r }, { data: d }, { data: h }] = await Promise.all([
@@ -164,6 +166,48 @@ export function AdminPage() {
     load();
   };
 
+  const deleteUser = async (p: Profile) => {
+    const { error } = await supabase.rpc('admin_delete_user', { p_user_id: p.id });
+    if (error) { toast('Delete failed: ' + error.message, 'error'); return; }
+    toast(`${p.full_name} has been permanently deleted.`);
+    setDeletingUser(null);
+    load();
+  };
+
+  const adminChangePin = async (p: Profile, newPin: string) => {
+    if (!/^\d{4}$/.test(newPin)) { toast('PIN must be 4 digits.', 'error'); return; }
+    const { error } = await supabase.rpc('admin_change_user_pin', { p_user_id: p.id, p_new_password: 'Gli!k_' + newPin });
+    if (error) { toast('Failed to change PIN: ' + error.message, 'error'); return; }
+    toast(`PIN changed for ${p.full_name}.`);
+    setChangingPinUser(null);
+  };
+
+  const adminStartChat = async (targetUser: Profile) => {
+    if (!user) return;
+    // Check if conversation already exists
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('admin_id', user.id)
+      .or(`driver_id.eq.${targetUser.id},owner_id.eq.${targetUser.id}`)
+      .maybeSingle();
+    if (existing) {
+      setTab('chat');
+      window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: (existing as any).id }));
+      return;
+    }
+    // Create new conversation
+    const isDriver = targetUser.role === 'driver';
+    const { data: conv, error } = await supabase
+      .from('conversations')
+      .insert({ admin_id: user.id, driver_id: isDriver ? targetUser.id : null, owner_id: isDriver ? null : targetUser.id })
+      .select()
+      .maybeSingle();
+    if (error) { toast('Could not start chat: ' + error.message, 'error'); return; }
+    setTab('chat');
+    window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: (conv as any)?.id }));
+  };
+
   const stats = [
     { label: 'Total users', value: users.length, icon: Users },
     { label: 'Drivers', value: drivers.length, icon: Users },
@@ -184,6 +228,7 @@ export function AdminPage() {
     { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
     { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
     { key: 'chat', label: 'Chat', icon: MessageSquare },
+    { key: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
   const filteredDrivers = drivers.filter((d) => d.full_name.toLowerCase().includes(search.toLowerCase()) || (d.phone || '').includes(search));
@@ -283,11 +328,14 @@ export function AdminPage() {
                   {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setViewingUser(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
                   {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
+                  <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
+                  <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> PIN</button>
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
                   ) : (
                     <button onClick={() => { setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
                   )}
+                  <button onClick={() => setDeletingUser(u)} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /> Delete</button>
                 </div>
               </div>
             ))}
@@ -314,11 +362,14 @@ export function AdminPage() {
                   {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setViewingUser(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
                   {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
+                  <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
+                  <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> PIN</button>
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
                   ) : (
                     <button onClick={() => { setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
                   )}
+                  <button onClick={() => setDeletingUser(u)} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /> Delete</button>
                 </div>
               </div>
             ))}
@@ -433,6 +484,9 @@ export function AdminPage() {
 
         {/* ---------- Chat ---------- */}
         {tab === 'chat' && !loading && <AdminChat user={user} />}
+
+        {/* ---------- Settings ---------- */}
+        {tab === 'settings' && !loading && <AdminSettings />}
       </div>
 
       {/* Document viewer modal */}
@@ -518,6 +572,9 @@ export function AdminPage() {
             const { data } = await supabase.from('documents').select('*').eq('user_id', viewingUser.id).eq('type', doc.type).maybeSingle();
             if (data) setViewingDoc(data as DocumentRow);
           }}
+          onChangePin={() => { setChangingPinUser(viewingUser); setViewingUser(null); }}
+          onDelete={() => { setDeletingUser(viewingUser); setViewingUser(null); }}
+          onMessage={() => { adminStartChat(viewingUser); setViewingUser(null); }}
         />
       )}
 
@@ -548,6 +605,114 @@ export function AdminPage() {
       {editingUser && (
         <EditUserModal user={editingUser} onClose={() => setEditingUser(null)} onDone={() => { setEditingUser(null); load(); }} toast={toast} />
       )}
+
+      {/* Change PIN modal */}
+      {changingPinUser && (
+        <AdminChangePinModal user={changingPinUser} onClose={() => setChangingPinUser(null)} onConfirm={(pin) => adminChangePin(changingPinUser, pin)} />
+      )}
+
+      {/* Delete user confirm */}
+      {deletingUser && (
+        <ConfirmDialog
+          title="Delete user permanently"
+          message={`This will permanently delete ${deletingUser.full_name} and ALL their data (vehicles, messages, documents, connections). This cannot be undone.`}
+          confirmLabel="Delete forever"
+          danger
+          onConfirm={() => deleteUser(deletingUser)}
+          onClose={() => setDeletingUser(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ---------- Admin Change PIN Modal ----------
+function AdminChangePinModal({ user, onClose, onConfirm }: { user: Profile; onClose: () => void; onConfirm: (pin: string) => void }) {
+  const [pin, setPin] = useState('');
+  const [confirm, setConfirm] = useState('');
+  return (
+    <Modal title={`Change PIN: ${user.full_name}`} onClose={onClose}>
+      <p className="text-sm text-ink-600">Set a new 4-digit PIN for this user. They will use this PIN to sign in.</p>
+      <div className="mt-3 space-y-3">
+        <input type="password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="New 4-digit PIN" className="input" maxLength={4} />
+        <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Confirm PIN" className="input" maxLength={4} />
+      </div>
+      {pin && confirm && pin !== confirm && <p className="mt-2 text-xs text-danger">PINs do not match.</p>}
+      <div className="mt-4 flex justify-end gap-2">
+        <button onClick={onClose} className="btn-secondary">Cancel</button>
+        <button onClick={() => onConfirm(pin)} disabled={!/^\d{4}$/.test(pin) || pin !== confirm} className="btn-primary"><KeyRound className="h-4 w-4" /> Set new PIN</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ---------- Admin Settings ----------
+function AdminSettings() {
+  const { toast } = useToast();
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('site_settings').select('*');
+      const map: Record<string, string> = {};
+      (data as any[])?.forEach((r) => { map[r.key] = r.value; });
+      setSettings(map);
+      setLoading(false);
+    })();
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    for (const [key, value] of Object.entries(settings)) {
+      await supabase.from('site_settings').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    }
+    setSaving(false);
+    toast('Settings saved.');
+  };
+
+  if (loading) return <div className="card h-40 animate-pulse" />;
+
+  return (
+    <div className="space-y-4">
+      <div className="card p-5">
+        <h2 className="font-display text-lg font-bold text-ink-900">Site Settings</h2>
+        <p className="mt-1 text-sm text-ink-500">Configure platform-wide settings.</p>
+        <div className="mt-4 space-y-4">
+          <div>
+            <label className="label">Site name</label>
+            <input value={settings['site_name'] || ''} onChange={(e) => setSettings({ ...settings, site_name: e.target.value })} className="input" />
+          </div>
+          <div>
+            <label className="label">Maintenance mode</label>
+            <select value={settings['maintenance_mode'] || 'false'} onChange={(e) => setSettings({ ...settings, maintenance_mode: e.target.value })} className="input">
+              <option value="false">Off</option>
+              <option value="true">On (blocks all access)</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Require email at registration</label>
+            <select value={settings['require_email'] || 'true'} onChange={(e) => setSettings({ ...settings, require_email: e.target.value })} className="input">
+              <option value="true">Yes (required)</option>
+              <option value="false">No (optional)</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Max vehicles per owner</label>
+            <input type="number" value={settings['max_vehicles_per_owner'] || '10'} onChange={(e) => setSettings({ ...settings, max_vehicles_per_owner: e.target.value })} className="input" />
+          </div>
+          <div>
+            <label className="label">Platform fee (%)</label>
+            <input type="number" value={settings['platform_fee_percent'] || '0'} onChange={(e) => setSettings({ ...settings, platform_fee_percent: e.target.value })} className="input" />
+          </div>
+          <div>
+            <label className="label">Admin contact email</label>
+            <input value={settings['admin_contact_email'] || ''} onChange={(e) => setSettings({ ...settings, admin_contact_email: e.target.value })} className="input" />
+          </div>
+        </div>
+        <button onClick={save} disabled={saving} className="btn-primary mt-4"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save settings'}</button>
+      </div>
     </div>
   );
 }
@@ -683,13 +848,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 // ---------- View User Modal ----------
-function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDoc }: {
+function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDoc, onChangePin, onDelete, onMessage }: {
   user: Profile;
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
   onSuspend: () => void;
   onViewDoc: (doc: DocumentRow) => void;
+  onChangePin: () => void;
+  onDelete: () => void;
+  onMessage: () => void;
 }) {
   const [docs, setDocs] = useState<DocumentRow[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
@@ -769,17 +937,20 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
       {/* Actions */}
       <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-ink-100 pt-4">
         <button onClick={onClose} className="btn-secondary">Close</button>
+        <button onClick={onMessage} className="btn-secondary"><MessageSquare className="h-4 w-4" /> Message</button>
         {!user.is_suspended && user.verification_status !== 'approved' && (
           <button onClick={onApprove} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
         )}
         {!user.is_suspended && user.verification_status !== 'rejected' && (
           <button onClick={onReject} className="btn-secondary"><X className="h-4 w-4" /> Reject</button>
         )}
+        <button onClick={onChangePin} className="btn-secondary"><KeyRound className="h-4 w-4" /> Change PIN</button>
         {user.is_suspended ? (
           <button onClick={onSuspend} className="btn-secondary"><ShieldCheck className="h-4 w-4" /> Manage suspension</button>
         ) : (
           <button onClick={onSuspend} className="btn-secondary text-danger"><Ban className="h-4 w-4" /> Suspend</button>
         )}
+        <button onClick={onDelete} className="btn-secondary text-danger"><Trash2 className="h-4 w-4" /> Delete user</button>
       </div>
     </Modal>
   );
