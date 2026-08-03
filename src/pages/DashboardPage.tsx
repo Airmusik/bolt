@@ -87,15 +87,15 @@ export function DashboardPage() {
   const pendingConnections = incomingConnections.filter((c) => c.status === 'pending');
 
   const stats = isOwner ? [
-    { label: 'Active listings', value: vehicles.filter(v => v.status === 'active').length, icon: Car },
-    { label: 'Applications', value: applications.filter(a => a.status === 'pending').length, icon: Users },
-    { label: 'Connection requests', value: pendingConnections.length, icon: Link2 },
-    { label: 'Active chats', value: conversations.length, icon: MessageSquare },
+    { label: 'Active listings', value: vehicles.filter(v => v.status === 'active').length, icon: Car, tab: 'vehicles' as Tab },
+    { label: 'Applications', value: applications.filter(a => a.status === 'pending').length, icon: Users, tab: 'applications' as Tab },
+    { label: 'Connection requests', value: pendingConnections.length, icon: Link2, tab: 'connections' as Tab },
+    { label: 'Active chats', value: conversations.length, icon: MessageSquare, tab: 'chats' as Tab },
   ] : [
-    { label: 'Applications', value: myApplications.length, icon: Users },
-    { label: 'Connection requests', value: pendingConnections.length, icon: Link2 },
-    { label: 'Active chats', value: conversations.length, icon: MessageSquare },
-    { label: 'Rating', value: profile.rating > 0 ? profile.rating.toFixed(1) : 'New', icon: Star },
+    { label: 'Applications', value: myApplications.length, icon: Users, tab: 'applications' as Tab },
+    { label: 'Connection requests', value: pendingConnections.length, icon: Link2, tab: 'connections' as Tab },
+    { label: 'Active chats', value: conversations.length, icon: MessageSquare, tab: 'chats' as Tab },
+    { label: 'Rating', value: profile.rating > 0 ? profile.rating.toFixed(1) : 'New', icon: Star, tab: null },
   ];
 
   const tabs: { id: Tab; label: string }[] = [
@@ -124,11 +124,19 @@ export function DashboardPage() {
       {/* Stats */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className="card p-5">
-            <s.icon className="h-6 w-6 text-ink-900" />
-            <p className="mt-3 font-display text-2xl font-bold text-ink-900">{s.value}</p>
-            <p className="text-sm text-ink-500">{s.label}</p>
-          </div>
+          s.tab ? (
+            <button key={s.label} onClick={() => setTab(s.tab!)} className="card p-5 text-left transition-shadow hover:shadow-md hover:ring-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-400">
+              <s.icon className="h-6 w-6 text-ink-900" />
+              <p className="mt-3 font-display text-2xl font-bold text-ink-900">{s.value}</p>
+              <p className="text-sm text-ink-500">{s.label}</p>
+            </button>
+          ) : (
+            <div key={s.label} className="card p-5">
+              <s.icon className="h-6 w-6 text-ink-900" />
+              <p className="mt-3 font-display text-2xl font-bold text-ink-900">{s.value}</p>
+              <p className="text-sm text-ink-500">{s.label}</p>
+            </div>
+          )
         ))}
       </div>
 
