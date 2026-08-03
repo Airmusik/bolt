@@ -16,12 +16,18 @@ import { titleCase } from '@/lib/utils';
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
   const [featured, setFeatured] = useState<VehicleWithRelations[]>([]);
   const [drivers, setDrivers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (user && profile?.role === 'admin') {
+      navigate('/admin', { replace: true });
+    }
+  }, [user, profile, navigate]);
 
   useEffect(() => {
     (async () => {

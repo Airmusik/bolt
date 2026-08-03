@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Car, Phone, Lock, User, Eye, EyeOff, ArrowRight, Check } from 'lucide-react';
+import { Car, Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { BackButton } from '@/components/BackButton';
@@ -12,6 +12,7 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
   const [role, setRole] = useState<Role>('driver');
   const [showPin, setShowPin] = useState(false);
@@ -26,7 +27,7 @@ export function RegisterPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await signUp(phone, pin, fullName, role);
+    const { error } = await signUp(phone, pin, fullName, role, email || undefined);
     setLoading(false);
     if (error) {
       setError(error);
@@ -85,6 +86,15 @@ export function RegisterPage() {
               <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712 345 678" inputMode="tel" className="input pl-10" required />
             </div>
           </div>
+          <div className="mt-4">
+            <label className="label">Email <span className="text-ink-400">(optional)</span></label>
+            <div className="relative">
+              <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@example.com" className="input pl-10" />
+            </div>
+            <p className="mt-1.5 text-xs text-ink-400">Add an email so you can reset your PIN if you forget it.</p>
+          </div>
+
           <div className="mt-4">
             <label className="label">4-digit PIN</label>
             <div className="relative">

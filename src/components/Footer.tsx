@@ -1,13 +1,33 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Car, Facebook, Instagram, Linkedin, Mail, MapPin } from 'lucide-react';
+import { Car, Facebook, Instagram, Linkedin, Mail, MapPin, ChevronDown } from 'lucide-react';
 
 export function Footer() {
+  const [expanded, setExpanded] = useState(false);
+
   return (
     <footer className="border-t border-ink-100 bg-white">
-      <div className="container-content py-12">
-        <div className="grid gap-10 md:grid-cols-4">
+      <div className="container-content py-6">
+        {/* Mobile: collapsed behind a button */}
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="flex w-full items-center justify-between md:hidden"
+        >
+          <Link to="/" className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
+              <Car className="h-5 w-5" />
+            </span>
+            <span className="font-display text-lg font-extrabold tracking-tight">
+              Gari<span className="text-brand-600">Link</span>
+            </span>
+          </Link>
+          <ChevronDown className={`h-5 w-5 text-ink-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+
+        {/* Desktop: always visible grid; Mobile: only when expanded */}
+        <div className={`mt-0 md:mt-0 ${expanded ? 'mt-6 grid' : 'hidden'} gap-10 md:grid md:grid-cols-4`}>
           <div>
-            <Link to="/" className="flex items-center gap-2">
+            <Link to="/" className="hidden items-center gap-2 md:flex">
               <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
                 <Car className="h-5 w-5" />
               </span>
@@ -47,7 +67,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-10 border-t border-ink-100 pt-6 text-center text-xs text-ink-400">
+        <div className="mt-6 border-t border-ink-100 pt-4 text-center text-xs text-ink-400 md:mt-10 md:pt-6">
           © {new Date().getFullYear()} GariLink. All rights reserved. GariLink does not process payments between users.
         </div>
       </div>

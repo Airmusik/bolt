@@ -7,7 +7,7 @@
 // passwords of at least 6 characters, so we pad the PIN with a fixed prefix
 // ("gl") before sending it to Supabase. This is transparent to the user.
 
-const PIN_PREFIX = 'gl';
+const PIN_PREFIX = 'Gli!k_';
 
 export function phoneToEmail(phone: string): string {
   const digits = phone.replace(/\D/g, '');

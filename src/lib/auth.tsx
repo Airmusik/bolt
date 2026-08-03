@@ -7,10 +7,11 @@ interface AuthContextValue {
   user: { id: string; email: string } | null;
   profile: Profile | null;
   loading: boolean;
-  signUp: (phone: string, pin: string, fullName: string, role: Role) => Promise<{ error: string | null }>;
+  signUp: (phone: string, pin: string, fullName: string, role: Role, email?: string) => Promise<{ error: string | null }>;
   signIn: (phone: string, pin: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  resetPin: (phone: string) => Promise<{ error: string | null }>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -79,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadProfile]);
 
-  const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role) => {
+  const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail) => {
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number (e.g. 0712 345 678).' };
     if (!isValidPin(pin)) return { error: 'PIN must be exactly 4 digits.' };
 
@@ -107,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         role,
         full_name: fullName,
         phone: normalized,
+        email: userEmail || null,
       });
     }
     return { error: null };
@@ -129,8 +131,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
+  const resetPin = useCallback<AuthContextValue['resetPin']>(async (phone) => {
+    if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number.' };
+    const email = phoneToEmail(phone);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/login?reset=1`,
+    });
+    if (error) return { error: error.message };
+    return { error: null };
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, refreshProfile, resetPin }}>
       {children}
     </AuthContext.Provider>
   );

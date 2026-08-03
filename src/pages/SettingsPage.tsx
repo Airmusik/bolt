@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, LogOut, Ban, Camera, Loader2, Check, MapPin } from 'lucide-react';
+import { User, Shield, Bell, LogOut, Ban, Camera, Loader2, Check, MapPin, ToggleLeft, ToggleRight } from 'lucide-react';
 import { supabase, VEHICLE_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
@@ -25,6 +25,7 @@ export function SettingsPage() {
   const [bio, setBio] = useState(profile?.bio || '');
   const [location, setLocation] = useState(profile?.location || '');
   const [showLocations, setShowLocations] = useState(false);
+  const [availability, setAvailability] = useState(profile?.availability || 'available');
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -56,6 +57,20 @@ export function SettingsPage() {
     await refreshProfile();
     setUploadingAvatar(false);
     toast('Profile photo updated.');
+  };
+
+  const toggleAvailability = async () => {
+    if (!user) return;
+    const newStatus = availability === 'available' ? 'unavailable' : 'available';
+    setAvailability(newStatus);
+    const { error } = await supabase.from('profiles').update({ availability: newStatus }).eq('id', user.id);
+    if (error) {
+      setAvailability(availability === 'available' ? 'unavailable' : 'available');
+      toast('Could not update availability.', 'error');
+      return;
+    }
+    await refreshProfile();
+    toast(`You are now ${newStatus}.`);
   };
 
   return (
@@ -124,6 +139,26 @@ export function SettingsPage() {
           <button onClick={save} disabled={saving} className="btn-primary mt-4">
             {saving ? 'Saving…' : justSaved ? <><Check className="h-4 w-4" /> Saved</> : 'Save changes'}
           </button>
+        </div>
+
+        {/* Availability */}
+        <div className="card p-5">
+          <h2 className="flex items-center gap-2 font-semibold text-ink-900"><Bell className="h-5 w-5" /> Availability</h2>
+          <p className="mt-2 text-sm text-ink-600">Control whether other users can see you as available for connections.</p>
+          <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${availability === 'available' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${availability === 'available' ? 'bg-green-500' : 'bg-red-500'}`} />
+                {availability === 'available' ? 'Available' : 'Unavailable'}
+              </span>
+            </div>
+            <button onClick={toggleAvailability} className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900">
+              {availability === 'available'
+                ? <ToggleRight className="h-7 w-7 text-green-600" />
+                : <ToggleLeft className="h-7 w-7 text-ink-400" />}
+              {availability === 'available' ? 'Available' : 'Unavailable'}
+            </button>
+          </div>
         </div>
 
         {/* Verification */}

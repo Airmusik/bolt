@@ -19,7 +19,15 @@ export function NotificationsPage() {
     setNotifications((data as Notification[]) || []);
     setLoading(false);
   };
-  useEffect(() => { load(); }, [user]);
+
+  // Auto-mark all unread notifications as read when the page opens
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+      load();
+    })();
+  }, [user]);
 
   const markAllRead = async () => {
     if (!user) return;

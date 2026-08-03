@@ -6,7 +6,7 @@ import type { DocumentRow } from '@/lib/types';
 export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: () => void }) {
   const [loading, setLoading] = useState(true);
   const [isImage, setIsImage] = useState(false);
-  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -21,20 +21,46 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
         }
         const ext = path.split('.').pop()?.toLowerCase();
         setIsImage(['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext || ''));
-        const { data, error: signError } = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(path, 3600);
-        if (signError || !data?.signedUrl) {
+
+        const { data, error: dlError } = await supabase.storage.from(DOCUMENT_BUCKET).download(path);
+        if (dlError || !data) {
           setError('Could not load document. The file may have been removed.');
           setLoading(false);
           return;
         }
-        setSignedUrl(data.signedUrl);
+        const blob = new Blob([data], { type: data.type || (ext === 'pdf' ? 'application/pdf' : 'application/octet-stream') });
+        const objUrl = URL.createObjectURL(blob);
+        setObjectUrl(objUrl);
         setLoading(false);
       } catch {
         setError('Could not load document.');
         setLoading(false);
       }
     })();
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
   }, [doc.file_url]);
+
+  const handleDownload = async () => {
+    try {
+      const url = new URL(doc.file_url);
+      const path = url.pathname.split(`/${DOCUMENT_BUCKET}/`)[1];
+      if (!path) return;
+      const { data } = await supabase.storage.from(DOCUMENT_BUCKET).download(path);
+      if (data) {
+        const blob = new Blob([data]);
+        const link = window.document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = doc.label || doc.type || 'document';
+        link.click();
+        URL.revokeObjectURL(link.href);
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
@@ -45,7 +71,7 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
             <FileText className="h-5 w-5 text-brand-600" /> {doc.label || doc.type.replace(/_/g, ' ')}
           </h3>
           <div className="flex items-center gap-2">
-            {signedUrl && <a href={signedUrl} download className="btn-ghost text-sm"><Download className="h-4 w-4" /> Download</a>}
+            {objectUrl && <button onClick={handleDownload} className="btn-ghost text-sm"><Download className="h-4 w-4" /> Download</button>}
             <button onClick={onClose} className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700">
               <X className="h-5 w-5" />
             </button>
@@ -62,9 +88,15 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
               <p className="text-sm text-ink-500">{error}</p>
             </div>
           ) : isImage ? (
-            <img src={signedUrl!} alt="Document" className="mx-auto max-h-full max-w-full object-contain" />
+            <img src={objectUrl!} alt="Document" className="mx-auto max-h-full max-w-full object-contain" />
           ) : (
-            <iframe src={signedUrl!} title="Document" className="h-full w-full rounded-lg bg-white" />
+            <object data={objectUrl} type="application/pdf" className="h-full w-full rounded-lg">
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+                <FileText className="h-10 w-10 text-ink-300" />
+                <p className="text-sm text-ink-500">This file type can't be previewed inline.</p>
+                <button onClick={handleDownload} className="btn-secondary text-sm"><Download className="h-4 w-4" /> Download to view</button>
+              </div>
+            </object>
           )}
         </div>
       </div>
