@@ -61,7 +61,7 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-ink-900">Get in touch</h4>
             <ul className="mt-3 space-y-2 text-sm text-ink-500">
-              <li className="flex items-center gap-2"><Mail className="h-4 w-4" /> hello@garilink.co.ke</li>
+              <li className="flex items-center gap-2"><Mail className="h-4 w-4" /> airmusikinc@gmail.com</li>
               <li className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Nairobi, Kenya</li>
             </ul>
           </div>
