@@ -21,8 +21,8 @@ export function ContactPage() {
       <p className="mt-2 text-ink-600">Questions, feedback or need help? Reach out.</p>
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <div className="space-y-4">
-          <div className="flex items-center gap-3"><Mail className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Email</p><p className="text-sm text-ink-500">hello@garilink.co.ke</p></div></div>
-          <div className="flex items-center gap-3"><Phone className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Phone</p><p className="text-sm text-ink-500">+254 700 000 000</p></div></div>
+          <div className="flex items-center gap-3"><Mail className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Email</p><p className="text-sm text-ink-500">airmusikinck@gmail.com</p></div></div>
+          <div className="flex items-center gap-3"><Phone className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Phone</p><p className="text-sm text-ink-500">+254708593011</p></div></div>
           <div className="flex items-center gap-3"><MapPin className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Address</p><p className="text-sm text-ink-500">Nairobi, Kenya</p></div></div>
         </div>
         <form onSubmit={submit} className="card p-6">
