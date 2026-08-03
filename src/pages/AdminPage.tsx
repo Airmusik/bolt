@@ -19,7 +19,6 @@ const SUSPEND_REASONS = [
 ];
 import { useToast } from '@/components/Toast';
 import { useAuth } from '@/lib/auth';
-import { BackButton } from '@/components/BackButton';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { Modal } from '@/components/Modal';
@@ -45,6 +44,8 @@ export function AdminPage() {
   const [suspending, setSuspending] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<(Vehicle & { owner?: Profile; photos?: { photo_url: string }[] }) | null>(null);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [viewingUser, setViewingUser] = useState<Profile | null>(null);
+  const [viewingHistory, setViewingHistory] = useState<(PlatformHistory & { driver?: Profile }) | null>(null);
   const [history, setHistory] = useState<(PlatformHistory & { driver?: Profile })[]>([]);
 
   const load = async () => {
@@ -191,8 +192,7 @@ export function AdminPage() {
 
   return (
     <div className="container-content py-8">
-      <BackButton to="/" />
-      <div className="mt-4 flex items-center gap-2">
+      <div className="flex items-center gap-2">
         <ShieldCheck className="h-7 w-7 text-brand-600" />
         <h1 className="font-display text-2xl font-bold text-ink-900">Admin Portal</h1>
       </div>
@@ -236,7 +236,10 @@ export function AdminPage() {
                 {pendingVerifications.slice(0, 5).map((p) => (
                   <div key={p.id} className="flex items-center justify-between">
                     <span className="text-sm text-ink-700">{p.full_name} <span className="capitalize text-ink-400">({p.role})</span></span>
-                    <button onClick={() => approveVerification(p)} className="btn-primary px-3 py-1 text-xs">Approve</button>
+                    <div className="flex gap-1">
+                      <button onClick={() => setViewingUser(p)} className="btn-ghost px-3 py-1 text-xs"><Eye className="h-3 w-3" /> View</button>
+                      <button onClick={() => setViewingUser(p)} className="btn-primary px-3 py-1 text-xs">Approve</button>
+                    </div>
                   </div>
                 ))}
                 {pendingVerifications.length === 0 && <p className="text-sm text-ink-400">No pending verifications.</p>}
@@ -249,6 +252,7 @@ export function AdminPage() {
                   <div key={d.id} className="flex items-center justify-between">
                     <span className="text-sm text-ink-700">{d.user?.full_name} — {d.label || d.type.replace(/_/g, ' ')}</span>
                     <div className="flex gap-1">
+                      <button onClick={() => setViewingDoc(d)} className="btn-ghost px-2 py-1 text-xs"><Eye className="h-3 w-3" /> View</button>
                       <button onClick={() => verifyDoc(d)} className="btn-primary px-2 py-1 text-xs"><Check className="h-3 w-3" /></button>
                       <button onClick={() => { setRejectingDoc(d); }} className="btn-secondary px-2 py-1 text-xs"><X className="h-3 w-3" /></button>
                     </div>
@@ -275,7 +279,8 @@ export function AdminPage() {
                   {u.is_suspended && <span className="badge badge-danger"><Ban className="inline h-3 w-3" /> Suspended</span>}
                   {!u.is_suspended && u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>}
                   {!u.is_suspended && u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> Rejected</span>}
-                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
+                  <button onClick={() => setViewingUser(u)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
+                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setViewingUser(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
                   {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   {u.is_suspended ? (
@@ -305,7 +310,8 @@ export function AdminPage() {
                   {u.is_suspended && <span className="badge badge-danger"><Ban className="inline h-3 w-3" /> Suspended</span>}
                   {!u.is_suspended && u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>}
                   {!u.is_suspended && u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> Rejected</span>}
-                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => approveVerification(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
+                  <button onClick={() => setViewingUser(u)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
+                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setViewingUser(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
                   {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   {u.is_suspended ? (
@@ -415,7 +421,10 @@ export function AdminPage() {
                 {h.approved ? (
                   <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>
                 ) : (
-                  <button onClick={async () => { await supabase.from('driver_platform_history').update({ approved: true }).eq('id', h.id); toast('Platform history approved.'); load(); }} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Approve</button>
+                  <div className="flex gap-1">
+                    <button onClick={() => setViewingHistory(h)} className="btn-ghost px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View</button>
+                    <button onClick={() => setViewingHistory(h)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Approve</button>
+                  </div>
                 )}
               </div>
             ))}
@@ -495,6 +504,44 @@ export function AdminPage() {
       {/* Edit vehicle modal */}
       {editingVehicle && (
         <EditVehicleModal vehicle={editingVehicle} onClose={() => setEditingVehicle(null)} onDone={() => { setEditingVehicle(null); load(); }} toast={toast} />
+      )}
+
+      {/* User profile viewer modal */}
+      {viewingUser && (
+        <ViewUserModal
+          user={viewingUser}
+          onClose={() => setViewingUser(null)}
+          onApprove={() => { approveVerification(viewingUser); setViewingUser(null); }}
+          onReject={() => { rejectVerification(viewingUser); setViewingUser(null); }}
+          onSuspend={() => { setSuspendingUser(viewingUser); setSuspendReason(''); setViewingUser(null); }}
+          onViewDoc={async (doc: DocumentRow) => {
+            const { data } = await supabase.from('documents').select('*').eq('user_id', viewingUser.id).eq('type', doc.type).maybeSingle();
+            if (data) setViewingDoc(data as DocumentRow);
+          }}
+        />
+      )}
+
+      {/* Platform history viewer modal */}
+      {viewingHistory && (
+        <Modal title={`Platform history: ${viewingHistory.platform}`} onClose={() => setViewingHistory(null)}>
+          <div className="space-y-2 text-sm">
+            <p><span className="text-ink-500">Driver:</span> {viewingHistory.driver?.full_name || 'Unknown'}</p>
+            <p><span className="text-ink-500">Platform:</span> <span className="capitalize">{viewingHistory.platform}</span></p>
+            <p><span className="text-ink-500">Months active:</span> {viewingHistory.months_active}</p>
+            <p><span className="text-ink-500">Trips:</span> {viewingHistory.trips}</p>
+            {viewingHistory.rating != null && <p><span className="text-ink-500">Rating:</span> {viewingHistory.rating.toFixed(1)}</p>}
+            {viewingHistory.proof_url && (
+              <div>
+                <p className="text-ink-500">Proof:</p>
+                <img src={viewingHistory.proof_url} alt="Proof" className="mt-1 max-h-64 rounded-lg border border-ink-100" />
+              </div>
+            )}
+          </div>
+          <div className="mt-4 flex justify-end gap-2">
+            <button onClick={() => setViewingHistory(null)} className="btn-secondary">Close</button>
+            <button onClick={async () => { await supabase.from('driver_platform_history').update({ approved: true }).eq('id', viewingHistory.id); toast('Platform history approved.'); setViewingHistory(null); load(); }} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
+          </div>
+        </Modal>
       )}
 
       {/* Edit user modal */}
@@ -631,6 +678,118 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     <div>
       <label className="label">{label}</label>
       {children}
+    </div>
+  );
+}
+
+// ---------- View User Modal ----------
+function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDoc }: {
+  user: Profile;
+  onClose: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onSuspend: () => void;
+  onViewDoc: (doc: DocumentRow) => void;
+}) {
+  const [docs, setDocs] = useState<DocumentRow[]>([]);
+  const [loadingDocs, setLoadingDocs] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from('documents').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+      setDocs((data as DocumentRow[]) || []);
+      setLoadingDocs(false);
+    })();
+  }, [user.id]);
+
+  return (
+    <Modal title={`${user.full_name} — Profile`} onClose={onClose}>
+      <div className="max-h-[70vh] space-y-4 overflow-y-auto">
+        {/* Profile info */}
+        <div className="flex items-center gap-3">
+          <Avatar name={user.full_name} src={user.avatar_url} size={64} verified={user.is_verified} />
+          <div>
+            <p className="font-display text-lg font-bold text-ink-900">{user.full_name}</p>
+            <p className="text-sm capitalize text-ink-500">{user.role}</p>
+            <p className="text-xs text-ink-400">{user.phone}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <InfoRow label="Verification" value={<span className="capitalize">{user.verification_status}</span>} />
+          <InfoRow label="Suspended" value={user.is_suspended ? 'Yes' : 'No'} />
+          <InfoRow label="Rating" value={user.rating > 0 ? `${user.rating.toFixed(1)} (${user.rating_count})` : 'No ratings'} />
+          <InfoRow label="Contracts" value={String(user.contracts_completed)} />
+          <InfoRow label="Availability" value={<span className="capitalize">{user.availability}</span>} />
+          <InfoRow label="Location" value={user.location || 'Not set'} />
+          <InfoRow label="Age" value={user.age ? String(user.age) : 'Not set'} />
+          <InfoRow label="Experience" value={`${user.driving_experience_years} yrs`} />
+          <InfoRow label="Licence #" value={user.licence_number || 'Not set'} />
+          <InfoRow label="ID #" value={user.id_number || 'Not set'} />
+          <InfoRow label="Languages" value={user.languages.join(', ') || 'None'} />
+          <InfoRow label="Platforms" value={user.platforms_worked.join(', ') || 'None'} />
+        </div>
+
+        {user.bio && (
+          <div>
+            <p className="label">Bio</p>
+            <p className="text-sm text-ink-600">{user.bio}</p>
+          </div>
+        )}
+
+        {/* Documents */}
+        <div>
+          <p className="label">Documents</p>
+          {loadingDocs ? (
+            <div className="h-20 animate-pulse rounded-lg bg-ink-100" />
+          ) : docs.length === 0 ? (
+            <p className="text-sm text-ink-400">No documents uploaded.</p>
+          ) : (
+            <div className="space-y-2">
+              {docs.map((d) => (
+                <div key={d.id} className="flex items-center justify-between rounded-lg border border-ink-100 p-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-ink-400" />
+                    <div>
+                      <p className="text-sm font-medium text-ink-900">{d.label || d.type.replace(/_/g, ' ')}</p>
+                      <p className="text-xs text-ink-400">
+                        {d.verified ? 'Verified' : d.rejected ? 'Rejected' : 'Pending'}
+                        {d.expiry_date && ` · Expires ${new Date(d.expiry_date).toLocaleDateString()}`}
+                      </p>
+                    </div>
+                  </div>
+                  <button onClick={() => onViewDoc(d)} className="btn-ghost text-xs"><Eye className="h-3.5 w-3.5" /> View</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-ink-100 pt-4">
+        <button onClick={onClose} className="btn-secondary">Close</button>
+        {!user.is_suspended && user.verification_status !== 'approved' && (
+          <button onClick={onApprove} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
+        )}
+        {!user.is_suspended && user.verification_status !== 'rejected' && (
+          <button onClick={onReject} className="btn-secondary"><X className="h-4 w-4" /> Reject</button>
+        )}
+        {user.is_suspended ? (
+          <button onClick={onSuspend} className="btn-secondary"><ShieldCheck className="h-4 w-4" /> Manage suspension</button>
+        ) : (
+          <button onClick={onSuspend} className="btn-secondary text-danger"><Ban className="h-4 w-4" /> Suspend</button>
+        )}
+      </div>
+    </Modal>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs text-ink-400">{label}</p>
+      <p className="text-sm font-medium text-ink-900">{value}</p>
     </div>
   );
 }

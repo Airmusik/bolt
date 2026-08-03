@@ -14,6 +14,7 @@ export function RegisterPage() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   const [role, setRole] = useState<Role>('driver');
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -27,6 +28,7 @@ export function RegisterPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    if (pin !== confirmPin) { setError('PINs do not match. Please re-enter.'); setLoading(false); return; }
     const { error } = await signUp(phone, pin, fullName, role, email || undefined);
     setLoading(false);
     if (error) {
@@ -113,6 +115,25 @@ export function RegisterPage() {
               </button>
             </div>
             <p className="mt-1.5 text-xs text-ink-400">Your PIN is your password (4 digits). Keep it safe — you'll use it to sign in.</p>
+          </div>
+
+          <div className="mt-4">
+            <label className="label">Confirm PIN</label>
+            <div className="relative">
+              <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+              <input
+                value={confirmPin}
+                onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                type={showPin ? 'text' : 'password'}
+                inputMode="numeric"
+                placeholder="••••"
+                className="input pl-10"
+                required
+              />
+            </div>
+            {confirmPin.length > 0 && pin !== confirmPin && (
+              <p className="mt-1.5 text-xs text-danger">PINs do not match.</p>
+            )}
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary mt-6 w-full">

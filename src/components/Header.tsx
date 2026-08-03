@@ -88,15 +88,6 @@ export function Header() {
               {l.label}
             </Link>
           ))}
-          <Link
-            to={isAdmin ? '/admin' : '/admin/login'}
-            className={cn(
-              'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
-              location.pathname.startsWith('/admin') ? 'bg-brand-50 text-brand-700' : 'text-brand-600 hover:bg-brand-50 hover:text-brand-700'
-            )}
-          >
-            <ShieldCheck className="h-4 w-4" /> Admin
-          </Link>
         </nav>
 
         <div className="flex items-center gap-2">
@@ -140,9 +131,6 @@ export function Header() {
                           <MenuItem to="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />}>Dashboard</MenuItem>
                           <MenuItem to="/saved" icon={<Heart className="h-4 w-4" />}>Saved listings</MenuItem>
                           <MenuItem to="/settings" icon={<Settings className="h-4 w-4" />}>Settings</MenuItem>
-                          {profile?.role === 'admin' && (
-                            <MenuItem to="/admin" icon={<ShieldCheck className="h-4 w-4" />}>Admin</MenuItem>
-                          )}
                           <MenuItem to="/help" icon={<LifeBuoy className="h-4 w-4" />}>Help center</MenuItem>
                         </>
                       )}
@@ -188,11 +176,6 @@ export function Header() {
                 <Link to="/login" className="btn-secondary flex-1">Sign in</Link>
                 <Link to="/register" className="btn-primary flex-1">Get started</Link>
               </div>
-            )}
-            {!isSuspended && (
-              <Link to={isAdmin ? '/admin' : '/admin/login'} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-brand-600 hover:bg-brand-50">
-                <ShieldCheck className="h-4 w-4" /> Admin
-              </Link>
             )}
           </div>
         </div>

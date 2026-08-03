@@ -10,27 +10,42 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let revoked = false;
+    let createdUrl: string | null = null;
+
     (async () => {
       try {
+        // The file_url stored in the DB is a public URL, but the bucket is private.
+        // Extract the storage path from the URL and use a signed URL for download.
         const url = new URL(doc.file_url);
-        const path = url.pathname.split(`/${DOCUMENT_BUCKET}/`)[1];
-        if (!path) {
+        const parts = url.pathname.split(`/${DOCUMENT_BUCKET}/`);
+        if (parts.length < 2) {
           setError('Could not resolve document path.');
           setLoading(false);
           return;
         }
+        const path = decodeURIComponent(parts[1]);
         const ext = path.split('.').pop()?.toLowerCase();
         setIsImage(['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext || ''));
 
+        // Try downloading the file directly (works if RLS allows it — admin has read access)
         const { data, error: dlError } = await supabase.storage.from(DOCUMENT_BUCKET).download(path);
         if (dlError || !data) {
-          setError('Could not load document. The file may have been removed.');
+          // Fallback: try creating a signed URL
+          const { data: signedData, error: signedError } = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(path, 3600);
+          if (signedError || !signedData?.signedUrl) {
+            setError('Could not load document. The file may have been removed.');
+            setLoading(false);
+            return;
+          }
+          createdUrl = signedData.signedUrl;
+          if (!revoked) setObjectUrl(createdUrl);
           setLoading(false);
           return;
         }
         const blob = new Blob([data], { type: data.type || (ext === 'pdf' ? 'application/pdf' : 'application/octet-stream') });
-        const objUrl = URL.createObjectURL(blob);
-        setObjectUrl(objUrl);
+        createdUrl = URL.createObjectURL(blob);
+        if (!revoked) setObjectUrl(createdUrl);
         setLoading(false);
       } catch {
         setError('Could not load document.');
@@ -39,24 +54,30 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
     })();
 
     return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      revoked = true;
+      if (createdUrl && createdUrl.startsWith('blob:')) URL.revokeObjectURL(createdUrl);
     };
   }, [doc.file_url]);
 
   const handleDownload = async () => {
     try {
       const url = new URL(doc.file_url);
-      const path = url.pathname.split(`/${DOCUMENT_BUCKET}/`)[1];
-      if (!path) return;
-      const { data } = await supabase.storage.from(DOCUMENT_BUCKET).download(path);
-      if (data) {
-        const blob = new Blob([data]);
-        const link = window.document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = doc.label || doc.type || 'document';
-        link.click();
-        URL.revokeObjectURL(link.href);
+      const parts = url.pathname.split(`/${DOCUMENT_BUCKET}/`);
+      if (parts.length < 2) return;
+      const path = decodeURIComponent(parts[1]);
+      const { data, error: dlError } = await supabase.storage.from(DOCUMENT_BUCKET).download(path);
+      if (dlError || !data) {
+        // Fallback: open signed URL
+        const { data: signedData } = await supabase.storage.from(DOCUMENT_BUCKET).createSignedUrl(path, 3600);
+        if (signedData?.signedUrl) window.open(signedData.signedUrl, '_blank');
+        return;
       }
+      const blob = new Blob([data]);
+      const link = window.document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = doc.label || doc.type || 'document';
+      link.click();
+      URL.revokeObjectURL(link.href);
     } catch {
       // ignore
     }

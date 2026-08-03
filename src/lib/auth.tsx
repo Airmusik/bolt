@@ -133,8 +133,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPin = useCallback<AuthContextValue['resetPin']>(async (phone) => {
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number.' };
-    const email = phoneToEmail(phone);
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const normalized = normalizePhone(phone);
+    // Look up the user's real email from their profile (if they provided one)
+    const { data: realEmail } = await supabase.rpc('get_email_by_phone', { p_phone: normalized });
+    const targetEmail = (realEmail as string) || phoneToEmail(phone);
+    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
       redirectTo: `${window.location.origin}/login?reset=1`,
     });
     if (error) return { error: error.message };
