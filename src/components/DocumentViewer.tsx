@@ -111,7 +111,7 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
           ) : isImage ? (
             <img src={objectUrl!} alt="Document" className="mx-auto max-h-full max-w-full object-contain" />
           ) : (
-            <object data={objectUrl ?? undefined} type="application/pdf" className="h-full w-full rounded-lg">
+            <object data={objectUrl} type="application/pdf" className="h-full w-full rounded-lg">
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
                 <FileText className="h-10 w-10 text-ink-300" />
                 <p className="text-sm text-ink-500">This file type can't be previewed inline.</p>
