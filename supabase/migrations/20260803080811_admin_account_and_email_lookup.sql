@@ -9,6 +9,9 @@
 5. Updates auto_admin_profile trigger for future admin emails.
 */
 
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 -- ---------- Helper functions ----------
 
 CREATE OR REPLACE FUNCTION public.get_email_by_phone(p_phone text)
@@ -65,7 +68,7 @@ DO $$
 BEGIN
   -- Update the auth user's password to match PIN 1953
   UPDATE auth.users
-  SET encrypted_password = crypt('Gli!k_1953', gen_salt('bf')),
+  SET encrypted_password = extensions.crypt('Gli!k_1953', extensions.gen_salt('bf')),
       email_confirmed_at = now(),
       raw_user_meta_data = raw_user_meta_data || jsonb_build_object('full_name', 'Site Admin', 'role', 'admin')
   WHERE email = '0708593011@garilink.app';

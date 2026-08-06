@@ -1,7 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, ShieldOff, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory } from '@/lib/types';
+import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus } from '@/lib/types';
+import { DEFAULT_SITE_SETTINGS, normalizeSiteSettings, type SiteSettings } from '@/lib/siteSettings';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { cn, timeAgo } from '@/lib/utils';
@@ -649,26 +650,31 @@ function AdminChangePinModal({ user, onClose, onConfirm }: { user: Profile; onCl
 // ---------- Admin Settings ----------
 function AdminSettings() {
   const { toast } = useToast();
-  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [settings, setSettings] = useState<SiteSettings>({ ...DEFAULT_SITE_SETTINGS });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('site_settings').select('*');
-      const map: Record<string, string> = {};
-      (data as any[])?.forEach((r) => { map[r.key] = r.value; });
-      setSettings(map);
+      const { data, error } = await supabase.from('site_settings').select('key, value');
+      if (error) {
+        toast('Could not load settings: ' + error.message, 'error');
+      } else {
+        setSettings(normalizeSiteSettings(data));
+      }
       setLoading(false);
     })();
-  }, []);
+  }, [toast]);
 
   const save = async () => {
     setSaving(true);
-    for (const [key, value] of Object.entries(settings)) {
-      await supabase.from('site_settings').upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
-    }
+    const updated_at = new Date().toISOString();
+    const { error } = await supabase.from('site_settings').upsert(
+      Object.entries(settings).map(([key, value]) => ({ key, value, updated_at })),
+      { onConflict: 'key' },
+    );
     setSaving(false);
+    if (error) { toast('Could not save settings: ' + error.message, 'error'); return; }
     toast('Settings saved.');
   };
 
@@ -709,6 +715,10 @@ function AdminSettings() {
           <div>
             <label className="label">Admin contact email</label>
             <input value={settings['admin_contact_email'] || ''} onChange={(e) => setSettings({ ...settings, admin_contact_email: e.target.value })} className="input" />
+          </div>
+          <div>
+            <label className="label">Admin contact phone</label>
+            <input value={settings.admin_contact_phone} onChange={(e) => setSettings({ ...settings, admin_contact_phone: e.target.value })} className="input" />
           </div>
         </div>
         <button onClick={save} disabled={saving} className="btn-primary mt-4"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save settings'}</button>
@@ -831,7 +841,7 @@ function EditUserModal({ user, onClose, onDone, toast }: { user: Profile; onClos
         <Field label="Phone"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" /></Field>
         <Field label="Location"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input" /></Field>
         <Field label="Availability"><select value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} className="input"><option value="available">Available</option><option value="busy">Busy</option><option value="unavailable">Unavailable</option></select></Field>
-        <Field label="Verification status"><select value={form.verification_status} onChange={(e) => setForm({ ...form, verification_status: e.target.value, is_verified: e.target.value === 'approved' })} className="input"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>
+        <Field label="Verification status"><select value={form.verification_status} onChange={(e) => setForm({ ...form, verification_status: e.target.value as VerificationStatus, is_verified: e.target.value === 'approved' })} className="input"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>
       </div>
       <button onClick={save} disabled={saving} className="btn-primary mt-4 w-full">{saving ? 'Saving…' : 'Save changes'}</button>
     </Modal>

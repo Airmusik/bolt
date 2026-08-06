@@ -4,6 +4,7 @@ import { Car, Phone, Lock, Eye, EyeOff, ArrowRight, Mail, Check } from 'lucide-r
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/components/Toast';
 import { BackButton } from '@/components/BackButton';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 export function LoginPage() {
   const { signIn, user, resetPin } = useAuth();
@@ -22,6 +23,8 @@ export function LoginPage() {
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetMode, setResetMode] = useState(false);
+  const { settings } = useSiteSettings();
+  const supportMessage = `If you cannot access your email, contact support at ${settings.admin_contact_email} or ${settings.admin_contact_phone} to get your PIN reset.`;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -61,11 +64,13 @@ export function LoginPage() {
             </div>
             <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Set a new PIN</h1>
             <p className="mt-1 text-sm text-ink-500">We sent a reset link to your account email. Check your inbox and follow the link, then set your new PIN below.</p>
+            <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
           </div>
           {resetSent ? (
             <div className="card p-6 text-center">
               <Check className="mx-auto h-10 w-10 text-success" />
               <p className="mt-3 text-sm text-ink-600">If an account exists for <strong>{resetPhone}</strong>, a reset link has been sent to the email on file.</p>
+              <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
               <button onClick={() => { setResetMode(false); setResetSent(false); }} className="btn-secondary mt-4">Back to sign in</button>
             </div>
           ) : (
@@ -97,11 +102,13 @@ export function LoginPage() {
             </div>
             <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Reset your PIN</h1>
             <p className="mt-1 text-sm text-ink-500">Enter your phone number and we'll send a reset link to the email you provided at registration.</p>
+            <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
           </div>
           {resetSent ? (
             <div className="card p-6 text-center">
               <Check className="mx-auto h-10 w-10 text-success" />
               <p className="mt-3 text-sm text-ink-600">If an account exists for <strong>{resetPhone}</strong>, a reset link has been sent to the email on file.</p>
+              <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
               <button onClick={() => { setShowReset(false); setResetSent(false); }} className="btn-secondary mt-4">Back to sign in</button>
             </div>
           ) : (

@@ -7,6 +7,7 @@ import { useToast } from '@/components/Toast';
 import type { Vehicle, VehicleIssue, VehiclePhoto } from '@/lib/types';
 import { ALL_LOCATIONS, VEHICLE_MAKES } from '@/lib/locations';
 import { cn } from '@/lib/utils';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 interface IssueDraft { id?: string; description: string; severity: 'minor' | 'moderate' | 'major' }
 
@@ -16,6 +17,7 @@ export function VehicleFormPage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const isEdit = Boolean(id);
+  const { settings } = useSiteSettings();
 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
@@ -83,6 +85,18 @@ export function VehicleFormPage() {
     if (!isEdit && profile && profile.verification_status !== 'approved') {
       toast('You must complete KYC verification before listing a vehicle. Go to Settings to upload your documents.', 'error');
       navigate('/settings'); return;
+    }
+    if (!isEdit) {
+      const maxVehicles = Number(settings.max_vehicles_per_owner || 10);
+      const { count, error } = await supabase
+        .from('vehicles')
+        .select('id', { count: 'exact', head: true })
+        .eq('owner_id', user.id);
+      if (error) { toast('Could not verify vehicle limit: ' + error.message, 'error'); return; }
+      if ((count ?? 0) >= maxVehicles) {
+        toast(`You can list up to ${maxVehicles} vehicles with the current site settings.`, 'error');
+        return;
+      }
     }
     setSaving(true);
     const payload = {

@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { Avatar } from './Avatar';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 export function Header() {
   const { user, profile, signOut } = useAuth();
@@ -13,6 +14,7 @@ export function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [unread, setUnread] = useState(0);
+  const { settings } = useSiteSettings();
 
   useEffect(() => {
     setMobileOpen(false);
@@ -55,9 +57,9 @@ export function Header() {
       ]
     : [
         { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: !!user && !isAdmin },
-        { to: '/browse-cars', label: 'Browse Cars', icon: undefined, show: !isOwner },
-        { to: '/browse-drivers', label: 'Browse Drivers', icon: undefined, show: !isDriver },
-        { to: '/how-it-works', label: 'How it works', icon: undefined, show: true },
+        { to: '/browse-cars', label: 'Browse Cars', icon: undefined, show: !isAdmin && !isOwner },
+        { to: '/browse-drivers', label: 'Browse Drivers', icon: undefined, show: !isAdmin && !isDriver },
+        { to: '/how-it-works', label: 'How it works', icon: undefined, show: !isAdmin },
       ].filter((l) => l.show) as { to: string; label: string; icon?: any }[];
 
   return (
@@ -68,7 +70,7 @@ export function Header() {
             <Car className="h-5 w-5" />
           </span>
           <span className="font-display text-lg font-extrabold tracking-tight text-ink-900">
-            Gari<span className="text-brand-600">Link</span>
+            {settings.site_name}
           </span>
         </Link>
 
@@ -128,9 +130,15 @@ export function Header() {
                       </div>
                       {!isSuspended && (
                         <>
-                          <MenuItem to="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />}>Dashboard</MenuItem>
-                          <MenuItem to="/saved" icon={<Heart className="h-4 w-4" />}>Saved listings</MenuItem>
-                          <MenuItem to="/settings" icon={<Settings className="h-4 w-4" />}>Settings</MenuItem>
+                          {isAdmin ? (
+                            <MenuItem to="/admin" icon={<LayoutDashboard className="h-4 w-4" />}>Admin dashboard</MenuItem>
+                          ) : (
+                            <>
+                              <MenuItem to="/dashboard" icon={<LayoutDashboard className="h-4 w-4" />}>Dashboard</MenuItem>
+                              <MenuItem to="/saved" icon={<Heart className="h-4 w-4" />}>Saved listings</MenuItem>
+                              <MenuItem to="/settings" icon={<Settings className="h-4 w-4" />}>Settings</MenuItem>
+                            </>
+                          )}
                           <MenuItem to="/help" icon={<LifeBuoy className="h-4 w-4" />}>Help center</MenuItem>
                         </>
                       )}

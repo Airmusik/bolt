@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Car, Facebook, Instagram, Linkedin, Mail, MapPin, ChevronDown } from 'lucide-react';
+import { Car, Facebook, Instagram, Linkedin, Mail, MapPin, Phone, ChevronDown } from 'lucide-react';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 export function Footer() {
   const [expanded, setExpanded] = useState(false);
+  const { settings } = useSiteSettings();
 
   return (
     <footer className="border-t border-ink-100 bg-white">
@@ -18,7 +20,7 @@ export function Footer() {
               <Car className="h-5 w-5" />
             </span>
             <span className="font-display text-lg font-extrabold tracking-tight">
-              Gari<span className="text-brand-600">Link</span>
+              {settings.site_name}
             </span>
           </Link>
           <ChevronDown className={`h-5 w-5 text-ink-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
@@ -32,7 +34,7 @@ export function Footer() {
                 <Car className="h-5 w-5" />
               </span>
               <span className="font-display text-lg font-extrabold tracking-tight">
-                Gari<span className="text-brand-600">Link</span>
+                {settings.site_name}
               </span>
             </Link>
             <p className="mt-3 text-sm text-ink-500">
@@ -61,7 +63,8 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold text-ink-900">Get in touch</h4>
             <ul className="mt-3 space-y-2 text-sm text-ink-500">
-              <li className="flex items-center gap-2"><Mail className="h-4 w-4" /> airmusikinc@gmail.com</li>
+              <li className="flex items-center gap-2"><Mail className="h-4 w-4" /> {settings.admin_contact_email}</li>
+              <li className="flex items-center gap-2"><Phone className="h-4 w-4" /> {settings.admin_contact_phone}</li>
               <li className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Nairobi, Kenya</li>
             </ul>
           </div>

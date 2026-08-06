@@ -16,6 +16,9 @@
 - Both functions check `is_admin()` before performing the action
 */
 
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 -- ---------- site_settings ----------
 CREATE TABLE IF NOT EXISTS site_settings (
   key text PRIMARY KEY,
@@ -48,7 +51,8 @@ INSERT INTO site_settings (key, value) VALUES
   ('max_vehicles_per_owner', '10'),
   ('require_email', 'true'),
   ('platform_fee_percent', '0'),
-  ('admin_contact_email', 'admin@garilink.app')
+  ('admin_contact_email', 'airmusikinck@gmail.com'),
+  ('admin_contact_phone', '+254708593011')
 ON CONFLICT (key) DO NOTHING;
 
 -- ---------- vehicles.available_from ----------
@@ -73,7 +77,7 @@ BEGIN
     RAISE EXCEPTION 'Password too short';
   END IF;
   UPDATE auth.users
-    SET encrypted_password = crypt(p_new_password, gen_salt('bf'))
+    SET encrypted_password = extensions.crypt(p_new_password, extensions.gen_salt('bf'))
     WHERE id = p_user_id;
 END;
 $$;
