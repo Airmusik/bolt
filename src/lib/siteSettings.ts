@@ -9,6 +9,10 @@ export const DEFAULT_SITE_SETTINGS = {
   platform_fee_percent: '0',
   admin_contact_email: 'airmusikinck@gmail.com',
   admin_contact_phone: '+254708593011',
+  kyc_enabled: 'false',
+  facebook_url: '',
+  instagram_url: '',
+  linkedin_url: '',
 } as const;
 
 export type SiteSettingKey = keyof typeof DEFAULT_SITE_SETTINGS;

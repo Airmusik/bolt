@@ -156,7 +156,7 @@ export function Header() {
           ) : (
             <div className="hidden items-center gap-2 sm:flex">
               <Link to="/login" className="btn-ghost">Sign in</Link>
-              <Link to="/register" className="btn-primary">Get started</Link>
+              <Link to="/register" className="btn-primary hidden sm:inline-flex">Get started</Link>
             </div>
           )}
 

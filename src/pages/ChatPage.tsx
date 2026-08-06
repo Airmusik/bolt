@@ -34,8 +34,8 @@ export function ChatPage() {
     if (!user) return;
     const { data } = await supabase
       .from('conversations')
-      .select('*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles!conversations_driver_id_fkey(*), owner:profiles!conversations_owner_id_fkey(*)')
-      .or(`driver_id.eq.${user.id},owner_id.eq.${user.id}`)
+      .select('*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles!conversations_driver_id_fkey(*), owner:profiles!conversations_owner_id_fkey(*), admin:profiles!conversations_admin_id_fkey(*)')
+      .or(`driver_id.eq.${user.id},owner_id.eq.${user.id},admin_id.eq.${user.id}`)
       .order('last_message_at', { ascending: false, nullsFirst: false });
     setConversations((data as any) || []);
     setLoading(false);
@@ -111,11 +111,13 @@ export function ChatPage() {
       setMessages((prev) => [...prev, data as Message]);
       await supabase.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', active.id);
       // notify other party
-      const otherId = user.id === active.driver_id ? active.owner_id : active.driver_id;
-      await supabase.from('notifications').insert({
-        user_id: otherId, type: 'message', title: 'New message',
-        body: 'You have a new message on GariLink', data: { conversation_id: active.id },
-      });
+      const otherId = user.id === active.driver_id ? (active.owner_id || active.admin_id) : user.id === active.owner_id ? (active.driver_id || active.admin_id) : (active.driver_id || active.owner_id);
+      if (otherId) {
+        await supabase.from('notifications').insert({
+          user_id: otherId, type: 'message', title: 'New message',
+          body: 'You have a new message on GariLink', data: { conversation_id: active.id },
+        });
+      }
     }
     setText('');
     setShowEmoji(false);
@@ -149,7 +151,7 @@ export function ChatPage() {
     );
   }
 
-  const other = active ? (user?.id === active.driver_id ? active.owner : active.driver) : null;
+  const other = active ? (user?.id === active.driver_id ? (active.owner || active.admin) : user?.id === active.owner_id ? (active.driver || active.admin) : active.driver || active.owner) : null;
 
   return (
     <div className="container-content py-6">
@@ -158,7 +160,7 @@ export function ChatPage() {
         {/* Conversation list */}
         <div className={cn('card overflow-y-auto', active && 'hidden lg:block')}>
           {conversations.map((c) => {
-            const otherUser = user?.id === c.driver_id ? c.owner : c.driver;
+            const otherUser = user?.id === c.driver_id ? (c.owner || c.admin) : user?.id === c.owner_id ? (c.driver || c.admin) : (c.driver || c.owner);
             return (
               <button key={c.id} onClick={() => setActive(c)} className={cn('flex w-full items-center gap-3 border-b border-ink-50 p-3 text-left hover:bg-ink-50', active?.id === c.id && 'bg-brand-50')}>
                 <Avatar name={otherUser?.full_name || 'User'} src={otherUser?.avatar_url} size={44} verified={!!otherUser?.is_verified} />
@@ -166,7 +168,7 @@ export function ChatPage() {
                   <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
                     {otherUser?.full_name} <VerifiedBadge verified={otherUser?.is_verified} size={11} />
                   </p>
-                  <p className="truncate text-xs text-ink-500">{c.vehicle?.make} {c.vehicle?.model}</p>
+                  <p className="truncate text-xs text-ink-500">{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : c.admin_id ? 'GariLink Admin' : 'Conversation'} </p>
                 </div>
                 {c.last_message_at && <span className="text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}
               </button>
