@@ -4,10 +4,10 @@ import { BackButton } from '@/components/BackButton';
 
 const FAQS = [
   { q: 'Does GariLink process payments between users?', a: 'No. GariLink only connects car owners with drivers. Any payments (targets, deposits) are arranged directly between you.' },
-  { q: 'How do I get verified?', a: 'Upload your National ID and driving licence (drivers) or ID (owners) in your onboarding. Our admin team reviews and approves verification, which adds a verified badge to your profile.' },
-  { q: 'What documents do drivers need?', a: 'National ID, driving licence, and optionally a PSV badge and certificate of good conduct. You can also add your platform history (Uber, Bolt, Little, Faras) for the last 5 months.' },
+  { q: 'How does the Trust Passport work?', a: 'No identity document is required. Your passport combines account age, activity, completed matches, reviews, approved references, optional evidence and account standing.' },
+  { q: 'Are uploads reviewed?', a: 'Yes. Profile photos, vehicle photos, work-history proofs and other evidence remain pending until an admin approves them. Private proof files are not shown to other members.' },
   { q: 'Can I see a vehicle\'s insurance status?', a: 'Yes. Every listing shows the insurance type (third party or comprehensive) and its expiry date, along with any known issues the owner has disclosed.' },
-  { q: 'How does the chat work?', a: 'A chat opens automatically once an owner accepts a driver\'s application. You can send text, images and emojis, see read receipts, and block or report a user.' },
+  { q: 'How does the chat work?', a: 'A chat opens automatically once an owner accepts a driver\'s application. You can send text and emojis, see read receipts, and block or report a user. File uploads are disabled so they cannot bypass moderation.' },
   { q: 'How do reviews work?', a: 'Both parties can leave a star rating and written review after an application is accepted. This keeps reviews genuine.' },
 ];
 

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Link2, MessageSquare, Check, X, Clock, Send } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
+import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/components/useToast';
 import { supabase } from '@/lib/supabase';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { getConnectionBetween, sendConnectionRequest, updateConnectionStatus } from '@/lib/connections';
 import type { Connection, Profile } from '@/lib/types';
 import { Modal } from './Modal';
@@ -17,7 +18,7 @@ interface Props {
 }
 
 export function ConnectionButton({ otherUserId, vehicleId, size = 'md', className }: Props) {
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [connection, setConnection] = useState<Connection | null>(null);
@@ -33,7 +34,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
     (async () => {
       const [conn, { data: other }] = await Promise.all([
         getConnectionBetween(user.id, otherUserId),
-        supabase.from('profiles').select('*').eq('id', otherUserId).maybeSingle(),
+        supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', otherUserId).maybeSingle(),
       ]);
       setConnection(conn);
       setOtherProfile(other as Profile | null);
@@ -43,7 +44,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
           .select('id')
           .eq('connection_id', conn.id)
           .maybeSingle();
-        if (conv) setConversationId((conv as any).id);
+        if (conv) setConversationId(conv.id);
       }
       setLoading(false);
     })();

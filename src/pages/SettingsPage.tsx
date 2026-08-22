@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, LogOut, Ban, Camera, Loader2, Check, MapPin, ToggleLeft, ToggleRight, Lock, KeyRound } from 'lucide-react';
-import { supabase, VEHICLE_BUCKET } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
+import { User, Shield, Bell, LogOut, Camera, Loader2, Check, MapPin, ToggleLeft, ToggleRight, Lock, KeyRound } from 'lucide-react';
+import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
+import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/components/useToast';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { BackButton } from '@/components/BackButton';
@@ -47,17 +47,26 @@ export function SettingsPage() {
     setUploadingAvatar(true);
     const ext = file.name.split('.').pop();
     const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from(VEHICLE_BUCKET).upload(path, file, { upsert: true });
+    const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, { upsert: true });
     if (error) {
       toast('Could not upload photo.', 'error');
       setUploadingAvatar(false);
       return;
     }
-    const { data: pub } = supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(path);
-    await supabase.from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', user.id);
+    const { data: pub } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
+    const { error: profileError } = await supabase.from('profiles').update({
+      avatar_pending_url: pub.publicUrl,
+      avatar_upload_status: 'pending',
+      avatar_rejection_reason: null,
+    }).eq('id', user.id);
+    if (profileError) {
+      toast('Could not submit photo: ' + profileError.message, 'error');
+      setUploadingAvatar(false);
+      return;
+    }
     await refreshProfile();
     setUploadingAvatar(false);
-    toast('Profile photo updated.');
+    toast('Profile photo submitted for admin approval.');
   };
 
   const toggleAvailability = async () => {
@@ -95,7 +104,9 @@ export function SettingsPage() {
             <div>
               <p className="flex items-center gap-1 font-medium text-ink-900">{profile?.full_name} <VerifiedBadge verified={profile?.is_verified} size={13} /></p>
               <p className="text-xs capitalize text-ink-500">{profile?.role} · {profile?.phone}</p>
-              <p className="mt-0.5 text-xs text-ink-400">Click the camera icon to update your photo</p>
+              <p className="mt-0.5 text-xs text-ink-400">New photos appear after admin approval</p>
+              {profile?.avatar_upload_status === 'pending' && <p className="mt-1 text-xs text-amber-600">Photo pending approval</p>}
+              {profile?.avatar_upload_status === 'rejected' && <p className="mt-1 text-xs text-danger">Photo rejected{profile.avatar_rejection_reason ? `: ${profile.avatar_rejection_reason}` : ''}</p>}
             </div>
           </div>
 
@@ -162,21 +173,21 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {/* Verification */}
+        {/* Trust Passport */}
         <div className="card p-5">
-          <h2 className="flex items-center gap-2 font-semibold text-ink-900"><Shield className="h-5 w-5" /> Verification</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-ink-900"><Shield className="h-5 w-5" /> Trust Passport</h2>
           <p className="mt-2 text-sm text-ink-600">
-            Status: <span className="capitalize font-medium">{profile?.verification_status}</span>
+            Review status: <span className="capitalize font-medium">{profile?.verification_status}</span>
           </p>
           {profile?.role === 'driver' && (
-            <button onClick={() => navigate('/onboarding')} className="btn-secondary mt-3">Manage documents</button>
+            <button onClick={() => navigate('/onboarding')} className="btn-secondary mt-3">Manage Trust Passport</button>
           )}
         </div>
 
-        {/* Change PIN */}
+        {/* Change password */}
         <div className="card p-5">
-          <h2 className="flex items-center gap-2 font-semibold text-ink-900"><KeyRound className="h-5 w-5" /> Change PIN</h2>
-          <p className="mt-1 text-sm text-ink-500">Update your 4-digit PIN used to sign in.</p>
+          <h2 className="flex items-center gap-2 font-semibold text-ink-900"><KeyRound className="h-5 w-5" /> Change password</h2>
+          <p className="mt-1 text-sm text-ink-500">Use at least 10 characters with uppercase, lowercase, and a number.</p>
           <ChangePinSection />
         </div>
 
@@ -199,31 +210,31 @@ function ChangePinSection() {
   const [saving, setSaving] = useState(false);
 
   const changePin = async () => {
-    if (!/^\d{4}$/.test(newPin)) { toast('New PIN must be 4 digits.', 'error'); return; }
-    if (newPin !== confirmNewPin) { toast('New PINs do not match.', 'error'); return; }
+    if (newPin.length < 10 || !/[a-z]/.test(newPin) || !/[A-Z]/.test(newPin) || !/\d/.test(newPin)) { toast('Password must be at least 10 characters with uppercase, lowercase, and a number.', 'error'); return; }
+    if (newPin !== confirmNewPin) { toast('Passwords do not match.', 'error'); return; }
     if (!user) return;
     setSaving(true);
-    // Verify old PIN by attempting sign-in
+    // Verify the current password by attempting sign-in.
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email: user.email || '',
       password: pinToPassword(oldPin),
     });
-    if (signInError) { toast('Current PIN is incorrect.', 'error'); setSaving(false); return; }
+    if (signInError) { toast('Current password is incorrect.', 'error'); setSaving(false); return; }
     // Update password
     const { error: updateError } = await supabase.auth.updateUser({ password: pinToPassword(newPin) });
     setSaving(false);
-    if (updateError) { toast('Failed to update PIN: ' + updateError.message, 'error'); return; }
-    toast('PIN updated successfully.');
+    if (updateError) { toast('Failed to update password: ' + updateError.message, 'error'); return; }
+    toast('Password updated successfully.');
     setOldPin(''); setNewPin(''); setConfirmNewPin('');
   };
 
   return (
     <div className="mt-3 space-y-3">
-      <input type="password" value={oldPin} onChange={(e) => setOldPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Current PIN" className="input" maxLength={4} />
-      <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="New PIN" className="input" maxLength={4} />
-      <input type="password" value={confirmNewPin} onChange={(e) => setConfirmNewPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Confirm new PIN" className="input" maxLength={4} />
+      <input type="password" value={oldPin} onChange={(e) => setOldPin(e.target.value)} placeholder="Current password" className="input" />
+      <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="New password" className="input" />
+      <input type="password" value={confirmNewPin} onChange={(e) => setConfirmNewPin(e.target.value)} placeholder="Confirm new password" className="input" />
       <button onClick={changePin} disabled={saving || !oldPin || !newPin || !confirmNewPin} className="btn-primary">
-        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Update PIN
+        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Update password
       </button>
     </div>
   );

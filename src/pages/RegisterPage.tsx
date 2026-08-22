@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Car, Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
+import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import type { Role } from '@/lib/types';
 import { useSiteSettings } from '@/lib/siteSettings';
@@ -31,7 +31,7 @@ export function RegisterPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    if (pin !== confirmPin) { setError('PINs do not match. Please re-enter.'); setLoading(false); return; }
+    if (pin !== confirmPin) { setError('Passwords do not match. Please re-enter.'); setLoading(false); return; }
     if (emailRequired && !email.trim()) { setError('Email address is required.'); setLoading(false); return; }
     const { error } = await signUp(phone, pin, fullName, role, email.trim() || undefined);
     setLoading(false);
@@ -98,19 +98,19 @@ export function RegisterPage() {
               <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@example.com" className="input pl-10" required={emailRequired} />
             </div>
-            <p className="mt-1.5 text-xs text-ink-400">{emailRequired ? "Email is required by current site settings." : "Add an email so you can reset your PIN if you forget it."}</p>
+            <p className="mt-1.5 text-xs text-ink-400">{emailRequired ? "Email is required by current site settings." : "Your email helps support verify password-reset requests."}</p>
           </div>
 
           <div className="mt-4">
-            <label className="label">4-digit PIN</label>
+            <label className="label">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
                 value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onChange={(e) => setPin(e.target.value)}
                 type={showPin ? 'text' : 'password'}
                 inputMode="numeric"
-                placeholder="••••"
+                placeholder="At least 10 characters"
                 className="input pl-10 pr-10"
                 required
               />
@@ -118,25 +118,25 @@ export function RegisterPage() {
                 {showPin ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
-            <p className="mt-1.5 text-xs text-ink-400">Your PIN is your password (4 digits). Keep it safe — you'll use it to sign in.</p>
+            <p className="mt-1.5 text-xs text-ink-400">Use at least 10 characters with uppercase, lowercase, and a number.</p>
           </div>
 
           <div className="mt-4">
-            <label className="label">Confirm PIN</label>
+            <label className="label">Confirm password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
                 value={confirmPin}
-                onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onChange={(e) => setConfirmPin(e.target.value)}
                 type={showPin ? 'text' : 'password'}
                 inputMode="numeric"
-                placeholder="••••"
+                placeholder="Repeat password"
                 className="input pl-10"
                 required
               />
             </div>
             {confirmPin.length > 0 && pin !== confirmPin && (
-              <p className="mt-1.5 text-xs text-danger">PINs do not match.</p>
+              <p className="mt-1.5 text-xs text-danger">Passwords do not match.</p>
             )}
           </div>
 

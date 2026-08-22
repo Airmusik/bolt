@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   MapPin, Fuel, Settings2, Wallet, Calendar, ShieldCheck, AlertTriangle,
-  Heart, Share2, Flag, ArrowLeft, Star, CheckCircle2,
+  Heart, Share2, Flag, ArrowLeft, CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
+import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/components/useToast';
 import type { VehicleWithRelations, Review } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
@@ -36,14 +37,14 @@ export function VehicleDetailsPage() {
       setLoading(true);
       const { data } = await supabase
         .from('vehicles')
-        .select('*, owner:profiles(*), photos:vehicle_photos(*), issues:vehicle_issues(*)')
+        .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .eq('id', id)
         .maybeSingle();
       setVehicle(data as VehicleWithRelations);
       if (data) {
         const { data: revs } = await supabase
           .from('reviews')
-          .select('*, reviewer:profiles(*)')
+          .select(`*, reviewer:profiles(${PUBLIC_PROFILE_FIELDS})`)
           .eq('reviewee_id', (data as VehicleWithRelations).owner_id)
           .order('created_at', { ascending: false });
         setReviews((revs as Review[]) || []);
@@ -88,8 +89,6 @@ export function VehicleDetailsPage() {
       }
     } catch { /* user cancelled */ }
   };
-
-  const submitApply = async () => {};
 
   if (loading) {
     return (

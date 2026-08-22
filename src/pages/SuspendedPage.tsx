@@ -1,5 +1,5 @@
 import { ShieldOff, LogOut, FileText, Mail, Info, Shield } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
 
 export function SuspendedPage() {

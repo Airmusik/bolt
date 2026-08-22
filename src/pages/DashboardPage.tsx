@@ -2,8 +2,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, BadgeCheck, Link2, MapPin, Briefcase } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
+import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/components/useToast';
 import type { VehicleWithRelations, Application, Profile, Conversation, Connection } from '@/lib/types';
 import { VehicleCard } from '@/components/VehicleCard';
 import { Avatar } from '@/components/Avatar';
@@ -11,13 +11,20 @@ import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { Modal } from '@/components/Modal';
-import { ConnectionButton } from '@/components/ConnectionButton';
 import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { updateConnectionStatus, endConnection } from '@/lib/connections';
-import { formatKES, timeAgo, titleCase, cn, formatDateTime } from '@/lib/utils';
+import { timeAgo, titleCase, cn, formatDateTime } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
+import type { ToastType } from '@/components/toastContext';
 
 type Tab = 'overview' | 'drivers' | 'vehicles' | 'cars' | 'applications' | 'connections' | 'chats';
+type OwnerApplication = Application & { driver?: Profile; vehicle?: VehicleWithRelations };
+type DriverApplication = Application & { vehicle?: VehicleWithRelations };
+type ConversationWithRelations = Conversation & { vehicle?: VehicleWithRelations; driver?: Profile; owner?: Profile };
+type IncomingConnection = Connection & { requester?: Profile };
+type OutgoingConnection = Connection & { recipient?: Profile };
+type ToastFn = (message: string, type?: ToastType) => void;
 
 export function DashboardPage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -25,13 +32,13 @@ export function DashboardPage() {
   const [tab, setTab] = useState<Tab>('overview');
 
   const [vehicles, setVehicles] = useState<VehicleWithRelations[]>([]);
-  const [applications, setApplications] = useState<(Application & { driver?: Profile; vehicle?: VehicleWithRelations })[]>([]);
-  const [myApplications, setMyApplications] = useState<(Application & { vehicle?: VehicleWithRelations })[]>([]);
-  const [conversations, setConversations] = useState<(Conversation & { vehicle?: VehicleWithRelations; driver?: Profile; owner?: Profile })[]>([]);
+  const [applications, setApplications] = useState<OwnerApplication[]>([]);
+  const [myApplications, setMyApplications] = useState<DriverApplication[]>([]);
+  const [conversations, setConversations] = useState<ConversationWithRelations[]>([]);
   const [drivers, setDrivers] = useState<Profile[]>([]);
   const [availableCars, setAvailableCars] = useState<VehicleWithRelations[]>([]);
-  const [incomingConnections, setIncomingConnections] = useState<(Connection & { requester?: Profile })[]>([]);
-  const [outgoingConnections, setOutgoingConnections] = useState<(Connection & { recipient?: Profile })[]>([]);
+  const [incomingConnections, setIncomingConnections] = useState<IncomingConnection[]>([]);
+  const [outgoingConnections, setOutgoingConnections] = useState<OutgoingConnection[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -39,23 +46,23 @@ export function DashboardPage() {
     setLoading(true);
     if (profile.role === 'owner') {
       const [{ data: v }, { data: apps }, { data: drs }] = await Promise.all([
-        supabase.from('vehicles').select('*, owner:profiles(*), photos:vehicle_photos(*), issues:vehicle_issues(*)').eq('owner_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('applications').select('*, driver:profiles(*), vehicle:vehicles(*, photos:vehicle_photos(*))').eq('owner_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('profiles').select('*').eq('role', 'driver').order('is_verified', { ascending: false }).order('rating', { ascending: false }).order('created_at', { ascending: false }).limit(24),
+        supabase.from('vehicles').select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).eq('owner_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('applications').select(`*, driver:profiles(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles(*, photos:vehicle_photos(*))`).eq('owner_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('role', 'driver').order('is_verified', { ascending: false }).order('rating', { ascending: false }).order('created_at', { ascending: false }).limit(24),
       ]);
       setVehicles((v as VehicleWithRelations[]) || []);
-      setApplications((apps as any) || []);
+      setApplications((apps as OwnerApplication[]) || []);
       setDrivers((drs as Profile[]) || []);
     } else if (profile.role === 'driver') {
       const { data: apps } = await supabase
         .from('applications')
-        .select('*, vehicle:vehicles(*, owner:profiles(*), photos:vehicle_photos(*))')
+        .select(`*, vehicle:vehicles(*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*))`)
         .eq('driver_id', user.id)
         .order('created_at', { ascending: false });
-      setMyApplications((apps as any) || []);
+      setMyApplications((apps as DriverApplication[]) || []);
       const { data: cars } = await supabase
         .from('vehicles')
-        .select('*, owner:profiles(*), photos:vehicle_photos(*), issues:vehicle_issues(*)')
+        .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(24);
@@ -63,18 +70,18 @@ export function DashboardPage() {
     }
     const { data: convs } = await supabase
       .from('conversations')
-      .select('*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles(*), owner:profiles(*)')
+      .select(`*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles(${PUBLIC_PROFILE_FIELDS}), owner:profiles(${PUBLIC_PROFILE_FIELDS})`)
       .or(`driver_id.eq.${user.id},owner_id.eq.${user.id}`)
       .order('last_message_at', { ascending: false, nullsFirst: false });
-    setConversations((convs as any) || []);
+    setConversations((convs as ConversationWithRelations[]) || []);
 
     // connections
     const [{ data: inc }, { data: out }] = await Promise.all([
-      supabase.from('connections').select('*, requester:profiles!connections_requester_id_fkey(*)').eq('recipient_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('connections').select('*, recipient:profiles!connections_recipient_id_fkey(*)').eq('requester_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('connections').select(`*, requester:profiles!connections_requester_id_fkey(${PUBLIC_PROFILE_FIELDS})`).eq('recipient_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('connections').select(`*, recipient:profiles!connections_recipient_id_fkey(${PUBLIC_PROFILE_FIELDS})`).eq('requester_id', user.id).order('created_at', { ascending: false }),
     ]);
-    setIncomingConnections((inc as any) || []);
-    setOutgoingConnections((out as any) || []);
+    setIncomingConnections((inc as IncomingConnection[]) || []);
+    setOutgoingConnections((out as OutgoingConnection[]) || []);
 
     setLoading(false);
   }, [user, profile]);
@@ -163,21 +170,28 @@ export function DashboardPage() {
   );
 }
 
-function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, pendingConnections }: any) {
+function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, pendingConnections }: {
+  profile: Profile;
+  drivers: Profile[];
+  availableCars: VehicleWithRelations[];
+  conversations: ConversationWithRelations[];
+  isOwner: boolean;
+  pendingConnections: IncomingConnection[];
+}) {
   return (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="card p-5">
-          <h3 className="font-semibold text-ink-900">Verification status</h3>
+          <h3 className="font-semibold text-ink-900">Trust Passport</h3>
           <div className="mt-3 flex items-center gap-2">
             {profile.is_verified ? (
-              <><VerifiedBadge verified size={18} showLabel /><span className="text-sm text-ink-700">Your account is verified.</span></>
+              <><VerifiedBadge verified size={18} showLabel /><span className="text-sm text-ink-700">Your Trust Passport is approved.</span></>
             ) : (
-              <><Clock className="h-5 w-5 text-amber-500" /><span className="text-sm text-amber-700">{profile.verification_status === 'pending' ? 'Verification under review.' : 'Not verified yet.'}</span></>
+              <><Clock className="h-5 w-5 text-amber-500" /><span className="text-sm text-amber-700">{profile.verification_status === 'pending' ? 'Trust Passport under review.' : 'Trust Passport not reviewed yet.'}</span></>
             )}
           </div>
           {!profile.is_verified && (
-            <Link to="/onboarding" className="btn-secondary mt-4">{isOwner ? 'Verify your identity' : 'Upload your documents'}</Link>
+            <Link to="/onboarding" className="btn-secondary mt-4">Build your Trust Passport</Link>
           )}
         </div>
         <div className="card p-5">
@@ -293,27 +307,16 @@ function VehiclesTab({ vehicles, loading }: { vehicles: VehicleWithRelations[]; 
   return <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <VehicleCard key={v.id} vehicle={v} showOwner={false} />)}</div>;
 }
 
-function OwnerApplicationsTab({ applications, onAction, toast }: { applications: any[]; onAction: () => void; toast: (m: string, t?: any) => void }) {
+function OwnerApplicationsTab({ applications, onAction, toast }: { applications: OwnerApplication[]; onAction: () => void; toast: ToastFn }) {
   const [reviewing, setReviewing] = useState<Application | null>(null);
   const [showReview, setShowReview] = useState(false);
 
   const act = async (app: Application, status: 'accepted' | 'rejected' | 'completed') => {
-    await supabase.from('applications').update({ status }).eq('id', app.id);
-    if (status === 'accepted') {
-      const { data: conv } = await supabase.from('conversations').insert({
-        application_id: app.id, vehicle_id: app.vehicle_id, driver_id: app.driver_id, owner_id: app.owner_id,
-      }).select().maybeSingle();
-      await supabase.from('notifications').insert({
-        user_id: app.driver_id, type: 'application_accepted', title: 'Application accepted',
-        body: 'Your application was accepted. You can now chat with the owner.',
-        data: { application_id: app.id, conversation_id: conv?.id },
-      });
-    } else {
-      await supabase.from('notifications').insert({
-        user_id: app.driver_id, type: 'application_rejected', title: 'Application ' + status,
-        body: 'Your application was ' + status + '.',
-      });
-    }
+    const { error } = await supabase.rpc('transition_application', {
+      p_application_id: app.id,
+      p_status: status,
+    });
+    if (error) { toast(error.message, 'error'); return; }
     toast(`Application ${status}.`);
     onAction();
   };
@@ -359,7 +362,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
   );
 }
 
-function DriverApplicationsTab({ applications }: { applications: any[] }) {
+function DriverApplicationsTab({ applications }: { applications: DriverApplication[] }) {
   if (applications.length === 0) return <EmptyState title="No applications yet" description="Browse cars and connect with owners you'd like to work with." action={<Link to="/browse-cars" className="btn-primary">Browse cars</Link>} />;
   return (
     <div className="space-y-3">
@@ -374,7 +377,7 @@ function DriverApplicationsTab({ applications }: { applications: any[] }) {
   );
 }
 
-function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Connection & { requester?: Profile })[]; outgoing: (Connection & { recipient?: Profile })[]; onAction: () => void; toast: (m: string, t?: any) => void }) {
+function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: IncomingConnection[]; outgoing: OutgoingConnection[]; onAction: () => void; toast: ToastFn }) {
   const pendingIn = incoming.filter((c) => c.status === 'pending');
   const acceptedIn = incoming.filter((c) => c.status === 'accepted');
   const acceptedOut = outgoing.filter((c) => c.status === 'accepted');
@@ -383,7 +386,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
 
   useEffect(() => {
     supabase.rpc('expire_old_connections').then(() => onAction());
-  }, []);
+  }, [onAction]);
 
   const handleAccept = async (c: Connection) => {
     const { error } = await updateConnectionStatus(c.id, 'accepted');
@@ -398,8 +401,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
     onAction();
   };
   const handleEnd = async (c: Connection) => {
-    const driverId = c.requester_id;
-    const { error } = await endConnection(c.id, driverId);
+    const { error } = await endConnection(c.id);
     if (error) { toast(error, 'error'); return; }
     toast('Connection ended. Driver is now available again.');
     onAction();
@@ -499,7 +501,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: (Co
   );
 }
 
-function ChatsTab({ conversations, loading }: { conversations: any[]; loading: boolean }) {
+function ChatsTab({ conversations, loading }: { conversations: ConversationWithRelations[]; loading: boolean }) {
   if (loading) return <div className="card h-48 animate-pulse" />;
   if (conversations.length === 0) return <EmptyState title="No conversations yet" description="Chats open once a connection is accepted." action={<Link to="/browse-cars" className="btn-primary">Browse cars</Link>} />;
   return (
@@ -518,7 +520,7 @@ function ChatsTab({ conversations, loading }: { conversations: any[]; loading: b
   );
 }
 
-export function ReviewModal({ application, revieweeId, onClose, onDone }: { application: Application; revieweeId: string; onClose: () => void; onDone: () => void }) {
+export function ReviewModal({ application, onClose, onDone }: { application: Application; revieweeId: string; onClose: () => void; onDone: () => void }) {
   const { user } = useAuth();
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState('');
@@ -527,15 +529,12 @@ export function ReviewModal({ application, revieweeId, onClose, onDone }: { appl
   const submit = async () => {
     if (!user) return;
     setLoading(true);
-    const { error } = await supabase.from('reviews').insert({
-      application_id: application.id, reviewer_id: user.id, reviewee_id: revieweeId, rating, content,
+    const { error } = await supabase.rpc('submit_review', {
+      p_application_id: application.id,
+      p_rating: rating,
+      p_content: content,
     });
     if (error) { setLoading(false); return; }
-    const { data: revs } = await supabase.from('reviews').select('rating').eq('reviewee_id', revieweeId);
-    if (revs && revs.length > 0) {
-      const avg = revs.reduce((s, r) => s + r.rating, 0) / revs.length;
-      await supabase.from('profiles').update({ rating: Math.round(avg * 10) / 10, rating_count: revs.length, contracts_completed: revs.length }).eq('id', revieweeId);
-    }
     setLoading(false);
     onDone();
   };

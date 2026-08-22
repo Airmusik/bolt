@@ -5,8 +5,7 @@
 The existing function uses unqualified crypt() and gen_salt() which fails
 when pgcrypto is not on the search_path. This replaces it with a version
 that uses extensions.crypt() and extensions.gen_salt() with a proper
-search_path, and also correctly handles the PIN prefix that the app
-uses (Gli!k_ + 4-digit PIN).
+search_path. A later migration enforces the current password policy.
 
 ## 2. Add KYC toggle setting
 Adds a 'kyc_enabled' setting to site_settings, defaulting to 'false' (off).

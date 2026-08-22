@@ -8,6 +8,9 @@ export interface Profile {
   full_name: string;
   phone: string | null;
   avatar_url: string | null;
+  avatar_pending_url: string | null;
+  avatar_upload_status: 'none' | 'pending' | 'approved' | 'rejected';
+  avatar_rejection_reason: string | null;
   bio: string | null;
   location: string | null;
   preferred_locations: string[];
@@ -52,6 +55,7 @@ export interface Vehicle {
   insurance_expiry: string | null;
   status: 'active' | 'closed';
   featured: boolean;
+  available_from: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -61,6 +65,9 @@ export interface VehiclePhoto {
   vehicle_id: string;
   photo_url: string;
   position: number;
+  approved: boolean;
+  rejected: boolean;
+  rejection_reason: string | null;
   created_at: string;
 }
 
@@ -102,6 +109,32 @@ export interface PlatformHistory {
   proof_url: string | null;
   approved: boolean;
   created_at: string;
+}
+
+export interface TrustReference {
+  id: string;
+  user_id: string;
+  referee_name: string;
+  relationship: string;
+  referee_contact: string;
+  note: string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+  user?: Profile;
+}
+
+export interface TrustPassport {
+  account_created_at: string;
+  contracts_completed: number;
+  rating: number;
+  rating_count: number;
+  approved_references: number;
+  approved_evidence: number;
+  approved_platform_history: number;
+  trust_level: 'new' | 'building' | 'established';
+  account_standing: 'good' | 'restricted';
 }
 
 export type ApplicationStatus = 'pending' | 'accepted' | 'rejected' | 'withdrawn' | 'completed';
@@ -160,7 +193,7 @@ export interface Notification {
   type: string;
   title: string;
   body: string | null;
-  data: any;
+  data: Record<string, unknown> | null;
   read: boolean;
   created_at: string;
 }

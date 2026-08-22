@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Mail, MapPin, Phone, Send } from 'lucide-react';
-import { useToast } from '@/components/Toast';
+import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import { useSiteSettings } from '@/lib/siteSettings';
 

@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Languages, Briefcase, Calendar, ShieldCheck, Star, Flag, ArrowLeft, BadgeCheck } from 'lucide-react';
+import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, ArrowLeft, BadgeCheck, CalendarDays, UserCheck, Award } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
-import type { Profile, PlatformHistory, Review, DocumentRow } from '@/lib/types';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
+import { useAuth } from '@/lib/useAuth';
+import type { Profile, PlatformHistory, Review, TrustPassport } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { EmptyState } from '@/components/EmptyState';
-import { Modal } from '@/components/Modal';
 import { ConnectionButton } from '@/components/ConnectionButton';
 import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { ReportModal } from './VehicleDetailsPage';
-import { formatDate, expiryStatus, titleCase, timeAgo, cn } from '@/lib/utils';
+import { titleCase, timeAgo } from '@/lib/utils';
 
 export function DriverProfilePage() {
   const { id } = useParams();
@@ -20,38 +20,31 @@ export function DriverProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [history, setHistory] = useState<PlatformHistory[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [docs, setDocs] = useState<DocumentRow[]>([]);
+  const [trustPassport, setTrustPassport] = useState<TrustPassport | null>(null);
   const [loading, setLoading] = useState(true);
   const [showReport, setShowReport] = useState(false);
 
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const [{ data: p }, { data: h }, { data: r }] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', id).maybeSingle(),
-        supabase.from('driver_platform_history').select('*').eq('driver_id', id),
-        supabase.from('reviews').select('*, reviewer:profiles(*)').eq('reviewee_id', id).order('created_at', { ascending: false }),
+      const [{ data: p }, { data: h }, { data: r }, { data: trust }] = await Promise.all([
+        supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', id).maybeSingle(),
+        supabase.from('driver_platform_history').select('id,driver_id,platform,months_active,trips,rating,approved,created_at').eq('driver_id', id).eq('approved', true),
+        supabase.from('reviews').select(`*, reviewer:profiles(${PUBLIC_PROFILE_FIELDS})`).eq('reviewee_id', id).order('created_at', { ascending: false }),
+        supabase.rpc('get_trust_passport', { p_user_id: id }).maybeSingle(),
       ]);
       setProfile(p as Profile);
       setHistory((h as PlatformHistory[]) || []);
       setReviews((r as Review[]) || []);
-      // Only load private docs if viewing own profile
-      if (user?.id === id) {
-        const { data: d } = await supabase.from('documents').select('*').eq('user_id', id);
-        setDocs((d as DocumentRow[]) || []);
-      }
+      setTrustPassport(trust as TrustPassport | null);
       setLoading(false);
     })();
-  }, [id, user]);
+  }, [id]);
 
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
   if (!profile) return <div className="container-content py-12"><EmptyState title="Profile not found" /></div>;
 
   const isOwner = profile.role === 'owner';
-  const licenceStatus = expiryStatus(profile.licence_expiry);
-  const psvStatus = expiryStatus(profile.psv_badge_expiry);
-  const gcStatus = expiryStatus(profile.good_conduct_expiry);
-
   return (
     <div className="container-content py-6 md:py-8">
       <Link to={isOwner ? '/browse-cars' : '/browse-drivers'} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-800">
@@ -109,12 +102,7 @@ export function DriverProfilePage() {
                     <div>
                       <p className="font-semibold text-ink-900">{titleCase(h.platform)}</p>
                       <p className="text-xs text-ink-500">{h.months_active} months active · {h.trips} trips</p>
-                      {h.proof_url && h.approved && (
-                        <a href={h.proof_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline">View proof image</a>
-                      )}
-                      {h.proof_url && !h.approved && (
-                        <span className="text-xs text-amber-600">Proof pending approval</span>
-                      )}
+                      <p className="text-xs text-success"><ShieldCheck className="mr-1 inline h-3 w-3" /> Activity approved by admin</p>
                     </div>
                     {h.rating != null && (
                       <div className="flex items-center gap-1">
@@ -128,14 +116,17 @@ export function DriverProfilePage() {
             </Section>
           )}
 
-          {/* Document expiry summary (public) */}
-          <Section title="Document status" icon={<ShieldCheck className="h-5 w-5" />}>
-            <div className="grid gap-2 sm:grid-cols-3">
-              <DocExpiry label="Driving licence" expiry={profile.licence_expiry} status={licenceStatus} />
-              <DocExpiry label="PSV badge" expiry={profile.psv_badge_expiry} status={psvStatus} />
-              <DocExpiry label="Good conduct" expiry={profile.good_conduct_expiry} status={gcStatus} />
+          {/* Trust Passport */}
+          <Section title="Trust Passport" icon={<ShieldCheck className="h-5 w-5" />}>
+            <p className="mb-3 text-sm text-ink-500">Trust is based on transparent activity and admin-approved evidence—not identity documents.</p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <TrustSignal icon={<Award className="h-4 w-4" />} label="Trust level" value={titleCase(trustPassport?.trust_level || 'new')} />
+              <TrustSignal icon={<CalendarDays className="h-4 w-4" />} label="Member since" value={new Date(trustPassport?.account_created_at || profile.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} />
+              <TrustSignal icon={<BadgeCheck className="h-4 w-4" />} label="Completed matches" value={String(trustPassport?.contracts_completed ?? profile.contracts_completed)} />
+              <TrustSignal icon={<UserCheck className="h-4 w-4" />} label="Approved references" value={String(trustPassport?.approved_references ?? 0)} />
+              <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Approved evidence" value={String(trustPassport?.approved_evidence ?? 0)} />
+              <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Account standing" value={trustPassport?.account_standing === 'restricted' ? 'Restricted' : 'Good standing'} />
             </div>
-            <p className="mt-2 text-xs text-ink-400">Expiry dates are shown so owners know when documents need renewal.</p>
           </Section>
 
           {/* Reviews */}
@@ -182,14 +173,11 @@ export function DriverProfilePage() {
   );
 }
 
-function DocExpiry({ label, expiry, status }: { label: string; expiry: string | null; status: 'valid' | 'soon' | 'expired' | 'none' }) {
+function TrustSignal({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-xl bg-white p-3 ring-1 ring-ink-100">
-      <p className="text-xs text-ink-400">{label}</p>
-      <p className={cn('mt-1 text-sm font-semibold', status === 'valid' && 'text-brand-700', status === 'soon' && 'text-amber-600', status === 'expired' && 'text-danger', status === 'none' && 'text-ink-400')}>
-        {expiry ? formatDate(expiry) : 'Not provided'}
-      </p>
-      <p className="text-xs capitalize text-ink-400">{status === 'none' ? '—' : status === 'valid' ? 'valid' : status}</p>
+      <p className="flex items-center gap-1 text-xs text-ink-400">{icon}{label}</p>
+      <p className="mt-1 text-sm font-semibold text-ink-800">{value}</p>
     </div>
   );
 }

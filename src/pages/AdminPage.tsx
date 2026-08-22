@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, BadgeCheck, Flag, Bell, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, ShieldOff, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus } from '@/lib/types';
+import { Users, Car, BadgeCheck, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save } from 'lucide-react';
+import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET } from '@/lib/supabase';
+import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, TrustReference } from '@/lib/types';
 import { DEFAULT_SITE_SETTINGS, normalizeSiteSettings, type SiteSettings } from '@/lib/siteSettings';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
@@ -18,11 +18,46 @@ const SUSPEND_REASONS = [
   'Repeated no-shows or cancellations',
   'Violation of community guidelines',
 ];
-import { useToast } from '@/components/Toast';
-import { useAuth } from '@/lib/auth';
+const TRUST_EVIDENCE_TYPES = ['work_history', 'vehicle_inspection', 'vehicle_ownership', 'reference_letter', 'other_trust_evidence'];
+import { useToast } from '@/components/useToast';
+import { useAuth } from '@/lib/useAuth';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DocumentViewer } from '@/components/DocumentViewer';
 import { Modal } from '@/components/Modal';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
+import type { LucideIcon } from 'lucide-react';
+import type { ToastType } from '@/components/toastContext';
+import { ModeratedImage } from '@/components/ModeratedImage';
+
+type AdminVehicle = Vehicle & { owner?: Profile; photos?: VehiclePhoto[]; description?: string };
+type AdminDocument = DocumentRow & { user?: Profile };
+type AdminHistory = PlatformHistory & { driver?: Profile };
+type AdminReference = TrustReference & { user?: Profile };
+type ToastFn = (message: string, type?: ToastType) => void;
+
+async function notifyUser(userId: string, type: string, title: string, body: string, data?: Record<string, unknown>) {
+  return supabase.rpc('admin_notify_user', {
+    p_user_id: userId,
+    p_type: type,
+    p_title: title,
+    p_body: body,
+    p_data: data ?? null,
+  });
+}
+
+async function publishApprovedImage(privateUrl: string, ownerId: string, prefix: string) {
+  const url = new URL(privateUrl);
+  const parts = url.pathname.split(`/${DOCUMENT_BUCKET}/`);
+  if (parts.length < 2) throw new Error('Could not resolve the pending file path.');
+  const sourcePath = decodeURIComponent(parts[1]);
+  const extension = sourcePath.split('.').pop()?.toLowerCase() || 'jpg';
+  const { data: file, error: downloadError } = await supabase.storage.from(DOCUMENT_BUCKET).download(sourcePath);
+  if (downloadError || !file) throw new Error(downloadError?.message || 'Could not read the pending file.');
+  const publicPath = `${ownerId}/${prefix}-${Date.now()}.${extension}`;
+  const { error: uploadError } = await supabase.storage.from(VEHICLE_BUCKET).upload(publicPath, file, { contentType: file.type || undefined });
+  if (uploadError) throw new Error(uploadError.message);
+  return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
+}
 
 type Tab = 'overview' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'chat' | 'history' | 'settings';
 
@@ -31,9 +66,10 @@ export function AdminPage() {
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>('overview');
   const [users, setUsers] = useState<Profile[]>([]);
-  const [vehicles, setVehicles] = useState<(Vehicle & { owner?: Profile; photos?: { photo_url: string }[] })[]>([]);
+  const [vehicles, setVehicles] = useState<AdminVehicle[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
-  const [documents, setDocuments] = useState<(DocumentRow & { user?: Profile })[]>([]);
+  const [documents, setDocuments] = useState<AdminDocument[]>([]);
+  const [references, setReferences] = useState<AdminReference[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [viewingDoc, setViewingDoc] = useState<DocumentRow | null>(null);
@@ -43,27 +79,29 @@ export function AdminPage() {
   const [suspendingUser, setSuspendingUser] = useState<Profile | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
   const [suspending, setSuspending] = useState(false);
-  const [editingVehicle, setEditingVehicle] = useState<(Vehicle & { owner?: Profile; photos?: { photo_url: string }[] }) | null>(null);
+  const [editingVehicle, setEditingVehicle] = useState<AdminVehicle | null>(null);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [viewingUser, setViewingUser] = useState<Profile | null>(null);
-  const [viewingHistory, setViewingHistory] = useState<(PlatformHistory & { driver?: Profile }) | null>(null);
-  const [history, setHistory] = useState<(PlatformHistory & { driver?: Profile })[]>([]);
+  const [viewingHistory, setViewingHistory] = useState<AdminHistory | null>(null);
+  const [history, setHistory] = useState<AdminHistory[]>([]);
   const [changingPinUser, setChangingPinUser] = useState<Profile | null>(null);
   const [deletingUser, setDeletingUser] = useState<Profile | null>(null);
 
   const load = async () => {
-    const [{ data: u }, { data: v }, { data: r }, { data: d }, { data: h }] = await Promise.all([
-      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-      supabase.from('vehicles').select('*, owner:profiles!vehicles_owner_id_fkey(*), photos:vehicle_photos(photo_url)').order('created_at', { ascending: false }),
+    const [{ data: u }, { data: v }, { data: r }, { data: d }, { data: h }, { data: refs }] = await Promise.all([
+      supabase.rpc('admin_list_profiles'),
+      supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*)`).order('created_at', { ascending: false }),
       supabase.from('reports').select('*').order('created_at', { ascending: false }),
-      supabase.from('documents').select('*, user:profiles!documents_user_id_fkey(*)').order('created_at', { ascending: false }),
-      supabase.from('driver_platform_history').select('*, driver:profiles!driver_platform_history_driver_id_fkey(*)').order('created_at', { ascending: false }),
+      supabase.from('documents').select(`*, user:profiles!documents_user_id_fkey(${PUBLIC_PROFILE_FIELDS})`).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false }),
+      supabase.from('driver_platform_history').select(`*, driver:profiles!driver_platform_history_driver_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
+      supabase.from('trust_references').select(`*, user:profiles!trust_references_user_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
     ]);
     setUsers((u as Profile[]) || []);
-    setVehicles((v as any) || []);
+    setVehicles((v as AdminVehicle[]) || []);
     setReports((r as Report[]) || []);
-    setDocuments((d as any) || []);
-    setHistory((h as any) || []);
+    setDocuments((d as AdminDocument[]) || []);
+    setHistory((h as AdminHistory[]) || []);
+    setReferences((refs as AdminReference[]) || []);
     setLoading(false);
   };
   useEffect(() => { load(); }, []);
@@ -71,13 +109,16 @@ export function AdminPage() {
   const drivers = users.filter((u) => u.role === 'driver');
   const owners = users.filter((u) => u.role === 'owner');
   const pendingVerifications = users.filter((u) => u.verification_status === 'pending');
-  const pendingDocs = documents.filter((d) => !d.verified);
+  const pendingDocs = documents.filter((d) => !d.verified && !d.rejected);
+  const pendingAvatars = users.filter((u) => u.avatar_upload_status === 'pending' && u.avatar_pending_url);
+  const pendingVehiclePhotos = vehicles.flatMap((v) => (v.photos || []).filter((photo) => !photo.approved && !photo.rejected).map((photo) => ({ ...photo, vehicle: v })));
+  const pendingReferences = references.filter((reference) => reference.status === 'pending');
 
   const approveVerification = async (p: Profile) => {
     const { error } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', p.id);
     if (error) { toast('Update failed: ' + error.message); return; }
-    await supabase.from('notifications').insert({ user_id: p.id, type: 'verification', title: 'Verification approved', body: 'Your account is now verified on GariLink.' });
-    toast('User approved.');
+    await notifyUser(p.id, 'trust', 'Trust Passport approved', 'Your Trust Passport is now approved on GariLink.');
+    toast('Trust Passport approved.');
     load();
   };
   const rejectVerification = async (p: Profile) => {
@@ -90,7 +131,7 @@ export function AdminPage() {
     setSuspending(true);
     const { error } = await supabase.from('profiles').update({ is_suspended: true, suspension_reason: reason, suspended_at: new Date().toISOString(), verification_status: 'rejected', is_verified: false }).eq('id', p.id);
     if (error) { toast('Suspend failed: ' + error.message); setSuspending(false); return; }
-    await supabase.from('notifications').insert({ user_id: p.id, type: 'suspension', title: 'Account suspended', body: `Your account has been suspended: ${reason}` });
+    await notifyUser(p.id, 'suspension', 'Account suspended', `Your account has been suspended: ${reason}`);
     toast('User suspended.');
     setSuspendingUser(null);
     setSuspendReason('');
@@ -111,39 +152,92 @@ export function AdminPage() {
 
   const verifyDoc = async (d: DocumentRow) => {
     await supabase.from('documents').update({ verified: true, rejected: false, rejection_reason: null }).eq('id', d.id);
-    await supabase.from('notifications').insert({ user_id: d.user_id, type: 'verification', title: 'Document verified', body: `Your ${d.label || d.type.replace(/_/g, ' ')} was verified.` });
-
-    // Check if all the user's documents are now verified; if so, auto-approve the user
-    const { data: userDocs } = await supabase.from('documents').select('verified, rejected').eq('user_id', d.user_id);
-    const allVerified = (userDocs || []).length > 0 && (userDocs || []).every((doc: any) => doc.verified);
-    if (allVerified) {
-      const { data: prof } = await supabase.from('profiles').select('is_verified, verification_status, full_name').eq('id', d.user_id).maybeSingle();
-      if (prof && !prof.is_verified) {
-        await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', d.user_id);
-        await supabase.from('notifications').insert({
-          user_id: d.user_id,
-          type: 'verification',
-          title: 'Welcome to GariLink!',
-          body: `All your documents are verified. Welcome to the platform, ${prof.full_name?.split(' ')[0] || 'driver'}! You can now apply to vehicles and connect with owners.`,
-        });
-        toast(`${prof.full_name?.split(' ')[0] || 'User'} auto-approved — all documents verified.`);
-      }
-    }
-    toast('Document verified.');
+    await notifyUser(d.user_id, 'trust', 'Evidence approved', `Your ${d.label || d.type.replace(/_/g, ' ')} was approved.`);
+    toast('Evidence approved.');
     load();
   };
 
   const rejectDoc = async (d: DocumentRow, reason: string) => {
     await supabase.from('documents').update({ verified: false, rejected: true, rejection_reason: reason }).eq('id', d.id);
-    await supabase.from('notifications').insert({
-      user_id: d.user_id,
-      type: 'verification',
-      title: 'Document rejected',
-      body: `Your ${d.label || d.type.replace(/_/g, ' ')} was rejected: ${reason}. Please re-upload a corrected version.`,
-    });
-    toast('Document rejected with reason.');
+    await notifyUser(
+      d.user_id,
+      'trust',
+      'Evidence rejected',
+      `Your ${d.label || d.type.replace(/_/g, ' ')} was rejected: ${reason}. Please re-upload a corrected version.`,
+    );
+    toast('Evidence rejected with reason.');
     setRejectingDoc(null);
     setRejectReason('');
+    load();
+  };
+
+  const approveAvatar = async (profile: Profile) => {
+    if (!profile.avatar_pending_url) return;
+    let publicUrl: string;
+    try {
+      publicUrl = await publishApprovedImage(profile.avatar_pending_url, profile.id, 'avatar-approved');
+    } catch (error) {
+      toast('Could not publish photo: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+      return;
+    }
+    const { error } = await supabase.from('profiles').update({
+      avatar_url: publicUrl,
+      avatar_pending_url: null,
+      avatar_upload_status: 'approved',
+      avatar_rejection_reason: null,
+    }).eq('id', profile.id);
+    if (error) { toast('Could not approve photo: ' + error.message, 'error'); return; }
+    await notifyUser(profile.id, 'upload', 'Profile photo approved', 'Your new profile photo is now visible.');
+    toast('Profile photo approved.');
+    load();
+  };
+
+  const rejectAvatar = async (profile: Profile) => {
+    const reason = window.prompt('Why is this profile photo being rejected?');
+    if (!reason?.trim()) return;
+    const { error } = await supabase.from('profiles').update({
+      avatar_pending_url: null,
+      avatar_upload_status: 'rejected',
+      avatar_rejection_reason: reason.trim(),
+    }).eq('id', profile.id);
+    if (error) { toast('Could not reject photo: ' + error.message, 'error'); return; }
+    await notifyUser(profile.id, 'upload', 'Profile photo rejected', reason.trim());
+    toast('Profile photo rejected.');
+    load();
+  };
+
+  const approveVehiclePhoto = async (photo: VehiclePhoto, ownerId: string) => {
+    let publicUrl: string;
+    try {
+      publicUrl = await publishApprovedImage(photo.photo_url, ownerId, 'vehicle-approved');
+    } catch (error) {
+      toast('Could not publish vehicle photo: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+      return;
+    }
+    const { error } = await supabase.from('vehicle_photos').update({ photo_url: publicUrl, approved: true, rejected: false, rejection_reason: null }).eq('id', photo.id);
+    if (error) { toast('Could not approve vehicle photo: ' + error.message, 'error'); return; }
+    await notifyUser(ownerId, 'upload', 'Vehicle photo approved', 'A vehicle photo is now visible on your listing.');
+    toast('Vehicle photo approved.');
+    load();
+  };
+
+  const rejectVehiclePhoto = async (photo: VehiclePhoto, ownerId: string) => {
+    const reason = window.prompt('Why is this vehicle photo being rejected?');
+    if (!reason?.trim()) return;
+    const { error } = await supabase.from('vehicle_photos').update({ approved: false, rejected: true, rejection_reason: reason.trim() }).eq('id', photo.id);
+    if (error) { toast('Could not reject vehicle photo: ' + error.message, 'error'); return; }
+    await notifyUser(ownerId, 'upload', 'Vehicle photo rejected', reason.trim());
+    toast('Vehicle photo rejected.');
+    load();
+  };
+
+  const reviewReference = async (reference: AdminReference, status: 'approved' | 'rejected') => {
+    const reason = status === 'rejected' ? window.prompt('Why is this reference being rejected?') : null;
+    if (status === 'rejected' && !reason?.trim()) return;
+    const { error } = await supabase.from('trust_references').update({ status, rejection_reason: reason?.trim() || null }).eq('id', reference.id);
+    if (error) { toast('Could not review reference: ' + error.message, 'error'); return; }
+    await notifyUser(reference.user_id, 'trust', `Reference ${status}`, status === 'approved' ? `${reference.referee_name} now counts toward your Trust Passport.` : reason!.trim());
+    toast(`Reference ${status}.`);
     load();
   };
 
@@ -176,10 +270,10 @@ export function AdminPage() {
   };
 
   const adminChangePin = async (p: Profile, newPin: string) => {
-    if (!/^\d{4}$/.test(newPin)) { toast('PIN must be 4 digits.', 'error'); return; }
-    const { error } = await supabase.rpc('admin_change_user_pin', { p_user_id: p.id, p_new_password: 'Gli!k_' + newPin });
-    if (error) { toast('Failed to change PIN: ' + error.message, 'error'); return; }
-    toast(`PIN changed for ${p.full_name}.`);
+    if (newPin.length < 10 || !/[a-z]/.test(newPin) || !/[A-Z]/.test(newPin) || !/\d/.test(newPin)) { toast('Password must be at least 10 characters with uppercase, lowercase, and a number.', 'error'); return; }
+    const { error } = await supabase.rpc('admin_change_user_pin', { p_user_id: p.id, p_new_password: newPin });
+    if (error) { toast('Failed to change password: ' + error.message, 'error'); return; }
+    toast(`Password changed for ${p.full_name}.`);
     setChangingPinUser(null);
   };
 
@@ -194,7 +288,7 @@ export function AdminPage() {
       .maybeSingle();
     if (existing) {
       setTab('chat');
-      window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: (existing as any).id }));
+      window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: existing.id }));
       return;
     }
     // Create new conversation
@@ -206,7 +300,7 @@ export function AdminPage() {
       .maybeSingle();
     if (error) { toast('Could not start chat: ' + error.message, 'error'); return; }
     setTab('chat');
-    window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: (conv as any)?.id }));
+    window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: conv?.id }));
   };
 
   const stats = [
@@ -214,18 +308,18 @@ export function AdminPage() {
     { label: 'Drivers', value: drivers.length, icon: Users },
     { label: 'Car owners', value: owners.length, icon: ShieldCheck },
     { label: 'Active listings', value: vehicles.filter((v) => v.status === 'active').length, icon: Car },
-    { label: 'Pending verifications', value: pendingVerifications.length, icon: TrendingUp },
-    { label: 'Pending documents', value: pendingDocs.length, icon: FileText },
+    { label: 'Pending Trust Passports', value: pendingVerifications.length, icon: TrendingUp },
+    { label: 'Pending uploads', value: pendingDocs.length + pendingAvatars.length + pendingVehiclePhotos.length, icon: FileText },
     { label: 'Open reports', value: reports.filter((r) => r.status === 'open').length, icon: Flag },
-    { label: 'Verified drivers', value: drivers.filter((u) => u.is_verified).length, icon: BadgeCheck },
+    { label: 'Trusted drivers', value: drivers.filter((u) => u.is_verified).length, icon: BadgeCheck },
   ];
 
-  const tabs: { key: Tab; label: string; icon: any; badge?: number }[] = [
+  const tabs: { key: Tab; label: string; icon: LucideIcon; badge?: number }[] = [
     { key: 'overview', label: 'Overview', icon: TrendingUp },
     { key: 'drivers', label: 'Drivers', icon: Users, badge: drivers.length },
     { key: 'owners', label: 'Car Owners', icon: ShieldCheck, badge: owners.length },
     { key: 'cars', label: 'Cars', icon: Car, badge: vehicles.length },
-    { key: 'documents', label: 'Documents', icon: FileText, badge: pendingDocs.length },
+    { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingAvatars.length + pendingVehiclePhotos.length + pendingReferences.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
     { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
     { key: 'chat', label: 'Chat', icon: MessageSquare },
@@ -242,7 +336,7 @@ export function AdminPage() {
         <ShieldCheck className="h-7 w-7 text-brand-600" />
         <h1 className="font-display text-2xl font-bold text-ink-900">Admin Portal</h1>
       </div>
-      <p className="mt-1 text-sm text-ink-500">Manage drivers, car owners, listings, document reviews and chat with all users.</p>
+      <p className="mt-1 text-sm text-ink-500">Manage Trust Passports, upload approvals, listings, reports and member support.</p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
@@ -277,7 +371,7 @@ export function AdminPage() {
         {tab === 'overview' && !loading && (
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card p-5">
-              <h3 className="font-semibold text-ink-900">Pending verifications</h3>
+              <h3 className="font-semibold text-ink-900">Pending Trust Passports</h3>
               <div className="mt-3 space-y-2">
                 {pendingVerifications.slice(0, 5).map((p) => (
                   <div key={p.id} className="flex items-center justify-between">
@@ -288,11 +382,11 @@ export function AdminPage() {
                     </div>
                   </div>
                 ))}
-                {pendingVerifications.length === 0 && <p className="text-sm text-ink-400">No pending verifications.</p>}
+                {pendingVerifications.length === 0 && <p className="text-sm text-ink-400">No pending Trust Passports.</p>}
               </div>
             </div>
             <div className="card p-5">
-              <h3 className="font-semibold text-ink-900">Pending documents</h3>
+              <h3 className="font-semibold text-ink-900">Pending trust evidence</h3>
               <div className="mt-3 space-y-2">
                 {pendingDocs.slice(0, 5).map((d) => (
                   <div key={d.id} className="flex items-center justify-between">
@@ -304,7 +398,7 @@ export function AdminPage() {
                     </div>
                   </div>
                 ))}
-                {pendingDocs.length === 0 && <p className="text-sm text-ink-400">No pending documents.</p>}
+                {pendingDocs.length === 0 && <p className="text-sm text-ink-400">No pending trust evidence.</p>}
               </div>
             </div>
           </div>
@@ -330,7 +424,7 @@ export function AdminPage() {
                   {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
-                  <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> PIN</button>
+                  <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
                   ) : (
@@ -364,7 +458,7 @@ export function AdminPage() {
                   {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
-                  <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> PIN</button>
+                  <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
                   ) : (
@@ -408,9 +502,61 @@ export function AdminPage() {
           </div>
         )}
 
-        {/* ---------- Documents ---------- */}
+        {/* ---------- Uploads and trust evidence ---------- */}
         {tab === 'documents' && !loading && (
-          <div className="space-y-2">
+          <div className="space-y-6">
+            <section>
+              <h3 className="mb-2 font-semibold text-ink-900">Profile photos</h3>
+              <div className="space-y-2">
+                {pendingAvatars.map((profile) => (
+                  <div key={profile.id} className="card flex flex-wrap items-center gap-3 p-4">
+                    <ModeratedImage src={profile.avatar_pending_url || ''} alt="Pending profile" className="h-16 w-16 rounded-full object-cover ring-1 ring-ink-200" />
+                    <div className="min-w-0 flex-1"><p className="font-medium text-ink-900">{profile.full_name}</p><p className="text-xs text-ink-500">New profile photo · {profile.role}</p></div>
+                    <button onClick={() => approveAvatar(profile)} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Approve</button>
+                    <button onClick={() => rejectAvatar(profile)} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button>
+                  </div>
+                ))}
+                {pendingAvatars.length === 0 && <p className="text-sm text-ink-400">No pending profile photos.</p>}
+              </div>
+            </section>
+
+            <section>
+              <h3 className="mb-2 font-semibold text-ink-900">Vehicle photos</h3>
+              <div className="space-y-2">
+                {pendingVehiclePhotos.map((photo) => (
+                  <div key={photo.id} className="card flex flex-wrap items-center gap-3 p-4">
+                    <ModeratedImage src={photo.photo_url} alt="Pending vehicle" className="h-16 w-24 rounded-lg object-cover ring-1 ring-ink-200" />
+                    <div className="min-w-0 flex-1"><p className="font-medium text-ink-900">{photo.vehicle.make} {photo.vehicle.model}</p><p className="text-xs text-ink-500">Owner: {photo.vehicle.owner?.full_name || 'Unknown'}</p></div>
+                    <button onClick={() => approveVehiclePhoto(photo, photo.vehicle.owner_id)} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Approve</button>
+                    <button onClick={() => rejectVehiclePhoto(photo, photo.vehicle.owner_id)} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button>
+                  </div>
+                ))}
+                {pendingVehiclePhotos.length === 0 && <p className="text-sm text-ink-400">No pending vehicle photos.</p>}
+              </div>
+            </section>
+
+            <section>
+              <h3 className="mb-2 font-semibold text-ink-900">References</h3>
+              <div className="space-y-2">
+                {references.map((reference) => (
+                  <div key={reference.id} className="card flex flex-wrap items-center gap-3 p-4">
+                    <Users className="h-7 w-7 text-brand-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-ink-900">{reference.referee_name} · {reference.relationship}</p>
+                      <p className="text-xs text-ink-500">For {reference.user?.full_name || 'Unknown'} · {reference.referee_contact}</p>
+                      {reference.note && <p className="mt-1 text-xs text-ink-600">{reference.note}</p>}
+                      {reference.rejection_reason && <p className="mt-1 text-xs text-danger">{reference.rejection_reason}</p>}
+                    </div>
+                    {reference.status === 'pending' ? <><button onClick={() => reviewReference(reference, 'approved')} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Approve</button><button onClick={() => reviewReference(reference, 'rejected')} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button></> : <span className={cn('badge capitalize', reference.status === 'approved' ? 'badge-success' : 'badge-danger')}>{reference.status}</span>}
+                  </div>
+                ))}
+                {references.length === 0 && <p className="text-sm text-ink-400">No references submitted.</p>}
+              </div>
+            </section>
+
+            <section>
+              <h3 className="mb-2 font-semibold text-ink-900">Private trust evidence</h3>
+              <div className="space-y-2">
             {documents.map((d) => (
               <div key={d.id} className="card flex items-center gap-3 p-4">
                 <FileText className={cn('h-8 w-8', d.verified ? 'text-success' : d.rejected ? 'text-danger' : 'text-amber-500')} />
@@ -423,16 +569,18 @@ export function AdminPage() {
                 <button onClick={() => setViewingDoc(d)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
                 {!d.verified ? (
                   <>
-                    <button onClick={() => verifyDoc(d)} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Verify</button>
+                    <button onClick={() => verifyDoc(d)} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Approve</button>
                     <button onClick={() => setRejectingDoc(d)} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button>
                   </>
                 ) : (
-                  <span className="badge badge-success">Verified</span>
+                  <span className="badge badge-success">Approved</span>
                 )}
                 <button onClick={() => setConfirmAction({ message: 'Delete this document? This cannot be undone.', label: 'Delete', onConfirm: () => deleteDoc(d.id) })} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
-            {documents.length === 0 && <p className="text-sm text-ink-500">No documents uploaded yet.</p>}
+              {documents.length === 0 && <p className="text-sm text-ink-500">No trust evidence uploaded yet.</p>}
+              </div>
+            </section>
           </div>
         )}
 
@@ -468,7 +616,7 @@ export function AdminPage() {
                 <div className="flex-1">
                   <p className="font-medium text-ink-900 capitalize">{h.platform} — {h.driver?.full_name || 'Unknown driver'}</p>
                   <p className="text-xs text-ink-500">{h.months_active} months · {h.trips} trips{h.rating != null ? ` · ${h.rating.toFixed(1)} rating` : ''}</p>
-                  {h.proof_url && <a href={h.proof_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline">View proof image</a>}
+                  {h.proof_url && <span className="text-xs text-brand-600">Private proof attached</span>}
                 </div>
                 {h.approved ? (
                   <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>
@@ -591,12 +739,30 @@ export function AdminPage() {
             {viewingHistory.proof_url && (
               <div>
                 <p className="text-ink-500">Proof:</p>
-                <img src={viewingHistory.proof_url} alt="Proof" className="mt-1 max-h-64 rounded-lg border border-ink-100" />
+                <button onClick={() => setViewingDoc({
+                  id: viewingHistory.id,
+                  user_id: viewingHistory.driver_id,
+                  type: 'work_history',
+                  file_url: viewingHistory.proof_url!,
+                  label: `${viewingHistory.platform} platform proof`,
+                  expiry_date: null,
+                  verified: viewingHistory.approved,
+                  rejected: false,
+                  rejection_reason: null,
+                  created_at: viewingHistory.created_at,
+                })} className="btn-secondary mt-2"><Eye className="h-4 w-4" /> Open private proof</button>
               </div>
             )}
           </div>
           <div className="mt-4 flex justify-end gap-2">
             <button onClick={() => setViewingHistory(null)} className="btn-secondary">Close</button>
+            <button onClick={async () => {
+              const reason = window.prompt('Why is this platform history being rejected?');
+              if (!reason?.trim()) return;
+              await supabase.from('driver_platform_history').update({ approved: false, proof_url: null }).eq('id', viewingHistory.id);
+              await notifyUser(viewingHistory.driver_id, 'trust', 'Platform history rejected', reason.trim());
+              toast('Platform history rejected.'); setViewingHistory(null); load();
+            }} className="btn-secondary"><X className="h-4 w-4" /> Reject</button>
             <button onClick={async () => { await supabase.from('driver_platform_history').update({ approved: true }).eq('id', viewingHistory.id); toast('Platform history approved.'); setViewingHistory(null); load(); }} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
           </div>
         </Modal>
@@ -607,7 +773,7 @@ export function AdminPage() {
         <EditUserModal user={editingUser} onClose={() => setEditingUser(null)} onDone={() => { setEditingUser(null); load(); }} toast={toast} />
       )}
 
-      {/* Change PIN modal */}
+      {/* Change password modal */}
       {changingPinUser && (
         <AdminChangePinModal user={changingPinUser} onClose={() => setChangingPinUser(null)} onConfirm={(pin) => adminChangePin(changingPinUser, pin)} />
       )}
@@ -627,21 +793,21 @@ export function AdminPage() {
   );
 }
 
-// ---------- Admin Change PIN Modal ----------
+// ---------- Admin change password modal ----------
 function AdminChangePinModal({ user, onClose, onConfirm }: { user: Profile; onClose: () => void; onConfirm: (pin: string) => void }) {
   const [pin, setPin] = useState('');
   const [confirm, setConfirm] = useState('');
   return (
-    <Modal title={`Change PIN: ${user.full_name}`} onClose={onClose}>
-      <p className="text-sm text-ink-600">Set a new 4-digit PIN for this user. They will use this PIN to sign in.</p>
+    <Modal title={`Change password: ${user.full_name}`} onClose={onClose}>
+      <p className="text-sm text-ink-600">Set a password with at least 10 characters, uppercase, lowercase, and a number.</p>
       <div className="mt-3 space-y-3">
-        <input type="password" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="New 4-digit PIN" className="input" maxLength={4} />
-        <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="Confirm PIN" className="input" maxLength={4} />
+        <input type="password" value={pin} onChange={(e) => setPin(e.target.value)} placeholder="New password" className="input" />
+        <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" className="input" />
       </div>
-      {pin && confirm && pin !== confirm && <p className="mt-2 text-xs text-danger">PINs do not match.</p>}
+      {pin && confirm && pin !== confirm && <p className="mt-2 text-xs text-danger">Passwords do not match.</p>}
       <div className="mt-4 flex justify-end gap-2">
         <button onClick={onClose} className="btn-secondary">Cancel</button>
-        <button onClick={() => onConfirm(pin)} disabled={!/^\d{4}$/.test(pin) || pin !== confirm} className="btn-primary"><KeyRound className="h-4 w-4" /> Set new PIN</button>
+        <button onClick={() => onConfirm(pin)} disabled={pin.length < 10 || pin !== confirm} className="btn-primary"><KeyRound className="h-4 w-4" /> Set new password</button>
       </div>
     </Modal>
   );
@@ -728,7 +894,7 @@ function AdminSettings() {
 }
 
 // ---------- Edit Vehicle Modal ----------
-function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: any; onClose: () => void; onDone: () => void; toast: (m: string, t?: any) => void }) {
+function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminVehicle; onClose: () => void; onDone: () => void; toast: ToastFn }) {
   const [form, setForm] = useState({
     make: vehicle.make || '',
     model: vehicle.model || '',
@@ -779,10 +945,10 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: any; o
         <Field label="Model"><input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="input" /></Field>
         <Field label="Year"><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: +e.target.value })} className="input" /></Field>
         <Field label="Location"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input" /></Field>
-        <Field label="Transmission"><select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value })} className="input"><option value="manual">Manual</option><option value="automatic">Automatic</option></select></Field>
-        <Field label="Fuel type"><select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value })} className="input"><option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="hybrid">Hybrid</option><option value="electric">Electric</option></select></Field>
+        <Field label="Transmission"><select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value as Vehicle['transmission'] })} className="input"><option value="manual">Manual</option><option value="automatic">Automatic</option></select></Field>
+        <Field label="Fuel type"><select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value as Vehicle['fuel_type'] })} className="input"><option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="hybrid">Hybrid</option><option value="electric">Electric</option></select></Field>
         <Field label="Weekly target (KES)"><input type="number" value={form.weekly_target} onChange={(e) => setForm({ ...form, weekly_target: +e.target.value })} className="input" /></Field>
-        <Field label="Status"><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="input"><option value="active">Active</option><option value="closed">Closed</option></select></Field>
+        <Field label="Status"><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Vehicle['status'] })} className="input"><option value="active">Active</option><option value="closed">Closed</option></select></Field>
       </div>
       <Field label="Description"><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="input mt-3" /></Field>
 
@@ -798,7 +964,7 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: any; o
           ))}
           <div className="flex gap-2">
             <input value={newIssue.description} onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })} placeholder="Add an issue…" className="input flex-1" />
-            <select value={newIssue.severity} onChange={(e) => setNewIssue({ ...newIssue, severity: e.target.value as any })} className="input w-auto">
+            <select value={newIssue.severity} onChange={(e) => setNewIssue({ ...newIssue, severity: e.target.value as VehicleIssue['severity'] })} className="input w-auto">
               <option value="minor">Minor</option>
               <option value="moderate">Moderate</option>
               <option value="major">Major</option>
@@ -814,7 +980,7 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: any; o
 }
 
 // ---------- Edit User Modal ----------
-function EditUserModal({ user, onClose, onDone, toast }: { user: Profile; onClose: () => void; onDone: () => void; toast: (m: string, t?: any) => void }) {
+function EditUserModal({ user, onClose, onDone, toast }: { user: Profile; onClose: () => void; onDone: () => void; toast: ToastFn }) {
   const [form, setForm] = useState({
     full_name: user.full_name || '',
     phone: user.phone || '',
@@ -841,7 +1007,7 @@ function EditUserModal({ user, onClose, onDone, toast }: { user: Profile; onClos
         <Field label="Phone"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" /></Field>
         <Field label="Location"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input" /></Field>
         <Field label="Availability"><select value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} className="input"><option value="available">Available</option><option value="busy">Busy</option><option value="unavailable">Unavailable</option></select></Field>
-        <Field label="Verification status"><select value={form.verification_status} onChange={(e) => setForm({ ...form, verification_status: e.target.value as VerificationStatus, is_verified: e.target.value === 'approved' })} className="input"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>
+        <Field label="Trust Passport status"><select value={form.verification_status} onChange={(e) => setForm({ ...form, verification_status: e.target.value as VerificationStatus, is_verified: e.target.value === 'approved' })} className="input"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>
       </div>
       <button onClick={save} disabled={saving} className="btn-primary mt-4 w-full">{saving ? 'Saving…' : 'Save changes'}</button>
     </Modal>
@@ -874,7 +1040,7 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from('documents').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+      const { data } = await supabase.from('documents').select('*').eq('user_id', user.id).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false });
       setDocs((data as DocumentRow[]) || []);
       setLoadingDocs(false);
     })();
@@ -894,7 +1060,7 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <InfoRow label="Verification" value={<span className="capitalize">{user.verification_status}</span>} />
+          <InfoRow label="Trust Passport" value={<span className="capitalize">{user.verification_status}</span>} />
           <InfoRow label="Suspended" value={user.is_suspended ? 'Yes' : 'No'} />
           <InfoRow label="Rating" value={user.rating > 0 ? `${user.rating.toFixed(1)} (${user.rating_count})` : 'No ratings'} />
           <InfoRow label="Contracts" value={String(user.contracts_completed)} />
@@ -915,13 +1081,13 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
           </div>
         )}
 
-        {/* Documents */}
+        {/* Trust evidence */}
         <div>
-          <p className="label">Documents</p>
+          <p className="label">Trust evidence</p>
           {loadingDocs ? (
             <div className="h-20 animate-pulse rounded-lg bg-ink-100" />
           ) : docs.length === 0 ? (
-            <p className="text-sm text-ink-400">No documents uploaded.</p>
+            <p className="text-sm text-ink-400">No trust evidence uploaded.</p>
           ) : (
             <div className="space-y-2">
               {docs.map((d) => (
@@ -931,7 +1097,7 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
                     <div>
                       <p className="text-sm font-medium text-ink-900">{d.label || d.type.replace(/_/g, ' ')}</p>
                       <p className="text-xs text-ink-400">
-                        {d.verified ? 'Verified' : d.rejected ? 'Rejected' : 'Pending'}
+                        {d.verified ? 'Approved' : d.rejected ? 'Rejected' : 'Pending'}
                         {d.expiry_date && ` · Expires ${new Date(d.expiry_date).toLocaleDateString()}`}
                       </p>
                     </div>
@@ -954,7 +1120,7 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
         {!user.is_suspended && user.verification_status !== 'rejected' && (
           <button onClick={onReject} className="btn-secondary"><X className="h-4 w-4" /> Reject</button>
         )}
-        <button onClick={onChangePin} className="btn-secondary"><KeyRound className="h-4 w-4" /> Change PIN</button>
+        <button onClick={onChangePin} className="btn-secondary"><KeyRound className="h-4 w-4" /> Change password</button>
         {user.is_suspended ? (
           <button onClick={onSuspend} className="btn-secondary"><ShieldCheck className="h-4 w-4" /> Manage suspension</button>
         ) : (
@@ -977,7 +1143,6 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 // ---------- Admin Chat component ----------
 function AdminChat({ user }: { user: { id: string; email: string } | null }) {
-  const { toast } = useToast();
   const [conversations, setConversations] = useState<(Conversation & { driver?: Profile; owner?: Profile })[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -989,11 +1154,11 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
     if (!user) return;
     const { data } = await supabase
       .from('conversations')
-      .select('*, driver:profiles!conversations_driver_id_fkey(*), owner:profiles!conversations_owner_id_fkey(*)')
+      .select(`*, driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
       .not('admin_id', 'is', null)
       .eq('admin_id', user.id)
       .order('last_message_at', { ascending: false, nullsFirst: false });
-    setConversations((data as any) || []);
+    setConversations((data as (Conversation & { driver?: Profile; owner?: Profile })[]) || []);
     setLoading(false);
   }, [user]);
 
@@ -1024,7 +1189,7 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const m = payload.new as Message;
         if (activeId && m.conversation_id === activeId) {
-          setMessages((prev) => [...prev, m]);
+          setMessages((prev) => prev.some((item) => item.id === m.id) ? prev : [...prev, m]);
           if (m.sender_id !== user.id) supabase.from('messages').update({ read: true }).eq('id', m.id);
         }
         loadConversations();
@@ -1039,12 +1204,7 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
     if (!user || !activeId || !text.trim()) return;
     const { data } = await supabase.from('messages').insert({ conversation_id: activeId, sender_id: user.id, content: text.trim(), type: 'text' }).select().maybeSingle();
     if (data) {
-      setMessages((prev) => [...prev, data as Message]);
-      await supabase.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', activeId);
-      const otherId = active?.driver_id || active?.owner_id;
-      if (otherId) {
-        await supabase.from('notifications').insert({ user_id: otherId, type: 'message', title: 'New message from admin', body: 'You have a new message from GariLink admin.', data: { conversation_id: activeId } });
-      }
+      setMessages((prev) => prev.some((item) => item.id === data.id) ? prev : [...prev, data as Message]);
     }
     setText('');
     loadConversations();

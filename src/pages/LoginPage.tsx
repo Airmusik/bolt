@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Car, Phone, Lock, Eye, EyeOff, ArrowRight, Mail, Check } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
+import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import { useSiteSettings } from '@/lib/siteSettings';
 
@@ -24,7 +24,7 @@ export function LoginPage() {
   const [resetError, setResetError] = useState<string | null>(null);
   const [resetMode, setResetMode] = useState(false);
   const { settings } = useSiteSettings();
-  const supportMessage = `If you cannot access your email, contact support at ${settings.admin_contact_email} or ${settings.admin_contact_phone} to get your PIN reset.`;
+  const supportMessage = `Contact support at ${settings.admin_contact_email} or ${settings.admin_contact_phone} to reset your password.`;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -62,8 +62,8 @@ export function LoginPage() {
             <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
               <Lock className="h-6 w-6" />
             </div>
-            <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Set a new PIN</h1>
-            <p className="mt-1 text-sm text-ink-500">We sent a reset link to your account email. Check your inbox and follow the link, then set your new PIN below.</p>
+            <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Set a new password</h1>
+            <p className="mt-1 text-sm text-ink-500">Choose a strong password with at least 10 characters.</p>
             <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
           </div>
           {resetSent ? (
@@ -100,8 +100,8 @@ export function LoginPage() {
             <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
               <Mail className="h-6 w-6" />
             </div>
-            <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Reset your PIN</h1>
-            <p className="mt-1 text-sm text-ink-500">Enter your phone number and we'll send a reset link to the email you provided at registration.</p>
+            <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Reset your password</h1>
+            <p className="mt-1 text-sm text-ink-500">Enter your phone number so support can identify your account.</p>
             <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
           </div>
           {resetSent ? (
@@ -155,7 +155,7 @@ export function LoginPage() {
             </span>
           </Link>
           <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Welcome back</h1>
-          <p className="mt-1 text-sm text-ink-500">Sign in with your phone number and 4-digit PIN.</p>
+          <p className="mt-1 text-sm text-ink-500">Sign in with your phone number and password.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6">
@@ -177,15 +177,14 @@ export function LoginPage() {
             </div>
           </div>
           <div className="mt-4">
-            <label className="label">PIN</label>
+            <label className="label">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
                 value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                onChange={(e) => setPin(e.target.value)}
                 type={showPin ? 'text' : 'password'}
-                inputMode="numeric"
-                placeholder="4-digit PIN"
+                placeholder="Your password"
                 className="input pl-10 pr-10"
                 required
               />
@@ -197,7 +196,7 @@ export function LoginPage() {
           <button type="submit" disabled={loading} className="btn-primary mt-6 w-full">
             {loading ? 'Signing in…' : 'Sign in'} <ArrowRight className="h-4 w-4" />
           </button>
-          <button type="button" onClick={() => { setShowReset(true); setResetError(null); setResetSent(false); }} className="mt-3 w-full text-center text-sm text-brand-700 hover:text-brand-800">Forgot your PIN?</button>
+          <button type="button" onClick={() => { setShowReset(true); setResetError(null); setResetSent(false); }} className="mt-3 w-full text-center text-sm text-brand-700 hover:text-brand-800">Forgot your password?</button>
         </form>
 
         <p className="mt-6 text-center text-sm text-ink-500">

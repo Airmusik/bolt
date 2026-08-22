@@ -1,20 +1,9 @@
-import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react';
+import { useEffect, useState, useCallback, ReactNode } from 'react';
 import { supabase } from './supabase';
 import { phoneToEmail, normalizePhone, isValidPin, isValidPhone, pinToPassword } from './phoneAuth';
-import type { Profile, Role } from './types';
-
-interface AuthContextValue {
-  user: { id: string; email: string } | null;
-  profile: Profile | null;
-  loading: boolean;
-  signUp: (phone: string, pin: string, fullName: string, role: Role, email?: string) => Promise<{ error: string | null }>;
-  signIn: (phone: string, pin: string) => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
-  refreshProfile: () => Promise<void>;
-  resetPin: (phone: string) => Promise<{ error: string | null }>;
-}
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+import type { Profile } from './types';
+import { AuthContext, type AuthContextValue } from './authContext';
+import { createDemoAdminProfile, DEMO_ADMIN_EMAIL, DEMO_ADMIN_ID, DEMO_ADMIN_SESSION_KEY, DEMO_MODE } from './demoMode';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthContextValue['user']>(null);
@@ -22,25 +11,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const loadProfile = useCallback(async (uid: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', uid)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc('get_my_profile');
     if (error) {
       console.error('profile load error', error);
       return;
     }
-    if (data) {
-      setProfile(data as Profile);
+    const current = Array.isArray(data) ? data[0] : data;
+    if (current) {
+      setProfile(current as Profile);
     } else {
       // profile row missing — create a minimal one
-      const { data: created } = await supabase
+      const { error: createError } = await supabase
         .from('profiles')
-        .insert({ id: uid, role: 'driver', full_name: '' })
-        .select()
-        .maybeSingle();
-      if (created) setProfile(created as Profile);
+        .insert({ id: uid, role: 'driver', full_name: '' });
+      if (!createError) {
+        const { data: created } = await supabase.rpc('get_my_profile');
+        const createdProfile = Array.isArray(created) ? created[0] : created;
+        if (createdProfile) setProfile(createdProfile as Profile);
+      }
     }
   }, []);
 
@@ -50,6 +38,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true;
+    if (DEMO_MODE && localStorage.getItem(DEMO_ADMIN_SESSION_KEY) === 'active') {
+      setUser({ id: DEMO_ADMIN_ID, email: DEMO_ADMIN_EMAIL });
+      setProfile(createDemoAdminProfile());
+      setLoading(false);
+      return () => { mounted = false; };
+    }
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       const u = data.session?.user ?? null;
@@ -82,7 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail) => {
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number (e.g. 0712 345 678).' };
-    if (!isValidPin(pin)) return { error: 'PIN must be exactly 4 digits.' };
+    if (!isValidPin(pin)) return { error: 'Password must be at least 10 characters and include uppercase, lowercase, and a number.' };
 
     const password = pinToPassword(pin);
     if (!fullName.trim()) return { error: 'Please enter your full name.' };
@@ -116,16 +110,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback<AuthContextValue['signIn']>(async (phone, pin) => {
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number.' };
-    if (!isValidPin(pin)) return { error: 'PIN must be exactly 4 digits.' };
+    if (!isValidPin(pin)) return { error: 'Enter your password (at least 10 characters).' };
     const email = phoneToEmail(phone);
     const { error } = await supabase.auth.signInWithPassword({ email, password: pinToPassword(pin) });
     if (error) {
-      return { error: 'Wrong phone number or PIN. Please try again.' };
+      return { error: 'Wrong phone number or password. Please try again.' };
     }
     return { error: null };
   }, []);
 
   const signOut = useCallback(async () => {
+    if (DEMO_MODE) {
+      localStorage.removeItem(DEMO_ADMIN_SESSION_KEY);
+      setUser(null);
+      setProfile(null);
+      return;
+    }
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
@@ -133,18 +133,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const resetPin = useCallback<AuthContextValue['resetPin']>(async (phone) => {
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number.' };
-    const normalized = normalizePhone(phone);
-    // Look up the user's real email from their profile
-    const { data: realEmail } = await supabase.rpc('get_email_by_phone', { p_phone: normalized });
-    const targetEmail = (realEmail as string) || null;
-    if (!targetEmail) {
-      return { error: 'No email address found for this phone number. Please contact support to reset your PIN.' };
-    }
-    const { error } = await supabase.auth.resetPasswordForEmail(targetEmail, {
-      redirectTo: `${window.location.origin}/login?reset=1`,
-    });
-    if (error) return { error: error.message };
-    return { error: null };
+    normalizePhone(phone);
+    return { error: 'For account security, please contact GariLink support to reset your password.' };
   }, []);
 
   return (
@@ -152,10 +142,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       {children}
     </AuthContext.Provider>
   );
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-  return ctx;
 }

@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, X, Plus, Trash2, BadgeCheck, CheckCircle2, ArrowRight, AlertCircle, RefreshCw, MapPin } from 'lucide-react';
-import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
-import type { DocumentRow, PlatformHistory } from '@/lib/types';
-import { cn, titleCase, formatDate, expiryStatus } from '@/lib/utils';
+import { Upload, Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, RefreshCw, Users, ShieldCheck } from 'lucide-react';
+import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
+import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/components/useToast';
+import type { DocumentRow, PlatformHistory, TrustReference } from '@/lib/types';
+import { cn, titleCase } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
-
-interface DocDraft { id?: string; type: string; file_url: string; label: string; expiry_date: string; verified?: boolean; rejected?: boolean; rejection_reason?: string | null; }
+const EVIDENCE_TYPES = [
+  { type: 'work_history', label: 'Work history proof', help: 'A statement, activity screenshot, or employer letter.' },
+  { type: 'vehicle_inspection', label: 'Vehicle inspection', help: 'Optional inspection or condition report.' },
+  { type: 'vehicle_ownership', label: 'Vehicle ownership evidence', help: 'Optional logbook or ownership evidence. Sensitive details stay private.' },
+  { type: 'reference_letter', label: 'Reference letter', help: 'Optional written endorsement from someone you have worked with.' },
+] as const;
 
 export function DriverOnboardingPage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -18,163 +22,147 @@ export function DriverOnboardingPage() {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [uploadingType, setUploadingType] = useState<string | null>(null);
-
   const [profileForm, setProfileForm] = useState({
     full_name: '', bio: '', location: '', age: '', driving_experience_years: '',
     languages: '', preferred_locations: '', platforms_worked: [] as string[],
   });
-  const [docs, setDocs] = useState<DocDraft[]>([]);
+  const [evidence, setEvidence] = useState<DocumentRow[]>([]);
   const [history, setHistory] = useState<PlatformHistory[]>([]);
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [references, setReferences] = useState<TrustReference[]>([]);
+  const [referenceForm, setReferenceForm] = useState({ referee_name: '', relationship: '', referee_contact: '', note: '' });
+
+  const loadTrustData = async () => {
+    if (!user) return;
+    const [{ data: docs }, { data: platformHistory }, { data: refs }] = await Promise.all([
+      supabase.from('documents').select('*').eq('user_id', user.id).in('type', EVIDENCE_TYPES.map((item) => item.type)),
+      supabase.from('driver_platform_history').select('*').eq('driver_id', user.id),
+      supabase.from('trust_references').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+    ]);
+    setEvidence((docs as DocumentRow[]) || []);
+    setHistory((platformHistory as PlatformHistory[]) || []);
+    setReferences((refs as TrustReference[]) || []);
+  };
 
   useEffect(() => {
     if (profile) {
       setProfileForm({
-        full_name: profile.full_name || '',
-        bio: profile.bio || '',
-        location: profile.location || '',
-        age: profile.age?.toString() || '',
-        driving_experience_years: profile.driving_experience_years?.toString() || '',
-        languages: (profile.languages || []).join(', '),
-        preferred_locations: (profile.preferred_locations || []).join(', '),
+        full_name: profile.full_name || '', bio: profile.bio || '', location: profile.location || '',
+        age: profile.age?.toString() || '', driving_experience_years: profile.driving_experience_years?.toString() || '',
+        languages: (profile.languages || []).join(', '), preferred_locations: (profile.preferred_locations || []).join(', '),
         platforms_worked: profile.platforms_worked || [],
       });
-      setAvatarUrl(profile.avatar_url);
     }
-    if (user) {
-      (async () => {
-        const { data: d } = await supabase.from('documents').select('*').eq('user_id', user.id);
-        setDocs(((d as DocumentRow[]) || []).map((x) => ({ id: x.id, type: x.type, file_url: x.file_url, label: x.label || '', expiry_date: x.expiry_date || '', verified: x.verified, rejected: x.rejected, rejection_reason: x.rejection_reason })));
-        const { data: h } = await supabase.from('driver_platform_history').select('*').eq('driver_id', user.id);
-        setHistory((h as PlatformHistory[]) || []);
-      })();
-    }
+    loadTrustData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile]);
 
-  const uploadDoc = async (file: File, type: string) => {
+  const uploadEvidence = async (file: File, type: string, label: string) => {
     if (!user) return;
     setUploadingType(type);
-    const ext = file.name.split('.').pop();
-    const path = `${user.id}/${type}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
-    if (error) { toast('Upload failed', 'error'); setUploadingType(null); return; }
-    const { data: pub } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
-    // upsert doc
-    const existing = docs.find((d) => d.type === type);
-    if (existing?.id) {
-      await supabase.from('documents').update({ file_url: pub.publicUrl, verified: false, rejected: false, rejection_reason: null }).eq('id', existing.id);
-      setDocs(docs.map((d) => d.type === type ? { ...d, file_url: pub.publicUrl, verified: false, rejected: false, rejection_reason: null } : d));
-    } else {
-      const { data } = await supabase.from('documents').insert({ user_id: user.id, type, file_url: pub.publicUrl }).select().maybeSingle();
-      if (data) setDocs([...docs, { id: (data as DocumentRow).id, type, file_url: pub.publicUrl, label: '', expiry_date: '' }]);
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+    const path = `${user.id}/trust-${type}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
+    if (uploadError) { toast('Upload failed: ' + uploadError.message, 'error'); setUploadingType(null); return; }
+    const { data: publicUrl } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
+    const existing = evidence.find((item) => item.type === type);
+    const query = existing
+      ? supabase.from('documents').update({ file_url: publicUrl.publicUrl, label, verified: false, rejected: false, rejection_reason: null }).eq('id', existing.id)
+      : supabase.from('documents').insert({ user_id: user.id, type, file_url: publicUrl.publicUrl, label });
+    const { error } = await query;
+    setUploadingType(null);
+    if (error) { toast('Could not save evidence: ' + error.message, 'error'); return; }
+    await loadTrustData();
+    toast('Evidence uploaded and sent for admin approval.');
+  };
+
+  const addReference = async () => {
+    if (!user || !referenceForm.referee_name.trim() || !referenceForm.relationship.trim() || !referenceForm.referee_contact.trim()) {
+      toast('Name, relationship, and contact are required.', 'error'); return;
     }
-    setUploadingType(null);
-    toast('Document uploaded.');
+    const { error } = await supabase.from('trust_references').insert({
+      user_id: user.id, referee_name: referenceForm.referee_name.trim(), relationship: referenceForm.relationship.trim(),
+      referee_contact: referenceForm.referee_contact.trim(), note: referenceForm.note.trim() || null,
+    });
+    if (error) { toast('Could not add reference: ' + error.message, 'error'); return; }
+    setReferenceForm({ referee_name: '', relationship: '', referee_contact: '', note: '' });
+    await loadTrustData();
+    toast('Reference submitted for admin review.');
   };
 
-  const updateDocExpiry = async (docId: string, expiry: string) => {
-    setDocs(docs.map((d) => d.id === docId ? { ...d, expiry_date: expiry } : d));
-    await supabase.from('documents').update({ expiry_date: expiry || null }).eq('id', docId);
+  const removeReference = async (reference: TrustReference) => {
+    const { error } = await supabase.from('trust_references').delete().eq('id', reference.id);
+    if (error) { toast('Could not remove reference.', 'error'); return; }
+    setReferences((items) => items.filter((item) => item.id !== reference.id));
   };
 
-  const uploadAvatar = async (file: File) => {
+  const addHistory = async () => {
     if (!user) return;
-    setUploadingType('profile_photo');
-    const ext = file.name.split('.').pop();
-    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-    await supabase.storage.from(VEHICLE_BUCKET).upload(path, file);
-    const { data: pub } = supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(path);
-    setAvatarUrl(pub.publicUrl);
-    await supabase.from('profiles').update({ avatar_url: pub.publicUrl }).eq('id', user.id);
+    const { data, error } = await supabase.from('driver_platform_history').insert({ driver_id: user.id, platform: 'uber', months_active: 0, trips: 0 }).select().maybeSingle();
+    if (error) { toast('Could not add platform history.', 'error'); return; }
+    if (data) setHistory((items) => [...items, data as PlatformHistory]);
+  };
+
+  const uploadHistoryProof = async (item: PlatformHistory, file: File) => {
+    if (!user) return;
+    setUploadingType(`history-${item.id}`);
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+    const path = `${user.id}/history-${item.id}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
+    if (uploadError) { toast('Upload failed: ' + uploadError.message, 'error'); setUploadingType(null); return; }
+    const { data: publicUrl } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
+    const { error } = await supabase.from('driver_platform_history').update({ proof_url: publicUrl.publicUrl, approved: false }).eq('id', item.id);
     setUploadingType(null);
-    toast('Profile photo updated.');
+    if (error) { toast('Could not submit proof.', 'error'); return; }
+    await loadTrustData();
+    toast('Platform proof submitted for admin approval.');
+  };
+
+  const updateHistory = async (item: PlatformHistory, field: keyof PlatformHistory, value: unknown) => {
+    setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, [field]: value } : entry));
+    const { error } = await supabase.from('driver_platform_history').update({ [field]: value }).eq('id', item.id);
+    if (error) toast('Could not update platform history.', 'error');
+  };
+
+  const removeHistory = async (item: PlatformHistory) => {
+    await supabase.from('driver_platform_history').delete().eq('id', item.id);
+    setHistory((items) => items.filter((entry) => entry.id !== item.id));
   };
 
   const saveProfile = async () => {
     if (!user) return;
     setSaving(true);
-    const langs = profileForm.languages.split(',').map((s) => s.trim()).filter(Boolean);
-    const prefs = profileForm.preferred_locations.split(',').map((s) => s.trim()).filter(Boolean);
-    // sync expiry dates to profile for public display
-    const licenceDoc = docs.find((d) => d.type === 'driving_licence');
-    const psvDoc = docs.find((d) => d.type === 'psv_badge');
-    const gcDoc = docs.find((d) => d.type === 'good_conduct');
-    await supabase.from('profiles').update({
+    const { error: profileError } = await supabase.from('profiles').update({
       full_name: profileForm.full_name, bio: profileForm.bio, location: profileForm.location,
       age: profileForm.age ? Number(profileForm.age) : null,
       driving_experience_years: profileForm.driving_experience_years ? Number(profileForm.driving_experience_years) : 0,
-      languages: langs, preferred_locations: prefs, platforms_worked: profileForm.platforms_worked,
-      licence_expiry: licenceDoc?.expiry_date || null,
-      psv_badge_expiry: psvDoc?.expiry_date || null,
-      good_conduct_expiry: gcDoc?.expiry_date || null,
-      verification_status: 'pending',
+      languages: profileForm.languages.split(',').map((value) => value.trim()).filter(Boolean),
+      preferred_locations: profileForm.preferred_locations.split(',').map((value) => value.trim()).filter(Boolean),
+      platforms_worked: profileForm.platforms_worked,
     }).eq('id', user.id);
-    await refreshProfile();
+    if (profileError) { setSaving(false); toast(profileError.message, 'error'); return; }
+    const { error } = await supabase.rpc('submit_profile_verification');
     setSaving(false);
-    toast('Profile saved. Verification will be reviewed by our team.');
+    if (error) { toast(error.message, 'error'); return; }
+    await refreshProfile();
+    toast('Trust Passport submitted for admin review.');
     navigate('/dashboard');
   };
-
-  const addHistory = async () => {
-    if (!user) return;
-    const { data } = await supabase.from('driver_platform_history')
-      .insert({ driver_id: user.id, platform: 'uber', months_active: 0, trips: 0 })
-      .select().maybeSingle();
-    if (data) setHistory([...history, data as PlatformHistory]);
-  };
-
-  const uploadHistoryProof = async (h: PlatformHistory, file: File) => {
-    if (!user) return;
-    setUploadingType(`history-${h.id}`);
-    const ext = file.name.split('.').pop();
-    const path = `${user.id}/history-${h.id}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
-    if (error) { toast('Upload failed', 'error'); setUploadingType(null); return; }
-    const { data: pub } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
-    await supabase.from('driver_platform_history').update({ proof_url: pub.publicUrl, approved: false }).eq('id', h.id);
-    setHistory(history.map((x) => x.id === h.id ? { ...x, proof_url: pub.publicUrl, approved: false } : x));
-    setUploadingType(null);
-    toast('Proof uploaded. Pending admin approval.');
-  };
-
-  const updateHistory = async (h: PlatformHistory, field: keyof PlatformHistory, value: any) => {
-    setHistory(history.map((x) => x.id === h.id ? { ...x, [field]: value } : x));
-    await supabase.from('driver_platform_history').update({ [field]: value }).eq('id', h.id);
-  };
-
-  const removeHistory = async (h: PlatformHistory) => {
-    await supabase.from('driver_platform_history').delete().eq('id', h.id);
-    setHistory(history.filter((x) => x.id !== h.id));
-  };
-
-  const docTypes = [
-    { type: 'national_id', label: 'National ID / Passport', expiry: false },
-    { type: 'driving_licence', label: 'Driving Licence', expiry: true },
-    { type: 'psv_badge', label: 'PSV Badge (optional)', expiry: true },
-    { type: 'good_conduct', label: 'Certificate of Good Conduct (optional)', expiry: true },
-  ];
 
   return (
     <div className="container-content py-8">
       <BackButton to="/dashboard" />
-      <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Complete your driver profile</h1>
-      <p className="mt-1 text-sm text-ink-500">Add your details and upload documents to get verified. Expiry dates help owners know when renewals are due.</p>
+      <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Build your Trust Passport</h1>
+      <p className="mt-1 max-w-3xl text-sm text-ink-500">No identity document is required. Build trust with an honest profile, platform history, references, completed matches, and optional evidence. Uploaded files are private and only count after admin approval.</p>
 
       <div className="mt-6 space-y-6">
-        {/* Avatar */}
-        <Section title="Profile photo">
-          <div className="flex items-center gap-4">
-            <div className="h-20 w-20 overflow-hidden rounded-full bg-ink-100 ring-1 ring-ink-200">
-              {avatarUrl ? <img src={avatarUrl} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center text-ink-400 text-xs">No photo</div>}
-            </div>
-            <label className="btn-secondary cursor-pointer">
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ''; }} />
-              <Upload className="h-4 w-4" /> {uploadingType === 'profile_photo' ? 'Uploading…' : 'Upload photo'}
-            </label>
+        <Section title="How trust works" desc="People can see the signal and its status, never your reference contact details or private files.">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <TrustNote icon={<ShieldCheck className="h-5 w-5" />} title="Transparent" text="Account age, activity, reviews, and standing are shown." />
+            <TrustNote icon={<Users className="h-5 w-5" />} title="Reference-backed" text="References are reviewed before they count." />
+            <TrustNote icon={<CheckCircle2 className="h-5 w-5" />} title="Admin-moderated" text="Every uploaded photo or proof needs approval." />
           </div>
         </Section>
 
-        {/* Profile */}
         <Section title="About you">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Full name"><input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="input" /></Field>
@@ -184,128 +172,60 @@ export function DriverOnboardingPage() {
             <Field label="Languages spoken"><input value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="input" placeholder="English, Swahili" /></Field>
             <Field label="Preferred work locations"><input value={profileForm.preferred_locations} onChange={(e) => setProfileForm({ ...profileForm, preferred_locations: e.target.value })} className="input" placeholder="Nairobi, Mombasa" /></Field>
           </div>
-          <Field label="Bio / About me"><textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} rows={3} className="input" placeholder="Tell owners about yourself…" /></Field>
-          <Field label="Platforms you've worked on">
-            <div className="flex flex-wrap gap-2">
-              {PLATFORMS.map((p) => (
-                <button key={p} onClick={() => setProfileForm({
-                  ...profileForm,
-                  platforms_worked: profileForm.platforms_worked.includes(p)
-                    ? profileForm.platforms_worked.filter((x) => x !== p)
-                    : [...profileForm.platforms_worked, p],
-                })} className={cn('rounded-full px-4 py-2 text-sm font-medium ring-1 transition', profileForm.platforms_worked.includes(p) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-700 ring-ink-200 hover:ring-ink-300')}>
-                  {titleCase(p)}
-                </button>
-              ))}
-            </div>
-          </Field>
+          <Field label="Bio / About me"><textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} rows={3} className="input" placeholder="Tell owners about your experience and working style…" /></Field>
+          <Field label="Platforms you've worked on"><div className="flex flex-wrap gap-2">{PLATFORMS.map((platform) => (
+            <button key={platform} type="button" onClick={() => setProfileForm({ ...profileForm, platforms_worked: profileForm.platforms_worked.includes(platform) ? profileForm.platforms_worked.filter((value) => value !== platform) : [...profileForm.platforms_worked, platform] })} className={cn('rounded-full px-4 py-2 text-sm font-medium ring-1 transition', profileForm.platforms_worked.includes(platform) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-700 ring-ink-200 hover:ring-ink-300')}>{titleCase(platform)}</button>
+          ))}</div></Field>
         </Section>
 
-        {/* Documents */}
-        <Section title="Verification documents" desc="Upload clear scans or photos. Expiry dates are shown to owners when they browse drivers.">
-          <div className="space-y-3">
-            {docTypes.map((dt) => {
-              const doc = docs.find((d) => d.type === dt.type);
-              return (
-                <div key={dt.type} className={cn('rounded-xl border p-4', doc?.rejected ? 'border-danger/30 bg-red-50/30' : 'border-ink-100')}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-ink-900">{dt.label}</span>
-                      {doc?.verified && <CheckCircle2 className="h-4 w-4 text-success" />}
-                      {doc?.rejected && <AlertCircle className="h-4 w-4 text-danger" />}
-                    </div>
-                    <label className={cn('cursor-pointer px-3 py-1.5 text-xs', doc?.rejected ? 'btn-primary' : 'btn-secondary')}>
-                      <input type="file" accept="image/*,.pdf" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadDoc(f, dt.type); e.target.value = ''; }} disabled={uploadingType === dt.type} />
-                      {uploadingType === dt.type ? <><Upload className="h-3.5 w-3.5" /> Uploading…</> : doc?.rejected ? <><RefreshCw className="h-3.5 w-3.5" /> Re-upload</> : <><Upload className="h-3.5 w-3.5" /> {doc ? 'Replace' : 'Upload'}</>}
-                    </label>
-                  </div>
-                  {doc?.rejected && doc.rejection_reason && (
-                    <div className="mt-2 rounded-lg bg-red-100 px-3 py-2 text-xs text-danger">
-                      <span className="font-semibold">Rejected:</span> {doc.rejection_reason}
-                    </div>
-                  )}
-                  {doc?.verified && (
-                    <div className="mt-2 rounded-lg bg-green-50 px-3 py-2 text-xs text-success">
-                      <CheckCircle2 className="mr-1 inline h-3 w-3" /> Verified
-                    </div>
-                  )}
-                  {dt.expiry && doc && (
-                    <div className="mt-3">
-                      <label className="label text-xs">Expiry date</label>
-                      <input type="date" value={doc.expiry_date} onChange={(e) => updateDocExpiry(doc.id!, e.target.value)} className="input py-2" />
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+        <Section title="Optional trust evidence" desc="These files are not identity documents. Admins review them privately; other members only see the approved count.">
+          <div className="space-y-3">{EVIDENCE_TYPES.map((definition) => {
+            const item = evidence.find((entry) => entry.type === definition.type);
+            return <div key={definition.type} className={cn('rounded-xl border p-4', item?.rejected ? 'border-danger/30 bg-red-50/30' : 'border-ink-100')}>
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium text-ink-900">{definition.label}</p><p className="text-xs text-ink-500">{definition.help}</p>{item && <UploadStatus item={item} />}</div>
+                <label className="btn-secondary cursor-pointer text-xs"><input type="file" accept="image/*,.pdf" className="hidden" disabled={uploadingType === definition.type} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadEvidence(file, definition.type, definition.label); e.target.value = ''; }} />{uploadingType === definition.type ? <><Upload className="h-3.5 w-3.5" /> Uploading…</> : item ? <><RefreshCw className="h-3.5 w-3.5" /> Replace</> : <><Upload className="h-3.5 w-3.5" /> Upload</>}</label>
+              </div>{item?.rejected && item.rejection_reason && <p className="mt-2 rounded-lg bg-red-100 px-3 py-2 text-xs text-danger"><AlertCircle className="mr-1 inline h-3 w-3" /> {item.rejection_reason}</p>}</div>;
+          })}</div>
+        </Section>
+
+        <Section title="References" desc="Admins may contact a referee. Contact details remain private; public profiles only show the number approved.">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Referee name"><input value={referenceForm.referee_name} onChange={(e) => setReferenceForm({ ...referenceForm, referee_name: e.target.value })} className="input" /></Field>
+            <Field label="Relationship"><input value={referenceForm.relationship} onChange={(e) => setReferenceForm({ ...referenceForm, relationship: e.target.value })} className="input" placeholder="Former employer, vehicle owner…" /></Field>
+            <Field label="Phone or email"><input value={referenceForm.referee_contact} onChange={(e) => setReferenceForm({ ...referenceForm, referee_contact: e.target.value })} className="input" /></Field>
+            <Field label="Short note (optional)"><input value={referenceForm.note} onChange={(e) => setReferenceForm({ ...referenceForm, note: e.target.value })} className="input" /></Field>
           </div>
+          <button type="button" onClick={addReference} className="btn-secondary"><Plus className="h-4 w-4" /> Add reference</button>
+          <div className="mt-4 space-y-2">{references.map((reference) => <div key={reference.id} className="flex items-center justify-between rounded-xl border border-ink-100 p-3"><div><p className="text-sm font-medium text-ink-900">{reference.referee_name} · {reference.relationship}</p><p className={cn('text-xs capitalize', reference.status === 'approved' ? 'text-success' : reference.status === 'rejected' ? 'text-danger' : 'text-amber-600')}>{reference.status}</p>{reference.rejection_reason && <p className="text-xs text-danger">{reference.rejection_reason}</p>}</div><button type="button" onClick={() => removeReference(reference)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button></div>)}</div>
         </Section>
 
-        {/* Platform history */}
-        <Section title="Platform history (last 5 months)" desc="Add your activity on each platform so owners can see your track record.">
-          <div className="space-y-3">
-            {history.map((h) => (
-              <div key={h.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
-                <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
-                  <select value={h.platform} onChange={(e) => updateHistory(h, 'platform', e.target.value)} className="input py-2">
-                    {PLATFORMS.map((p) => <option key={p} value={p}>{titleCase(p)}</option>)}
-                  </select>
-                  <input type="number" value={h.months_active} onChange={(e) => updateHistory(h, 'months_active', Number(e.target.value))} className="input py-2" placeholder="Months active" />
-                  <input type="number" value={h.trips} onChange={(e) => updateHistory(h, 'trips', Number(e.target.value))} className="input py-2" placeholder="Trips" />
-                  <button onClick={() => removeHistory(h)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button>
-                </div>
-                <div className="flex items-center gap-2">
-                  {h.proof_url ? (
-                    <>
-                      <a href={h.proof_url} target="_blank" rel="noopener noreferrer" className="text-xs text-brand-600 hover:underline">View proof</a>
-                      {h.approved ? (
-                        <span className="badge badge-success text-xs"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>
-                      ) : (
-                        <span className="badge badge-warning text-xs">Pending approval</span>
-                      )}
-                      <label className="cursor-pointer text-xs text-ink-500 hover:text-ink-800">
-                        <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHistoryProof(h, f); e.target.value = ''; }} />
-                        Replace
-                      </label>
-                    </>
-                  ) : (
-                    <label className="btn-secondary cursor-pointer text-xs">
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadHistoryProof(h, f); e.target.value = ''; }} disabled={uploadingType === `history-${h.id}`} />
-                      <Upload className="h-3.5 w-3.5" /> {uploadingType === `history-${h.id}` ? 'Uploading…' : 'Upload proof'}
-                    </label>
-                  )}
-                </div>
-              </div>
-            ))}
-            <button onClick={addHistory} className="btn-secondary"><Plus className="h-4 w-4" /> Add platform</button>
-          </div>
+        <Section title="Platform history" desc="Add claimed activity and an optional proof. Only admin-approved entries appear on your public profile.">
+          <div className="space-y-3">{history.map((item) => <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select><input type="number" value={item.months_active} onChange={(e) => updateHistory(item, 'months_active', Number(e.target.value))} className="input py-2" placeholder="Months active" /><input type="number" value={item.trips} onChange={(e) => updateHistory(item, 'trips', Number(e.target.value))} className="input py-2" placeholder="Trips" /><button type="button" onClick={() => removeHistory(item)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button></div>
+            <div className="flex items-center gap-2"><label className="btn-secondary cursor-pointer text-xs"><input type="file" accept="image/*,.pdf" className="hidden" disabled={uploadingType === `history-${item.id}`} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadHistoryProof(item, file); e.target.value = ''; }} /><Upload className="h-3.5 w-3.5" /> {uploadingType === `history-${item.id}` ? 'Uploading…' : item.proof_url ? 'Replace proof' : 'Upload proof'}</label>{item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}</div>
+          </div>)}<button type="button" onClick={addHistory} className="btn-secondary"><Plus className="h-4 w-4" /> Add platform</button></div>
         </Section>
 
-        <div className="flex justify-end">
-          <button onClick={saveProfile} disabled={saving} className="btn-primary">
-            {saving ? 'Saving…' : 'Save & submit for verification'} <ArrowRight className="h-4 w-4" />
-          </button>
-        </div>
+        <div className="flex justify-end"><button type="button" onClick={saveProfile} disabled={saving} className="btn-primary">{saving ? 'Saving…' : 'Save & submit Trust Passport'} <ArrowRight className="h-4 w-4" /></button></div>
       </div>
     </div>
   );
 }
 
+function UploadStatus({ item }: { item: DocumentRow }) {
+  if (item.verified) return <p className="mt-1 text-xs text-success"><CheckCircle2 className="mr-1 inline h-3 w-3" /> Approved</p>;
+  if (item.rejected) return <p className="mt-1 text-xs text-danger">Rejected</p>;
+  return <p className="mt-1 text-xs text-amber-600">Pending admin approval</p>;
+}
+
+function TrustNote({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
+  return <div className="rounded-xl bg-brand-50 p-4 text-brand-800">{icon}<p className="mt-2 text-sm font-semibold">{title}</p><p className="mt-1 text-xs text-brand-700">{text}</p></div>;
+}
+
 function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
-  return (
-    <div className="card p-5">
-      <h2 className="font-display text-lg font-bold text-ink-900">{title}</h2>
-      {desc && <p className="mt-1 text-xs text-ink-500">{desc}</p>}
-      <div className="mt-4">{children}</div>
-    </div>
-  );
+  return <div className="card p-5"><h2 className="font-display text-lg font-bold text-ink-900">{title}</h2>{desc && <p className="mt-1 text-xs text-ink-500">{desc}</p>}<div className="mt-4">{children}</div></div>;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="mb-4">
-      <label className="label">{label}</label>
-      {children}
-    </div>
-  );
+  return <div className="mb-4"><label className="label">{label}</label>{children}</div>;
 }

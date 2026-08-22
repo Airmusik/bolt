@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Languages, Briefcase } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import type { Profile } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
@@ -26,7 +27,7 @@ export function BrowseDriversPage() {
     (async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('*')
+        .select(PUBLIC_PROFILE_FIELDS)
         .eq('role', 'driver')
         .order('is_verified', { ascending: false })
         .order('rating', { ascending: false })

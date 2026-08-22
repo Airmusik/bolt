@@ -2,7 +2,7 @@ import { ReactNode, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './Header';
 import { Footer } from './Footer';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/useAuth';
 
 const SUSPENDED_ALLOWED = ['/', '/about', '/contact', '/terms', '/privacy', '/suspended', '/login', '/register'];
 

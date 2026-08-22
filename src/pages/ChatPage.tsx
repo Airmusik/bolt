@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Send, Image as ImageIcon, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban } from 'lucide-react';
-import { supabase, VEHICLE_BUCKET } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
-import type { Conversation, Message, Profile } from '@/lib/types';
+import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/components/useToast';
+import type { Conversation, Message, Profile, VehicleWithRelations } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { ReportModal } from './VehicleDetailsPage';
 import { cn, timeAgo } from '@/lib/utils';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 
@@ -18,26 +19,24 @@ export function ChatPage() {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [conversations, setConversations] = useState<(Conversation & { vehicle?: any; driver?: Profile; owner?: Profile })[]>([]);
+  const [conversations, setConversations] = useState<(Conversation & { vehicle?: VehicleWithRelations; driver?: Profile; owner?: Profile })[]>([]);
   const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [showReport, setShowReport] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [otherTyping, setOtherTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from('conversations')
-      .select('*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles!conversations_driver_id_fkey(*), owner:profiles!conversations_owner_id_fkey(*), admin:profiles!conversations_admin_id_fkey(*)')
+      .select(`*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), admin:profiles!conversations_admin_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
       .or(`driver_id.eq.${user.id},owner_id.eq.${user.id},admin_id.eq.${user.id}`)
       .order('last_message_at', { ascending: false, nullsFirst: false });
-    setConversations((data as any) || []);
+    setConversations((data as (Conversation & { vehicle?: VehicleWithRelations; driver?: Profile; owner?: Profile })[]) || []);
     setLoading(false);
   }, [user]);
 
@@ -50,7 +49,7 @@ export function ChatPage() {
     } else if (!conversationId && conversations.length > 0 && !active) {
       // keep none selected on mobile until clicked
     }
-  }, [conversationId, conversations]);
+  }, [conversationId, conversations, active]);
 
   const loadMessages = useCallback(async () => {
     if (!active) return;
@@ -77,7 +76,7 @@ export function ChatPage() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const m = payload.new as Message;
         if (active && m.conversation_id === active.id) {
-          setMessages((prev) => [...prev, m]);
+          setMessages((prev) => prev.some((item) => item.id === m.id) ? prev : [...prev, m]);
           if (m.sender_id !== user.id) {
             supabase.from('messages').update({ read: true }).eq('id', m.id);
           }
@@ -100,38 +99,19 @@ export function ChatPage() {
     if (active) inputRef.current?.focus();
   }, [active]);
 
-  const send = async (content?: string, type: 'text' | 'image' = 'text') => {
+  const send = async () => {
     if (!user || !active) return;
-    const body = content ?? text.trim();
+    const body = text.trim();
     if (!body) return;
     const { data } = await supabase.from('messages').insert({
-      conversation_id: active.id, sender_id: user.id, content: body, type,
+      conversation_id: active.id, sender_id: user.id, content: body, type: 'text',
     }).select().maybeSingle();
     if (data) {
-      setMessages((prev) => [...prev, data as Message]);
-      await supabase.from('conversations').update({ last_message_at: new Date().toISOString() }).eq('id', active.id);
-      // notify other party
-      const otherId = user.id === active.driver_id ? (active.owner_id || active.admin_id) : user.id === active.owner_id ? (active.driver_id || active.admin_id) : (active.driver_id || active.owner_id);
-      if (otherId) {
-        await supabase.from('notifications').insert({
-          user_id: otherId, type: 'message', title: 'New message',
-          body: 'You have a new message on GariLink', data: { conversation_id: active.id },
-        });
-      }
+      setMessages((prev) => prev.some((item) => item.id === data.id) ? prev : [...prev, data as Message]);
     }
     setText('');
     setShowEmoji(false);
     loadConversations();
-  };
-
-  const sendImage = async (file: File) => {
-    if (!user) return;
-    const ext = file.name.split('.').pop();
-    const path = `${user.id}/chat-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from(VEHICLE_BUCKET).upload(path, file);
-    if (error) { toast('Upload failed', 'error'); return; }
-    const { data: pub } = supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(path);
-    send(pub.publicUrl, 'image');
   };
 
   const blockUser = async () => {
@@ -139,6 +119,7 @@ export function ChatPage() {
     const otherId = user.id === active.driver_id ? active.owner_id : active.driver_id;
     await supabase.from('blocks').insert({ blocker_id: user.id, blocked_id: otherId });
     toast('User blocked.');
+    setActive(null);
   };
 
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
@@ -187,7 +168,7 @@ export function ChatPage() {
                   <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.is_verified} />
                   <div>
                     <p className="flex items-center gap-1 font-semibold text-ink-900">{other.full_name} <VerifiedBadge verified={other.is_verified} size={12} /></p>
-                    <p className="text-xs text-brand-600">{otherTyping ? 'typing…' : 'online'}</p>
+                    <p className="text-xs text-brand-600">online</p>
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -230,8 +211,6 @@ export function ChatPage() {
               {/* Input */}
               <div className="flex items-center gap-2 border-t border-ink-100 p-3">
                 <button onClick={() => setShowEmoji((v) => !v)} className="rounded-full p-2 text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
-                <button onClick={() => fileRef.current?.click()} className="rounded-full p-2 text-ink-400 hover:bg-ink-100"><ImageIcon className="h-5 w-5" /></button>
-                <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) sendImage(f); e.target.value = ''; }} />
                 <input
                   ref={inputRef}
                   value={text}

@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useCallback, useEffect, useState } from 'react';
 import { Bell, Check, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/useAuth';
 import type { Notification } from '@/lib/types';
 import { EmptyState } from '@/components/EmptyState';
 import { timeAgo, cn } from '@/lib/utils';
@@ -13,12 +12,12 @@ export function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
     setNotifications((data as Notification[]) || []);
     setLoading(false);
-  };
+  }, [user]);
 
   // Auto-mark all unread notifications as read when the page opens
   useEffect(() => {
@@ -27,7 +26,7 @@ export function NotificationsPage() {
       await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
       load();
     })();
-  }, [user]);
+  }, [user, load]);
 
   const markAllRead = async () => {
     if (!user) return;

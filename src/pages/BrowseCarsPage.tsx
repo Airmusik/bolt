@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { SlidersHorizontal, X, Search, MapPin } from 'lucide-react';
+import { SlidersHorizontal, Search, MapPin } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import type { VehicleWithRelations } from '@/lib/types';
 import { VehicleCard } from '@/components/VehicleCard';
 import { EmptyState } from '@/components/EmptyState';
@@ -46,7 +47,7 @@ export function BrowseCarsPage() {
       setLoading(true);
       const { data } = await supabase
         .from('vehicles')
-        .select('*, owner:profiles(*), photos:vehicle_photos(*), issues:vehicle_issues(*)')
+        .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
       setVehicles((data as VehicleWithRelations[]) || []);

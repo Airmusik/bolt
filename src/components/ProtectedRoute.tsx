@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { ReactNode } from 'react';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/useAuth';
 import { Loader2 } from 'lucide-react';
 
 const SUSPENDED_ALLOWED = ['/suspended', '/about', '/contact', '/terms', '/privacy'];

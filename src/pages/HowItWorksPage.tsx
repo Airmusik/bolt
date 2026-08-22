@@ -11,14 +11,14 @@ export function HowItWorksPage() {
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <Path title="For car owners" color="brand" steps={[
-          { icon: Users, text: 'Register and verify your identity (National ID or Passport).' },
-          { icon: Car, text: 'Add your vehicle with photos, insurance details and any known issues.' },
-          { icon: Bell, text: 'Receive applications from verified drivers.' },
+          { icon: Users, text: 'Register and build a transparent Trust Passport.' },
+          { icon: Car, text: 'Add your vehicle; admins approve its photos before they are public.' },
+          { icon: Bell, text: 'Compare applications using reviews, activity and approved trust signals.' },
           { icon: CheckCircle2, text: 'Choose your driver and start earning.' },
         ]} cta="List your car" />
         <Path title="For drivers" color="accent" steps={[
-          { icon: Users, text: 'Register and verify your documents (ID, licence, PSV badge).' },
-          { icon: BadgeCheck, text: 'Upload your platform history for the last 5 months.' },
+          { icon: Users, text: 'Register and complete your profile—no identity document is required.' },
+          { icon: BadgeCheck, text: 'Add references, platform history and optional evidence for admin approval.' },
           { icon: Search, text: 'Browse cars that match your needs and location.' },
           { icon: TrendingUp, text: 'Apply and start earning.' },
         ]} cta="Find a car" />

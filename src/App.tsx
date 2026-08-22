@@ -1,33 +1,35 @@
 import { Routes, Route } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-
-import { HomePage } from '@/pages/HomePage';
-import { LoginPage } from '@/pages/LoginPage';
-import { RegisterPage } from '@/pages/RegisterPage';
-import { BrowseCarsPage } from '@/pages/BrowseCarsPage';
-import { BrowseDriversPage } from '@/pages/BrowseDriversPage';
-import { VehicleDetailsPage } from '@/pages/VehicleDetailsPage';
-import { DriverProfilePage } from '@/pages/DriverProfilePage';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { VehicleFormPage } from '@/pages/VehicleFormPage';
-import { DriverOnboardingPage } from '@/pages/DriverOnboardingPage';
-import { ChatPage } from '@/pages/ChatPage';
-import { NotificationsPage } from '@/pages/NotificationsPage';
-import { SavedPage } from '@/pages/SavedPage';
-import { SettingsPage } from '@/pages/SettingsPage';
-import { HowItWorksPage } from '@/pages/HowItWorksPage';
-import { HelpPage } from '@/pages/HelpPage';
-import { ContactPage } from '@/pages/ContactPage';
-import { AboutPage } from '@/pages/AboutPage';
-import { TermsPage } from '@/pages/TermsPage';
-import { PrivacyPage } from '@/pages/PrivacyPage';
-import { AdminPage } from '@/pages/AdminPage';
-import { AdminLoginPage } from '@/pages/AdminLoginPage';
-import { SuspendedPage } from '@/pages/SuspendedPage';
-import { NotFoundPage } from '@/pages/NotFoundPage';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/useAuth';
 import { useSiteSettings } from '@/lib/siteSettings';
+
+const HomePage = lazy(() => import('@/pages/HomePage').then((module) => ({ default: module.HomePage })));
+const LoginPage = lazy(() => import('@/pages/LoginPage').then((module) => ({ default: module.LoginPage })));
+const RegisterPage = lazy(() => import('@/pages/RegisterPage').then((module) => ({ default: module.RegisterPage })));
+const BrowseCarsPage = lazy(() => import('@/pages/BrowseCarsPage').then((module) => ({ default: module.BrowseCarsPage })));
+const BrowseDriversPage = lazy(() => import('@/pages/BrowseDriversPage').then((module) => ({ default: module.BrowseDriversPage })));
+const VehicleDetailsPage = lazy(() => import('@/pages/VehicleDetailsPage').then((module) => ({ default: module.VehicleDetailsPage })));
+const DriverProfilePage = lazy(() => import('@/pages/DriverProfilePage').then((module) => ({ default: module.DriverProfilePage })));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((module) => ({ default: module.DashboardPage })));
+const VehicleFormPage = lazy(() => import('@/pages/VehicleFormPage').then((module) => ({ default: module.VehicleFormPage })));
+const DriverOnboardingPage = lazy(() => import('@/pages/DriverOnboardingPage').then((module) => ({ default: module.DriverOnboardingPage })));
+const ChatPage = lazy(() => import('@/pages/ChatPage').then((module) => ({ default: module.ChatPage })));
+const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((module) => ({ default: module.NotificationsPage })));
+const SavedPage = lazy(() => import('@/pages/SavedPage').then((module) => ({ default: module.SavedPage })));
+const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((module) => ({ default: module.SettingsPage })));
+const HowItWorksPage = lazy(() => import('@/pages/HowItWorksPage').then((module) => ({ default: module.HowItWorksPage })));
+const HelpPage = lazy(() => import('@/pages/HelpPage').then((module) => ({ default: module.HelpPage })));
+const ContactPage = lazy(() => import('@/pages/ContactPage').then((module) => ({ default: module.ContactPage })));
+const AboutPage = lazy(() => import('@/pages/AboutPage').then((module) => ({ default: module.AboutPage })));
+const TermsPage = lazy(() => import('@/pages/TermsPage').then((module) => ({ default: module.TermsPage })));
+const PrivacyPage = lazy(() => import('@/pages/PrivacyPage').then((module) => ({ default: module.PrivacyPage })));
+const AdminPage = lazy(() => import('@/pages/AdminPage').then((module) => ({ default: module.AdminPage })));
+const AdminLoginPage = lazy(() => import('@/pages/AdminLoginPage').then((module) => ({ default: module.AdminLoginPage })));
+const SuspendedPage = lazy(() => import('@/pages/SuspendedPage').then((module) => ({ default: module.SuspendedPage })));
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
 
 export default function App() {
   const { profile } = useAuth();
@@ -48,6 +50,7 @@ export default function App() {
 
   return (
     <Layout>
+      <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-brand-600" /></div>}>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -78,6 +81,7 @@ export default function App() {
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </Suspense>
     </Layout>
   );
 }

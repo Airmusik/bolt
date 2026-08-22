@@ -38,7 +38,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="mt-3 text-sm text-ink-500">
-              Connecting verified car owners with trusted ride-hailing drivers across Kenya — safely and simply.
+              Connecting trusted car owners and ride-hailing drivers across Kenya — safely and simply.
             </p>
             <div className="mt-4 flex gap-3">
               <a href="#" aria-label="Facebook" className="rounded-full bg-ink-100 p-2 text-ink-600 hover:bg-ink-200"><Facebook className="h-4 w-4" /></a>

@@ -1,0 +1,2 @@
+/** Profile columns that are safe to expose to other authenticated members. */
+export const PUBLIC_PROFILE_FIELDS = 'id,role,full_name,avatar_url,bio,location,preferred_locations,availability,languages,age,driving_experience_years,platforms_worked,licence_expiry,psv_badge_expiry,good_conduct_expiry,is_verified,verification_status,is_suspended,rating,rating_count,contracts_completed,created_at,updated_at' as const;

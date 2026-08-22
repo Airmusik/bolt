@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Car, Menu, X, Bell, User, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy, ShieldCheck, Users } from 'lucide-react';
-import { useAuth } from '@/lib/auth';
+import { Car, Menu, X, Bell, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy } from 'lucide-react';
+import { useAuth } from '@/lib/useAuth';
 import { Avatar } from './Avatar';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -60,7 +60,7 @@ export function Header() {
         { to: '/browse-cars', label: 'Browse Cars', icon: undefined, show: !isAdmin && !isOwner },
         { to: '/browse-drivers', label: 'Browse Drivers', icon: undefined, show: !isAdmin && !isDriver },
         { to: '/how-it-works', label: 'How it works', icon: undefined, show: !isAdmin },
-      ].filter((l) => l.show) as { to: string; label: string; icon?: any }[];
+      ].filter((l) => l.show);
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur-md">

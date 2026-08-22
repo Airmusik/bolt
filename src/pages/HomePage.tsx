@@ -5,7 +5,7 @@ import {
   CheckCircle2, MessageSquare, Bell, BadgeCheck, TrendingUp,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
+import { useAuth } from '@/lib/useAuth';
 import type { VehicleWithRelations, Profile } from '@/lib/types';
 import { VehicleCard } from '@/components/VehicleCard';
 import { Avatar } from '@/components/Avatar';
@@ -13,6 +13,7 @@ import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { ALL_LOCATIONS } from '@/lib/locations';
 import { titleCase } from '@/lib/utils';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -34,13 +35,13 @@ export function HomePage() {
       const [{ data: v }, { data: d }] = await Promise.all([
         supabase
           .from('vehicles')
-          .select('*, owner:profiles(*), photos:vehicle_photos(*), issues:vehicle_issues(*)')
+          .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
           .eq('status', 'active')
           .order('created_at', { ascending: false })
           .limit(6),
         supabase
           .from('profiles')
-          .select('*')
+          .select(PUBLIC_PROFILE_FIELDS)
           .eq('role', 'driver')
           .eq('is_verified', true)
           .order('rating', { ascending: false })
@@ -71,7 +72,7 @@ export function HomePage() {
         <div className="container-content py-16 md:py-24">
           <div className="mx-auto max-w-3xl text-center animate-slide-up">
             <span className="badge-brand mx-auto mb-5">
-              <ShieldCheck className="h-3.5 w-3.5" /> Verified owners & drivers across Kenya
+              <ShieldCheck className="h-3.5 w-3.5" /> Transparent Trust Passports across Kenya
             </span>
             <h1 className="font-display text-4xl font-extrabold leading-[1.1] text-ink-950 sm:text-5xl md:text-6xl">
               <span className="text-brand-600">GariLink</span>
@@ -79,7 +80,7 @@ export function HomePage() {
               <span className="text-ink-950">Find the Right Driver or the Right Car.</span>
             </h1>
             <p className="mt-5 text-lg text-ink-600">
-              GariLink safely connects verified car owners with trusted ride-hailing drivers across Kenya.
+              GariLink connects car owners and ride-hailing drivers through approved evidence, references, reviews, and transparent activity.
             </p>
           </div>
 
@@ -116,7 +117,7 @@ export function HomePage() {
           </form>
 
           <div className="mx-auto mt-5 flex max-w-3xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-ink-500">
-            <span className="inline-flex items-center gap-1.5"><BadgeCheck className="h-4 w-4 text-brand-600" /> ID verification</span>
+            <span className="inline-flex items-center gap-1.5"><BadgeCheck className="h-4 w-4 text-brand-600" /> Trust Passports</span>
             <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-brand-600" /> Insurance visible</span>
             <span className="inline-flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-brand-600" /> Real-time chat</span>
             <span className="inline-flex items-center gap-1.5"><Star className="h-4 w-4 text-brand-600" /> Two-way reviews</span>
@@ -130,7 +131,7 @@ export function HomePage() {
         <div className="flex items-end justify-between">
           <div>
             <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">Featured cars</h2>
-            <p className="mt-1 text-sm text-ink-500">Available vehicles from verified owners.</p>
+            <p className="mt-1 text-sm text-ink-500">Available vehicles from trusted owners.</p>
           </div>
           <Link to="/browse-cars" className="hidden items-center gap-1 text-sm font-semibold text-brand-700 hover:text-brand-800 sm:flex">
             View all <ArrowRight className="h-4 w-4" />
@@ -169,7 +170,7 @@ export function HomePage() {
         <div className="container-content py-14">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: Users, label: 'Verified members', value: '2,400+' },
+              { icon: Users, label: 'Trusted members', value: '2,400+' },
               { icon: Car, label: 'Active listings', value: '850+' },
               { icon: CheckCircle2, label: 'Successful matches', value: '1,200+' },
               { icon: Star, label: 'Avg. rating', value: '4.8/5' },
@@ -196,8 +197,8 @@ export function HomePage() {
             title="For car owners"
             color="brand"
             steps={[
-              { icon: Users, text: 'Register and verify your identity' },
-              { icon: Car, text: 'Add your vehicle with photos & details' },
+              { icon: Users, text: 'Register and build your Trust Passport' },
+              { icon: Car, text: 'Add your vehicle; photos are admin-approved' },
               { icon: Bell, text: 'Receive applications from drivers' },
               { icon: CheckCircle2, text: 'Choose your driver and start earning' },
             ]}
@@ -207,8 +208,8 @@ export function HomePage() {
             title="For drivers"
             color="accent"
             steps={[
-              { icon: Users, text: 'Register and verify your documents' },
-              { icon: BadgeCheck, text: 'Upload licence, PSV badge & history' },
+              { icon: Users, text: 'Register and build your Trust Passport' },
+              { icon: BadgeCheck, text: 'Add references, history & optional evidence' },
               { icon: Search, text: 'Browse cars that match your needs' },
               { icon: TrendingUp, text: 'Apply and start earning' },
             ]}
@@ -223,7 +224,7 @@ export function HomePage() {
           <div className="container-content">
             <div className="flex items-end justify-between">
               <div>
-                <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">Verified drivers</h2>
+                <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">Trusted drivers</h2>
                 <p className="mt-1 text-sm text-ink-500">Top-rated drivers ready to work.</p>
               </div>
               <Link to="/browse-drivers" className="hidden items-center gap-1 text-sm font-semibold text-brand-700 hover:text-brand-800 sm:flex">
@@ -260,14 +261,15 @@ export function HomePage() {
               Built for trust, end to end
             </h2>
             <p className="mt-3 text-ink-600">
-              Every owner and driver is identity-verified. Vehicle insurance status and known issues are shown upfront so there are no surprises. Report or block anyone, anytime.
+              Trust is earned through account history, completed matches, two-way reviews, approved references, and optional evidence. Vehicle insurance and known issues are shown upfront. Report or block anyone, anytime.
             </p>
             <ul className="mt-6 space-y-3">
               {[
-                'National ID & driving licence verification',
+                'Transparent Trust Passport and account standing',
+                'All user-uploaded photos and proofs reviewed by admins',
                 'Insurance type and expiry visible on every listing',
                 'Known vehicle issues disclosed by the owner',
-                'Licence & PSV expiry tracked and shown to owners',
+                'Approved references and work history shown as counts',
                 'Real-time chat with read receipts and block / report',
               ].map((t) => (
                 <li key={t} className="flex items-start gap-2 text-sm text-ink-700">
@@ -278,7 +280,7 @@ export function HomePage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             {[
-              { icon: BadgeCheck, title: 'Verified profiles', text: 'ID, licence, PSV & good conduct' },
+              { icon: BadgeCheck, title: 'Trust Passports', text: 'Activity, reviews, references & evidence' },
               { icon: ShieldCheck, title: 'Insurance shown', text: 'Third party or comprehensive' },
               { icon: MessageSquare, title: 'Secure chat', text: 'Only after a match is accepted' },
               { icon: Bell, title: 'Stay informed', text: 'Notifications for every action' },
@@ -301,7 +303,7 @@ export function HomePage() {
           </div>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {[
-              { name: 'James M.', role: 'Car owner, Nairobi', text: 'Found a verified driver in two days. The insurance and issue disclosures gave me real peace of mind.' },
+              { name: 'James M.', role: 'Car owner, Nairobi', text: 'Found a trusted driver in two days. The insurance and issue disclosures gave me real peace of mind.' },
               { name: 'Aisha W.', role: 'Driver, Mombasa', text: 'I could see which cars had comprehensive insurance and which had minor issues before applying. No surprises.' },
               { name: 'Kevin O.', role: 'Car owner, Eldoret', text: 'The chat is fast and I can see when my driver reads my messages. GariLink just works.' },
             ].map((t) => (

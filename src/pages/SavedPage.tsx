@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
+import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
+import { useAuth } from '@/lib/useAuth';
 import type { VehicleWithRelations } from '@/lib/types';
 import { VehicleCard } from '@/components/VehicleCard';
 import { EmptyState } from '@/components/EmptyState';
@@ -20,7 +21,7 @@ export function SavedPage() {
       if (ids.length === 0) { setVehicles([]); setLoading(false); return; }
       const { data: v } = await supabase
         .from('vehicles')
-        .select('*, owner:profiles(*), photos:vehicle_photos(*), issues:vehicle_issues(*)')
+        .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .in('id', ids)
         .order('created_at', { ascending: false });
       setVehicles((v as VehicleWithRelations[]) || []);

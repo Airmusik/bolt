@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Phone, Lock, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
+import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
-import { phoneToEmail, normalizePhone, isValidPhone, pinToPassword } from '@/lib/phoneAuth';
+import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/components/useToast';
+import { DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, DEMO_ADMIN_SESSION_KEY, DEMO_MODE } from '@/lib/demoMode';
 
 export function AdminLoginPage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [phone, setPhone] = useState('');
-  const [pin, setPin] = useState('');
-  const [showPin, setShowPin] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -25,18 +25,27 @@ export function AdminLoginPage() {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!isValidPhone(phone)) {
-      setError('Enter a valid Kenyan phone number.');
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      setError('Enter a valid admin email address.');
       return;
     }
-    if (pin.length !== 4) {
-      setError('PIN must be exactly 4 digits.');
+    if (password.length < 10) {
+      setError('Password must be at least 10 characters.');
       return;
     }
     setLoading(true);
 
-    const email = phoneToEmail(phone);
-    const password = pinToPassword(pin);
+    if (DEMO_MODE) {
+      if (email.toLowerCase() !== DEMO_ADMIN_EMAIL.toLowerCase() || password !== DEMO_ADMIN_PASSWORD) {
+        setError('Invalid demo admin credentials.');
+        setLoading(false);
+        return;
+      }
+      localStorage.setItem(DEMO_ADMIN_SESSION_KEY, 'active');
+      toast('Welcome to the local demo admin portal.');
+      window.location.assign('/admin');
+      return;
+    }
 
     const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
     if (signInError) {
@@ -76,40 +85,40 @@ export function AdminLoginPage() {
             </span>
           </Link>
           <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Admin Portal</h1>
-          <p className="mt-1 text-sm text-ink-500">Sign in with your admin phone number and PIN.</p>
+          <p className="mt-1 text-sm text-ink-500">Sign in with the email and password provisioned for your admin account.</p>
+          {DEMO_MODE && <p className="mt-2 text-xs font-medium text-amber-700">Local demo mode — browser-only data, not for production.</p>}
         </div>
 
         <form onSubmit={handleSignIn} className="card p-6">
           {error && <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
           <div>
-            <label className="label">Phone number</label>
+            <label className="label">Admin email</label>
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+              <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="0712 345 678"
-                inputMode="tel"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@example.com"
+                type="email"
                 className="input pl-10"
                 required
               />
             </div>
           </div>
           <div className="mt-4">
-            <label className="label">PIN</label>
+            <label className="label">Password</label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
-                value={pin}
-                onChange={(e) => setPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                type={showPin ? 'text' : 'password'}
-                inputMode="numeric"
-                placeholder="4-digit PIN"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Admin password"
                 className="input pl-10 pr-10"
                 required
               />
-              <button type="button" onClick={() => setShowPin((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700">
-                {showPin ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700">
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
           </div>

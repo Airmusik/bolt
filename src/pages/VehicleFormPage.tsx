@@ -1,20 +1,21 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, AlertTriangle, Upload, X, ArrowLeft } from 'lucide-react';
-import { supabase, VEHICLE_BUCKET } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth';
-import { useToast } from '@/components/Toast';
+import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
+import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/components/useToast';
 import type { Vehicle, VehicleIssue, VehiclePhoto } from '@/lib/types';
 import { ALL_LOCATIONS, VEHICLE_MAKES } from '@/lib/locations';
 import { cn } from '@/lib/utils';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { ModeratedImage } from '@/components/ModeratedImage';
 
 interface IssueDraft { id?: string; description: string; severity: 'minor' | 'moderate' | 'major' }
 
 export function VehicleFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
   const isEdit = Boolean(id);
   const { settings } = useSiteSettings();
@@ -45,7 +46,7 @@ export function VehicleFormPage() {
           location: veh.location, weekly_target: veh.weekly_target?.toString() || '', monthly_target: veh.monthly_target?.toString() || '',
           deposit: veh.deposit?.toString() || '', driver_experience: veh.driver_experience || '', requirements: veh.requirements || '',
           availability: veh.availability, insurance_type: veh.insurance_type, insurance_expiry: veh.insurance_expiry || '',
-          available_from: (veh as any).available_from || new Date().toISOString().slice(0, 10),
+          available_from: veh.available_from || new Date().toISOString().slice(0, 10),
         });
       }
       setIssues(((iss as VehicleIssue[]) || []).map((i) => ({ id: i.id, description: i.description, severity: i.severity })));
@@ -58,15 +59,15 @@ export function VehicleFormPage() {
     setUploading(true);
     const ext = file.name.split('.').pop();
     const path = `${user.id}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from(VEHICLE_BUCKET).upload(path, file);
+    const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
     if (error) { toast('Upload failed: ' + error.message, 'error'); setUploading(false); return; }
-    const { data: pub } = supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(path);
+    const { data: pub } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
     if (isEdit && id) {
       const { data } = await supabase.from('vehicle_photos').insert({ vehicle_id: id, photo_url: pub.publicUrl, position: photos.length }).select().maybeSingle();
       if (data) setPhotos((p) => [...p, data as VehiclePhoto]);
     } else {
       // store locally until vehicle is created
-      setPhotos((p) => [...p, { id: 'temp-' + Date.now(), vehicle_id: '', photo_url: pub.publicUrl, position: p.length, created_at: '' }]);
+      setPhotos((p) => [...p, { id: 'temp-' + Date.now(), vehicle_id: '', photo_url: pub.publicUrl, position: p.length, approved: false, rejected: false, rejection_reason: null, created_at: '' }]);
     }
     setUploading(false);
   };
@@ -82,10 +83,6 @@ export function VehicleFormPage() {
     if (!user) return;
     if (!form.make || !form.model || !form.location) { toast('Make, model and location are required.', 'error'); return; }
     if (photos.length === 0) { toast('At least one vehicle photo is required for security.', 'error'); return; }
-    if (!isEdit && profile && profile.verification_status !== 'approved') {
-      toast('You must complete KYC verification before listing a vehicle. Go to Settings to upload your documents.', 'error');
-      navigate('/settings'); return;
-    }
     if (!isEdit) {
       const maxVehicles = Number(settings.max_vehicles_per_owner || 10);
       const { count, error } = await supabase
@@ -135,7 +132,7 @@ export function VehicleFormPage() {
       }
     }
     setSaving(false);
-    toast('Vehicle saved.');
+    toast('Vehicle saved. New photos will appear publicly after admin approval.');
     navigate(`/vehicles/${vehicleId}`);
   };
 
@@ -149,11 +146,12 @@ export function VehicleFormPage() {
 
       <div className="mt-6 space-y-6">
         {/* Photos */}
-        <Card title="Vehicle photos" desc="Upload clear photos of the exterior and interior.">
+        <Card title="Vehicle photos" desc="Upload clear photos of the exterior and interior. Every new photo requires admin approval.">
           <div className="flex flex-wrap gap-3">
             {photos.map((p) => (
               <div key={p.id} className="relative h-24 w-32 overflow-hidden rounded-lg ring-1 ring-ink-200">
-                <img src={p.photo_url} alt="" className="h-full w-full object-cover" />
+                <ModeratedImage src={p.photo_url} alt="" className="h-full w-full object-cover" />
+                {!p.approved && <span className="absolute bottom-1 left-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">{p.rejected ? 'Rejected' : 'Pending'}</span>}
                 <button onClick={() => removePhoto(p)} className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-ink-700 hover:text-danger">
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -184,13 +182,13 @@ export function VehicleFormPage() {
               </select>
             </Field>
             <Field label="Transmission">
-              <select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value as any })} className="input">
+              <select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value as Vehicle['transmission'] })} className="input">
                 <option value="automatic">Automatic</option>
                 <option value="manual">Manual</option>
               </select>
             </Field>
             <Field label="Fuel type">
-              <select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value as any })} className="input">
+              <select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value as Vehicle['fuel_type'] })} className="input">
                 <option value="petrol">Petrol</option>
                 <option value="diesel">Diesel</option>
                 <option value="hybrid">Hybrid</option>
@@ -219,7 +217,7 @@ export function VehicleFormPage() {
         <Card title="Insurance" desc="Drivers can see the type and expiry before applying.">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Insurance type">
-              <select value={form.insurance_type} onChange={(e) => setForm({ ...form, insurance_type: e.target.value as any })} className="input">
+              <select value={form.insurance_type} onChange={(e) => setForm({ ...form, insurance_type: e.target.value as Vehicle['insurance_type'] })} className="input">
                 <option value="third_party">Third party</option>
                 <option value="comprehensive">Comprehensive</option>
                 <option value="none">None</option>
@@ -236,7 +234,7 @@ export function VehicleFormPage() {
             {issues.map((iss, idx) => (
               <div key={idx} className="flex flex-col gap-2 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-100 sm:flex-row sm:items-center">
                 <input value={iss.description} onChange={(e) => setIssues(issues.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))} placeholder="e.g. Left side mirror cracked" className="input flex-1 bg-white" />
-                <select value={iss.severity} onChange={(e) => setIssues(issues.map((x, i) => i === idx ? { ...x, severity: e.target.value as any } : x))} className="input w-auto bg-white">
+                <select value={iss.severity} onChange={(e) => setIssues(issues.map((x, i) => i === idx ? { ...x, severity: e.target.value as VehicleIssue['severity'] } : x))} className="input w-auto bg-white">
                   <option value="minor">Minor</option>
                   <option value="moderate">Moderate</option>
                   <option value="major">Major</option>
