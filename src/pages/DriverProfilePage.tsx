@@ -58,18 +58,19 @@ export function DriverProfilePage() {
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
               <Avatar name={profile.full_name} src={profile.avatar_url} size={88} verified={profile.is_verified} />
               <div className="flex-1">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-700">{profile.role} profile</p>
                 <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink-900">
                   {profile.full_name} <VerifiedBadge verified={profile.is_verified} size={18} showLabel />
                 </h1>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
-                  <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {profile.location || 'Kenya'}</span>
-                  {profile.age && <span>{profile.age} years old</span>}
-                  <span className="inline-flex items-center gap-1"><Briefcase className="h-4 w-4" /> {profile.driving_experience_years} yrs experience</span>
+                  <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {profile.location || 'Location not provided'}</span>
+                  {!isOwner && profile.age && <span>{profile.age} years old</span>}
+                  {!isOwner && <span className="inline-flex items-center gap-1"><Briefcase className="h-4 w-4" /> {profile.driving_experience_years} yrs experience</span>}
                 </div>
                 <Rating value={profile.rating} size={15} showValue count={profile.rating_count} className="mt-2" />
-                <div className="mt-2">
+                {!isOwner && <div className="mt-2">
                   <AvailabilityBadge availability={profile.availability} size="md" />
-                </div>
+                </div>}
               </div>
               {user?.id !== profile.id && (
                 <button onClick={() => setShowReport(true)} className="btn-ghost text-ink-500"><Flag className="h-4 w-4" /> Report</button>
@@ -80,7 +81,7 @@ export function DriverProfilePage() {
 
             <div className="mt-5 flex flex-wrap gap-2">
               <span className="badge-brand"><BadgeCheck className="h-3.5 w-3.5" /> {profile.contracts_completed} contracts completed</span>
-              {(profile.platforms_worked || []).map((p) => <span key={p} className="badge-neutral">{titleCase(p)}</span>)}
+              {!isOwner && (profile.platforms_worked || []).map((p) => <span key={p} className="badge-neutral">{titleCase(p)}</span>)}
             </div>
           </div>
 

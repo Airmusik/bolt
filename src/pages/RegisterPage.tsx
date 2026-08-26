@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Car, Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail } from 'lucide-react';
+import { Car, Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail, MapPin } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import type { Role } from '@/lib/types';
+import { ALL_LOCATIONS } from '@/lib/locations';
 
 export function RegisterPage() {
   const { signUp, user } = useAuth();
@@ -13,6 +14,7 @@ export function RegisterPage() {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [location, setLocation] = useState('');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [role, setRole] = useState<Role>('driver');
@@ -29,9 +31,10 @@ export function RegisterPage() {
     setError(null);
     if (pin !== confirmPin) { setError('Passwords do not match. Please re-enter.'); return; }
     if (!email.trim()) { setError('Email address is required.'); return; }
+    if (!location.trim()) { setError('Town or neighbourhood is required.'); return; }
     setLoading(true);
     try {
-      const result = await signUp(phone, pin, fullName, role, email);
+      const result = await signUp(phone, pin, fullName, role, email, location);
       if (result.error) {
         setError(result.error);
       } else if (result.requiresEmailConfirmation) {
@@ -104,6 +107,15 @@ export function RegisterPage() {
               <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="input pl-10" required />
             </div>
             <p className="mt-1.5 text-xs text-ink-400">You will use this email to sign in and reset your password.</p>
+          </div>
+          <div className="mt-4">
+            <label className="label">Town or neighbourhood</label>
+            <div className="relative">
+              <MapPin className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+              <input value={location} onChange={(event) => setLocation(event.target.value)} list="kenyan-registration-locations" autoComplete="address-level2" placeholder="e.g. Ongata Rongai" className="input pl-10" required />
+              <datalist id="kenyan-registration-locations">{ALL_LOCATIONS.map((place) => <option key={place} value={place} />)}</datalist>
+            </div>
+            <p className="mt-1.5 text-xs text-ink-400">Shown publicly so nearby drivers and owners can find you. GariLink operates in Kenya only.</p>
           </div>
 
           <div className="mt-4">

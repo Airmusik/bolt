@@ -236,9 +236,10 @@ export function HomePage() {
                 <Link key={d.id} to={`/drivers/${d.id}`} className="card card-hover p-5 text-center">
                   <Avatar name={d.full_name} src={d.avatar_url} size={72} verified className="mx-auto" />
                   <p className="mt-3 flex items-center justify-center gap-1 font-semibold text-ink-900">
-                    {d.full_name} <VerifiedBadge verified={d.is_verified} size={14} />
+                    {d.full_name}
                   </p>
-                  <p className="text-xs text-ink-500">{d.location || 'Kenya'}</p>
+                  <p className="text-xs text-ink-500">{d.location || 'Location not provided'}</p>
+                  <div className="mt-1"><VerifiedBadge verified={d.is_verified} size={11} showLabel /></div>
                   <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-2 justify-center" />
                   <div className="mt-3 flex flex-wrap justify-center gap-1">
                     {d.platforms_worked?.slice(0, 3).map((p) => (

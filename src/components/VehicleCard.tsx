@@ -92,7 +92,7 @@ export function VehicleCard({ vehicle, showOwner = true }: Props) {
               <div>
                 <p className="flex items-center gap-1 text-xs font-medium text-ink-800">
                   {vehicle.owner.full_name}
-                  <VerifiedBadge verified={vehicle.owner.is_verified} size={12} />
+                  <VerifiedBadge verified={vehicle.owner.is_verified} size={11} showLabel />
                 </p>
                 <Rating value={vehicle.owner.rating} size={11} count={vehicle.owner.rating_count} showValue />
               </div>

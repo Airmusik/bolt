@@ -15,7 +15,9 @@ export const KENYAN_COUNTIES = [
 export const KENYAN_TOWNS = [
   'Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika',
   'Nyeri', 'Malindi', 'Kitale', 'Garissa', 'Kakamega', 'Machakos',
-  'Meru', 'Kericho', 'Nanyuki', 'Voi', 'Lamu', 'Wajir',
+  'Meru', 'Kericho', 'Nanyuki', 'Voi', 'Lamu', 'Wajir', 'Ongata Rongai',
+  'Kitengela', 'Ngong', 'Ruaka', 'Ruiru', 'Juja', 'Athi River', 'Naivasha',
+  'Limuru', 'Karen', 'Kikuyu', 'Kiambu Town', 'Embu', 'Isiolo', 'Bungoma',
 ];
 
 export const ALL_LOCATIONS = Array.from(new Set([...KENYAN_COUNTIES, ...KENYAN_TOWNS])).sort();

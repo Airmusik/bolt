@@ -264,14 +264,17 @@ export function VehicleDetailsPage() {
 
             {/* Owner card */}
             {vehicle.owner && (
-              <Link to={`/drivers/${vehicle.owner.id}`} className="mt-4 flex items-center gap-3 rounded-xl border border-ink-100 p-3 hover:bg-ink-50">
+              <Link to={`/members/${vehicle.owner.id}`} className="mt-4 flex items-center gap-3 rounded-xl border border-ink-100 p-3 hover:bg-ink-50">
                 <Avatar name={vehicle.owner.full_name} src={vehicle.owner.avatar_url} size={44} verified={vehicle.owner.is_verified} />
                 <div className="min-w-0">
                   <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
-                    {vehicle.owner.full_name} <VerifiedBadge verified={vehicle.owner.is_verified} size={12} />
+                    {vehicle.owner.full_name}
                   </p>
+                  <div className="mt-1"><VerifiedBadge verified={vehicle.owner.is_verified} size={11} showLabel /></div>
+                  <p className="mt-1 text-xs text-ink-500">{vehicle.owner.location || 'Location not provided'}</p>
                   <Rating value={vehicle.owner.rating} size={11} showValue count={vehicle.owner.rating_count} />
                 </div>
+                <span className="ml-auto text-xs font-semibold text-brand-700">View owner</span>
               </Link>
             )}
 

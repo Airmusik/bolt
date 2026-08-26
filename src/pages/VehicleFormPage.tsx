@@ -9,6 +9,7 @@ import { ALL_LOCATIONS, VEHICLE_MAKES } from '@/lib/locations';
 import { cn } from '@/lib/utils';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ModeratedImage } from '@/components/ModeratedImage';
+import { PlatePrivacyEditor } from '@/components/PlatePrivacyEditor';
 
 interface IssueDraft { id?: string; description: string; severity: 'minor' | 'moderate' | 'major' }
 
@@ -37,6 +38,7 @@ export function VehicleFormPage() {
   const [vehicleEvidence, setVehicleEvidence] = useState<DocumentRow[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadingEvidence, setUploadingEvidence] = useState<string | null>(null);
+  const [photoForPrivacyReview, setPhotoForPrivacyReview] = useState<File | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -233,7 +235,7 @@ export function VehicleFormPage() {
               </div>
             ))}
             <label className={cn('flex h-24 w-32 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-ink-200 text-ink-400 hover:border-brand-400 hover:text-brand-600', uploading && 'opacity-50')}>
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(f); e.target.value = ''; }} disabled={uploading} />
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setPhotoForPrivacyReview(f); e.target.value = ''; }} disabled={uploading} />
               <div className="text-center"><Upload className="mx-auto h-5 w-5" /><span className="text-xs">{uploading ? 'Uploading…' : 'Add photo'}</span></div>
             </label>
           </div>
@@ -355,6 +357,14 @@ export function VehicleFormPage() {
           <button onClick={save} disabled={saving} className="btn-primary">{saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Publish vehicle')}</button>
         </div>
       </div>
+      {photoForPrivacyReview && (
+        <PlatePrivacyEditor
+          file={photoForPrivacyReview}
+          onCancel={() => setPhotoForPrivacyReview(null)}
+          onUploadOriginal={() => { const file = photoForPrivacyReview; setPhotoForPrivacyReview(null); uploadPhoto(file); }}
+          onComplete={(file) => { setPhotoForPrivacyReview(null); uploadPhoto(file); }}
+        />
+      )}
     </div>
   );
 }

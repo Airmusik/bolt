@@ -236,7 +236,7 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
                   <Avatar name={d.full_name} src={d.avatar_url} size={44} verified={d.is_verified} />
                   <div className="min-w-0 flex-1">
                     <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">{d.full_name} <VerifiedBadge verified={d.is_verified} size={11} /></p>
-                    <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Kenya'}</p>
+                    <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
                   </div>
                   <AvailabilityBadge availability={d.availability} />
                 </div>
@@ -277,7 +277,7 @@ function DriversTab({ users, loading }: { users: Profile[]; loading: boolean }) 
               <Avatar name={d.full_name} src={d.avatar_url} size={48} verified={d.is_verified} />
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">{d.full_name} <VerifiedBadge verified={d.is_verified} size={12} /></p>
-                <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Kenya'}</p>
+                <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
               </div>
               <AvailabilityBadge availability={d.availability} />
             </div>

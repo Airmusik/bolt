@@ -75,11 +75,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadProfile]);
 
-  const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail) => {
+  const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail, userLocation) => {
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number (e.g. 0712 345 678).' };
     if (!isValidPin(pin)) return { error: 'Password must be at least 10 characters and include uppercase, lowercase, and a number.' };
     if (!fullName.trim()) return { error: 'Please enter your full name.' };
     if (!isValidEmail(userEmail)) return { error: 'Enter a valid email address, for example name@example.com.' };
+    if (userLocation.trim().length < 2) return { error: 'Enter your town or neighbourhood, for example Ongata Rongai.' };
 
     const password = pinToPassword(pin);
     const email = userEmail.trim().toLowerCase();
@@ -93,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName.trim(), role, phone: normalized, email } },
+        options: { data: { full_name: fullName.trim(), role, phone: normalized, email, location: userLocation.trim() } },
       });
       if (error) return { error: getAuthErrorMessage(error, 'signup') };
 
@@ -112,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           full_name: fullName.trim(),
           phone: normalized,
           email,
+          location: userLocation.trim(),
         });
         if (profileError) {
           console.error('profile setup error', profileError);

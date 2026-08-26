@@ -59,6 +59,7 @@ export default function App() {
         <Route path="/browse-drivers" element={<BrowseDriversPage />} />
         <Route path="/vehicles/:id" element={<VehicleDetailsPage />} />
         <Route path="/drivers/:id" element={<DriverProfilePage />} />
+        <Route path="/members/:id" element={<DriverProfilePage />} />
         <Route path="/how-it-works" element={<HowItWorksPage />} />
         <Route path="/help" element={<HelpPage />} />
         <Route path="/contact" element={<ContactPage />} />

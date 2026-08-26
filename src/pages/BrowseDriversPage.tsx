@@ -80,10 +80,8 @@ export function BrowseDriversPage() {
                   <div className="flex items-center gap-3">
                     <Avatar name={d.full_name} src={d.avatar_url} size={56} verified={d.is_verified} />
                     <div className="min-w-0 flex-1">
-                      <p className="flex items-center gap-1 truncate font-semibold text-ink-900">
-                        {d.full_name} <VerifiedBadge verified={d.is_verified} size={13} />
-                      </p>
-                      <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Kenya'}</p>
+                      <p className="truncate font-semibold text-ink-900">{d.full_name}</p>
+                      <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
                     </div>
                     <AvailabilityBadge availability={d.availability} />
                   </div>
@@ -100,7 +98,9 @@ export function BrowseDriversPage() {
                     ))}
                   </div>
                 </Link>
-                <div className="mt-3">
+                <div className="mt-3"><VerifiedBadge verified={d.is_verified} size={12} showLabel /></div>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Link to={`/members/${d.id}`} className="btn-secondary justify-center px-2 text-xs">View driver</Link>
                   <ConnectionButton otherUserId={d.id} size="sm" className="w-full" />
                 </div>
               </div>
