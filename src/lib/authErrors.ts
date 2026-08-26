@@ -15,7 +15,7 @@ export function getAuthErrorMessage(error: unknown, action: AuthAction): string 
     return 'Enter a valid email address, for example name@example.com.';
   }
   if (message.includes('already registered') || message.includes('already exists') || message.includes('user already')) {
-    return 'An account with this email already exists. Try signing in instead.';
+    return 'This email address is already registered. Sign in instead, or reset your password.';
   }
   if (message.includes('weak password') || message.includes('password should') || message.includes('password must')) {
     return 'Use at least 10 characters with uppercase, lowercase, and a number.';
@@ -31,6 +31,9 @@ export function getAuthErrorMessage(error: unknown, action: AuthAction): string 
   }
   if (message.includes('signup is disabled') || message.includes('signups not allowed')) {
     return 'New account registration is temporarily unavailable. Please contact GariLink support.';
+  }
+  if (message.includes('database error saving new user') || message.includes('unexpected_failure')) {
+    return 'This email or phone number may already be registered. Sign in instead, or reset your password.';
   }
   if (message.includes('failed to fetch') || message.includes('network') || message.includes('fetch')) {
     return 'Could not reach GariLink. Check your internet connection and try again.';

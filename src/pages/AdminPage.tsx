@@ -30,7 +30,7 @@ import type { ToastType } from '@/components/toastContext';
 import { ModeratedImage } from '@/components/ModeratedImage';
 
 type AdminVehicle = Vehicle & { owner?: Profile; photos?: VehiclePhoto[]; description?: string };
-type AdminDocument = DocumentRow & { user?: Profile };
+type AdminDocument = DocumentRow & { user?: Profile; vehicle?: Pick<Vehicle, 'id' | 'make' | 'model' | 'year'> };
 type AdminHistory = PlatformHistory & { driver?: Profile };
 type AdminReference = TrustReference & { user?: Profile };
 type ToastFn = (message: string, type?: ToastType) => void;
@@ -92,7 +92,7 @@ export function AdminPage() {
       supabase.rpc('admin_list_profiles'),
       supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*)`).order('created_at', { ascending: false }),
       supabase.from('reports').select('*').order('created_at', { ascending: false }),
-      supabase.from('documents').select(`*, user:profiles!documents_user_id_fkey(${PUBLIC_PROFILE_FIELDS})`).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false }),
+      supabase.from('documents').select(`*, user:profiles!documents_user_id_fkey(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles!documents_vehicle_id_fkey(id,make,model,year)`).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false }),
       supabase.from('driver_platform_history').select(`*, driver:profiles!driver_platform_history_driver_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
       supabase.from('trust_references').select(`*, user:profiles!trust_references_user_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
     ]);
@@ -562,6 +562,7 @@ export function AdminPage() {
                 <FileText className={cn('h-8 w-8', d.verified ? 'text-success' : d.rejected ? 'text-danger' : 'text-amber-500')} />
                 <div className="flex-1">
                   <p className="font-medium text-ink-900">{d.label || d.type.replace(/_/g, ' ')}</p>
+                  {d.vehicle && <p className="text-xs text-brand-700">Vehicle: {d.vehicle.year} {d.vehicle.make} {d.vehicle.model}</p>}
                   <p className="text-xs text-ink-500">{d.user?.full_name} ({d.user?.role}) · {timeAgo(d.created_at)}</p>
                   {d.expiry_date && <p className="text-xs text-ink-400">Expires: {d.expiry_date}</p>}
                   {d.rejected && d.rejection_reason && <p className="mt-1 text-xs text-danger">Rejected: {d.rejection_reason}</p>}

@@ -114,6 +114,7 @@ export interface PlatformHistory {
 export interface TrustReference {
   id: string;
   user_id: string;
+  vehicle_id?: string | null;
   referee_name: string;
   relationship: string;
   referee_contact: string;

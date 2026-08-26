@@ -4,13 +4,18 @@ import { Plus, Trash2, AlertTriangle, Upload, X, ArrowLeft } from 'lucide-react'
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
-import type { Vehicle, VehicleIssue, VehiclePhoto } from '@/lib/types';
+import type { DocumentRow, Vehicle, VehicleIssue, VehiclePhoto } from '@/lib/types';
 import { ALL_LOCATIONS, VEHICLE_MAKES } from '@/lib/locations';
 import { cn } from '@/lib/utils';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ModeratedImage } from '@/components/ModeratedImage';
 
 interface IssueDraft { id?: string; description: string; severity: 'minor' | 'moderate' | 'major' }
+
+const OWNER_EVIDENCE = [
+  { type: 'vehicle_ownership', label: 'Vehicle ownership evidence', help: 'Upload a logbook or other proof that you may list this vehicle.' },
+  { type: 'vehicle_inspection', label: 'Vehicle inspection', help: 'Upload a current inspection or condition report.' },
+] as const;
 
 export function VehicleFormPage() {
   const { id } = useParams();
@@ -29,15 +34,18 @@ export function VehicleFormPage() {
   });
   const [issues, setIssues] = useState<IssueDraft[]>([]);
   const [photos, setPhotos] = useState<VehiclePhoto[]>([]);
+  const [vehicleEvidence, setVehicleEvidence] = useState<DocumentRow[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadingEvidence, setUploadingEvidence] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const [{ data: v }, { data: iss }, { data: ph }] = await Promise.all([
+      const [{ data: v }, { data: iss }, { data: ph }, { data: docs }] = await Promise.all([
         supabase.from('vehicles').select('*').eq('id', id).maybeSingle(),
         supabase.from('vehicle_issues').select('*').eq('vehicle_id', id),
         supabase.from('vehicle_photos').select('*').eq('vehicle_id', id).order('position'),
+        supabase.from('documents').select('*').eq('vehicle_id', id).in('type', OWNER_EVIDENCE.map((item) => item.type)),
       ]);
       if (v) {
         const veh = v as Vehicle;
@@ -51,6 +59,7 @@ export function VehicleFormPage() {
       }
       setIssues(((iss as VehicleIssue[]) || []).map((i) => ({ id: i.id, description: i.description, severity: i.severity })));
       setPhotos((ph as VehiclePhoto[]) || []);
+      setVehicleEvidence((docs as DocumentRow[]) || []);
     })();
   }, [id]);
 
@@ -72,6 +81,52 @@ export function VehicleFormPage() {
     setUploading(false);
   };
 
+  const uploadOwnerEvidence = async (file: File, type: string, label: string) => {
+    if (!user) return;
+    setUploadingEvidence(type);
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+    const path = `${user.id}/vehicle-${type}-${id || 'new'}-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
+    if (uploadError) {
+      toast('Upload failed: ' + uploadError.message, 'error');
+      setUploadingEvidence(null);
+      return;
+    }
+    const { data: urlData } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
+    const existing = vehicleEvidence.find((item) => item.type === type);
+
+    if (isEdit && id) {
+      const query = existing
+        ? supabase.from('documents').update({ file_url: urlData.publicUrl, label, verified: false, rejected: false, rejection_reason: null }).eq('id', existing.id)
+        : supabase.from('documents').insert({ user_id: user.id, vehicle_id: id, type, file_url: urlData.publicUrl, label });
+      const { error } = await query;
+      if (error) {
+        toast('Could not save vehicle evidence: ' + error.message, 'error');
+        setUploadingEvidence(null);
+        return;
+      }
+      const { data } = await supabase.from('documents').select('*').eq('vehicle_id', id).in('type', OWNER_EVIDENCE.map((item) => item.type));
+      setVehicleEvidence((data as DocumentRow[]) || []);
+    } else {
+      const pending = {
+        id: `temp-${type}`,
+        user_id: user.id,
+        vehicle_id: null,
+        type,
+        file_url: urlData.publicUrl,
+        label,
+        expiry_date: null,
+        verified: false,
+        rejected: false,
+        rejection_reason: null,
+        created_at: new Date().toISOString(),
+      } as DocumentRow;
+      setVehicleEvidence((items) => [...items.filter((item) => item.type !== type), pending]);
+    }
+    setUploadingEvidence(null);
+    toast('Evidence uploaded for private admin review.');
+  };
+
   const removePhoto = async (photo: VehiclePhoto) => {
     if (isEdit && id && !photo.id.startsWith('temp-')) {
       await supabase.from('vehicle_photos').delete().eq('id', photo.id);
@@ -83,6 +138,11 @@ export function VehicleFormPage() {
     if (!user) return;
     if (!form.make || !form.model || !form.location) { toast('Make, model and location are required.', 'error'); return; }
     if (photos.length === 0) { toast('At least one vehicle photo is required for security.', 'error'); return; }
+    const missingEvidence = OWNER_EVIDENCE.filter((definition) => !vehicleEvidence.some((item) => item.type === definition.type && item.file_url));
+    if (missingEvidence.length > 0) {
+      toast(`Upload ${missingEvidence.map((item) => item.label.toLowerCase()).join(' and ')} before publishing.`, 'error');
+      return;
+    }
     if (!isEdit) {
       const maxVehicles = Number(settings.max_vehicles_per_owner || 10);
       const { count, error } = await supabase
@@ -112,15 +172,30 @@ export function VehicleFormPage() {
     };
     let vehicleId = id;
     if (isEdit && id) {
-      await supabase.from('vehicles').update(payload).eq('id', id);
+      const { error } = await supabase.from('vehicles').update(payload).eq('id', id);
+      if (error) { toast('Could not update vehicle: ' + error.message, 'error'); setSaving(false); return; }
     } else {
-      const { data, error } = await supabase.from('vehicles').insert(payload).select().maybeSingle();
+      // Keep the listing closed until all required private evidence has been
+      // attached. The database enforces this transition as well.
+      const { data, error } = await supabase.from('vehicles').insert({ ...payload, status: 'closed' }).select().maybeSingle();
       if (error || !data) { toast('Could not save vehicle: ' + (error?.message || ''), 'error'); setSaving(false); return; }
       vehicleId = (data as Vehicle).id;
-      // persist temp photos
-      for (const p of photos) {
-        await supabase.from('vehicle_photos').insert({ vehicle_id: vehicleId, photo_url: p.photo_url, position: p.position });
-      }
+      const { error: photoError } = await supabase.from('vehicle_photos').insert(
+        photos.map((photo) => ({ vehicle_id: vehicleId, photo_url: photo.photo_url, position: photo.position })),
+      );
+      if (photoError) { toast('Vehicle saved as a closed draft because photos could not be attached.', 'error'); setSaving(false); return; }
+      const { error: evidenceError } = await supabase.from('documents').insert(
+        vehicleEvidence.map((evidence) => ({
+          user_id: user.id,
+          vehicle_id: vehicleId,
+          type: evidence.type,
+          file_url: evidence.file_url,
+          label: evidence.label,
+        })),
+      );
+      if (evidenceError) { toast('Vehicle saved as a closed draft because required evidence could not be attached.', 'error'); setSaving(false); return; }
+      const { error: activateError } = await supabase.from('vehicles').update({ status: 'active' }).eq('id', vehicleId);
+      if (activateError) { toast('Vehicle saved as a closed draft. Required evidence must be attached before publishing.', 'error'); setSaving(false); return; }
     }
     // sync issues
     if (vehicleId) {
@@ -161,6 +236,27 @@ export function VehicleFormPage() {
               <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(f); e.target.value = ''; }} disabled={uploading} />
               <div className="text-center"><Upload className="mx-auto h-5 w-5" /><span className="text-xs">{uploading ? 'Uploading…' : 'Add photo'}</span></div>
             </label>
+          </div>
+        </Card>
+
+        <Card title="Required owner evidence" desc="These files stay private. Admins review them before they count as trusted evidence for this vehicle.">
+          <div className="space-y-3">
+            {OWNER_EVIDENCE.map((definition) => {
+              const evidence = vehicleEvidence.find((item) => item.type === definition.type);
+              return (
+                <div key={definition.type} className={cn('flex flex-wrap items-center justify-between gap-3 rounded-xl border p-4', evidence?.rejected ? 'border-danger/30 bg-red-50/30' : 'border-ink-100')}>
+                  <div>
+                    <p className="font-medium text-ink-900">{definition.label} <span className="text-danger">*</span></p>
+                    <p className="text-xs text-ink-500">{definition.help}</p>
+                    {evidence && <p className={cn('mt-1 text-xs', evidence.verified ? 'text-success' : evidence.rejected ? 'text-danger' : 'text-amber-600')}>{evidence.verified ? 'Approved' : evidence.rejected ? `Rejected${evidence.rejection_reason ? `: ${evidence.rejection_reason}` : ''}` : 'Pending admin approval'}</p>}
+                  </div>
+                  <label className="btn-secondary cursor-pointer text-xs">
+                    <input type="file" accept="image/*,.pdf" className="hidden" disabled={uploadingEvidence === definition.type} onChange={(event) => { const file = event.target.files?.[0]; if (file) uploadOwnerEvidence(file, definition.type, definition.label); event.target.value = ''; }} />
+                    <Upload className="h-3.5 w-3.5" /> {uploadingEvidence === definition.type ? 'Uploading…' : evidence ? 'Replace' : 'Upload'}
+                  </label>
+                </div>
+              );
+            })}
           </div>
         </Card>
 

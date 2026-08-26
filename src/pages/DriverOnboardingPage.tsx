@@ -11,8 +11,6 @@ import { BackButton } from '@/components/BackButton';
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 const EVIDENCE_TYPES = [
   { type: 'work_history', label: 'Work history proof', help: 'A statement, activity screenshot, or employer letter.' },
-  { type: 'vehicle_inspection', label: 'Vehicle inspection', help: 'Optional inspection or condition report.' },
-  { type: 'vehicle_ownership', label: 'Vehicle ownership evidence', help: 'Optional logbook or ownership evidence. Sensitive details stay private.' },
   { type: 'reference_letter', label: 'Reference letter', help: 'Optional written endorsement from someone you have worked with.' },
 ] as const;
 
@@ -130,6 +128,11 @@ export function DriverOnboardingPage() {
 
   const saveProfile = async () => {
     if (!user) return;
+    const completeHistory = history.filter((item) => item.months_active > 0 && Boolean(item.proof_url));
+    if (completeHistory.length === 0) {
+      toast('Add at least one platform history entry with months active and proof before submitting.', 'error');
+      return;
+    }
     setSaving(true);
     const { error: profileError } = await supabase.from('profiles').update({
       full_name: profileForm.full_name, bio: profileForm.bio, location: profileForm.location,
@@ -152,7 +155,7 @@ export function DriverOnboardingPage() {
     <div className="container-content py-8">
       <BackButton to="/dashboard" />
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Build your Trust Passport</h1>
-      <p className="mt-1 max-w-3xl text-sm text-ink-500">No identity document is required. Build trust with an honest profile, platform history, references, completed matches, and optional evidence. Uploaded files are private and only count after admin approval.</p>
+      <p className="mt-1 max-w-3xl text-sm text-ink-500">No identity document is required. Platform history with proof is required so admins can verify real driving activity. Other evidence and references strengthen your Trust Passport.</p>
 
       <div className="mt-6 space-y-6">
         <Section title="How trust works" desc="People can see the signal and its status, never your reference contact details or private files.">
@@ -178,7 +181,7 @@ export function DriverOnboardingPage() {
           ))}</div></Field>
         </Section>
 
-        <Section title="Optional trust evidence" desc="These files are not identity documents. Admins review them privately; other members only see the approved count.">
+        <Section title="Driver trust evidence" desc="These files are not identity documents. Admins review them privately; other members only see the approved count.">
           <div className="space-y-3">{EVIDENCE_TYPES.map((definition) => {
             const item = evidence.find((entry) => entry.type === definition.type);
             return <div key={definition.type} className={cn('rounded-xl border p-4', item?.rejected ? 'border-danger/30 bg-red-50/30' : 'border-ink-100')}>
@@ -199,7 +202,7 @@ export function DriverOnboardingPage() {
           <div className="mt-4 space-y-2">{references.map((reference) => <div key={reference.id} className="flex items-center justify-between rounded-xl border border-ink-100 p-3"><div><p className="text-sm font-medium text-ink-900">{reference.referee_name} · {reference.relationship}</p><p className={cn('text-xs capitalize', reference.status === 'approved' ? 'text-success' : reference.status === 'rejected' ? 'text-danger' : 'text-amber-600')}>{reference.status}</p>{reference.rejection_reason && <p className="text-xs text-danger">{reference.rejection_reason}</p>}</div><button type="button" onClick={() => removeReference(reference)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button></div>)}</div>
         </Section>
 
-        <Section title="Platform history" desc="Add claimed activity and an optional proof. Only admin-approved entries appear on your public profile.">
+        <Section title="Platform history (required)" desc="Add at least one platform, enter your months active, and upload proof. Only admin-approved entries appear publicly.">
           <div className="space-y-3">{history.map((item) => <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select><input type="number" value={item.months_active} onChange={(e) => updateHistory(item, 'months_active', Number(e.target.value))} className="input py-2" placeholder="Months active" /><input type="number" value={item.trips} onChange={(e) => updateHistory(item, 'trips', Number(e.target.value))} className="input py-2" placeholder="Trips" /><button type="button" onClick={() => removeHistory(item)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button></div>
             <div className="flex items-center gap-2"><label className="btn-secondary cursor-pointer text-xs"><input type="file" accept="image/*,.pdf" className="hidden" disabled={uploadingType === `history-${item.id}`} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadHistoryProof(item, file); e.target.value = ''; }} /><Upload className="h-3.5 w-3.5" /> {uploadingType === `history-${item.id}` ? 'Uploading…' : item.proof_url ? 'Replace proof' : 'Upload proof'}</label>{item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}</div>

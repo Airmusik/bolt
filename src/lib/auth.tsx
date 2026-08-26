@@ -86,6 +86,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const normalized = normalizePhone(phone);
 
     try {
+      const { data: phoneAvailable, error: phoneCheckError } = await supabase.rpc('is_signup_phone_available', { p_phone: normalized });
+      if (!phoneCheckError && phoneAvailable === false) {
+        return { error: 'This phone number is already registered. Sign in instead of creating another account.' };
+      }
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -96,7 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Supabase may obscure duplicate-email attempts by returning a user with
       // no identities. Treat that as an existing account instead of success.
       if (data.user && data.user.identities?.length === 0) {
-        return { error: 'An account with this email already exists. Try signing in instead.' };
+        return { error: 'This email address is already registered. Sign in instead, or reset your password.' };
       }
 
       // With email confirmation enabled there is no authenticated session yet,
