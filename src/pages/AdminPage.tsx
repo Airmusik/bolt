@@ -1016,6 +1016,7 @@ function ReviewVehicleModal({ vehicle, loading, onClose, onApprove, onReject }: 
           <InfoRow label="Transmission" value={vehicle.transmission} />
           <InfoRow label="Fuel" value={vehicle.fuel_type} />
           <InfoRow label="Minimum experience" value={`${vehicle.minimum_driver_experience_years || 0}+ years`} />
+          <InfoRow label="Platform readiness" value={vehicle.registered_platforms?.length ? vehicle.registered_platforms.map((platform) => platform === 'little' ? 'Little Cab' : platform.charAt(0).toUpperCase() + platform.slice(1)).join(', ') : 'None selected'} />
           <InfoRow label="Insurance" value={vehicle.insurance_type} />
           <InfoRow label="Weekly target" value={`KES ${vehicle.weekly_target || 0}`} />
           <InfoRow label="Deposit" value={`KES ${vehicle.deposit || 0}`} />
@@ -1159,6 +1160,7 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminV
     weekly_target: vehicle.weekly_target || 0,
     status: vehicle.status || 'active',
     description: vehicle.description || '',
+    registered_platforms: vehicle.registered_platforms || [] as Vehicle['registered_platforms'],
   });
   const [issues, setIssues] = useState<VehicleIssue[]>([]);
   const [newIssue, setNewIssue] = useState({ description: '', severity: 'minor' as 'minor' | 'moderate' | 'major' });
@@ -1207,6 +1209,18 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminV
         <Field label="Status"><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Vehicle['status'] })} className="input"><option value="active">Active</option><option value="closed">Closed</option></select></Field>
       </div>
       <Field label="Description"><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="input mt-3" /></Field>
+
+      <div className="mt-4">
+        <label className="label">Ride-hailing platform readiness</label>
+        <div className="flex flex-wrap gap-2">
+          {([
+            ['uber', 'Uber ready'], ['bolt', 'Bolt ready'], ['little', 'Little Cab ready'], ['faras', 'Faras ready'], ['other', 'Other platform'],
+          ] as const).map(([value, label]) => {
+            const selected = form.registered_platforms.includes(value);
+            return <button key={value} type="button" aria-pressed={selected} onClick={() => setForm({ ...form, registered_platforms: selected ? form.registered_platforms.filter((platform) => platform !== value) : [...form.registered_platforms, value] })} className={cn('rounded-full px-3 py-1.5 text-xs font-semibold ring-1 transition', selected ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-600 ring-ink-200 dark:bg-[#1d1d20]')}>{selected ? '✓ ' : ''}{label}</button>;
+          })}
+        </div>
+      </div>
 
       <div className="mt-4">
         <label className="label">Known issues</label>

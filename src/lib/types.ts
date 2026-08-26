@@ -47,6 +47,7 @@ export interface Vehicle {
   transmission: 'automatic' | 'manual';
   fuel_type: 'petrol' | 'diesel' | 'hybrid' | 'electric';
   location: string;
+  registered_platforms: ('uber' | 'bolt' | 'little' | 'faras' | 'other')[];
   weekly_target: number | null;
   monthly_target: number | null;
   deposit: number;

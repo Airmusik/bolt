@@ -9,7 +9,7 @@ const getFaqs = (siteName: string) => [
   { q: 'Are uploads reviewed?', a: 'Vehicle photos, work-history proofs and other trust evidence remain pending until an admin approves them. Profile photos appear immediately. Private proof files are not shown to other members.' },
   { q: 'Can I see a vehicle\'s insurance status?', a: 'Yes. Every listing shows the insurance type (third party or comprehensive) and its expiry date, along with any known issues the owner has disclosed.' },
   { q: 'How does the chat work?', a: 'A chat opens automatically once an owner accepts a driver\'s application. You can send text and emojis, see read receipts, and block or report a user. File uploads are disabled so they cannot bypass moderation.' },
-  { q: 'How do reviews work?', a: 'Both parties can leave a star rating and written review after an application is accepted. This keeps reviews genuine.' },
+  { q: 'How do ratings and reports work?', a: 'Every member starts at 5.0 stars. Reviews from completed matches form the base rating, and each report upheld by an admin subtracts 0.1 star—so 10 upheld reports reduce a 5.0 rating to 4.0. Open or dismissed reports do not affect a rating.' },
 ];
 
 export function HelpPage() {

@@ -165,8 +165,22 @@ export function VehicleDetailsPage() {
             <Fact icon={<MapPin className="h-4 w-4" />} label="Location" value={vehicle.location} />
             <Fact icon={<Settings2 className="h-4 w-4" />} label="Transmission" value={titleCase(vehicle.transmission)} />
             <Fact icon={<Fuel className="h-4 w-4" />} label="Fuel" value={titleCase(vehicle.fuel_type)} />
-            <Fact icon={<Calendar className="h-4 w-4" />} label="Posted" value={formatDate(vehicle.created_at)} />
+            <Fact icon={<Calendar className="h-4 w-4" />} label="Posted" value={timeAgo(vehicle.created_at)} />
           </div>
+
+          <Section title="Ride-hailing platform readiness">
+            {vehicle.registered_platforms?.length ? (
+              <div className="flex flex-wrap gap-2">
+                {vehicle.registered_platforms.map((platform) => (
+                  <span key={platform} className="rounded-full bg-violet-50 px-3 py-1.5 text-sm font-semibold text-violet-700 ring-1 ring-violet-100 dark:bg-violet-950/30 dark:text-violet-300 dark:ring-violet-900">
+                    {platform === 'little' ? 'Little Cab ready' : platform === 'other' ? 'Other platform' : `${titleCase(platform)} ready`}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-ink-500">Not registered to a ride-hailing platform yet.</p>
+            )}
+          </Section>
 
           {/* Targets */}
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">

@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { MapPin, Fuel, Settings2, Wallet, ShieldCheck, AlertTriangle } from 'lucide-react';
 import type { VehicleWithRelations } from '@/lib/types';
-import { formatKES, formatDate, expiryStatus, titleCase, cn } from '@/lib/utils';
+import { formatKES, formatDate, timeAgo, expiryStatus, titleCase, cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
 import { Rating } from './Rating';
 import { ModeratedImage } from './ModeratedImage';
@@ -16,6 +16,9 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
   const photo = vehicle.photos?.[0]?.photo_url;
   const insStatus = expiryStatus(vehicle.insurance_expiry);
   const issuesCount = vehicle.issues?.length ?? 0;
+  const platformLabels: Record<VehicleWithRelations['registered_platforms'][number], string> = {
+    uber: 'Uber ready', bolt: 'Bolt ready', little: 'Little Cab ready', faras: 'Faras ready', other: 'Other platform',
+  };
 
   return (
     <Link
@@ -78,6 +81,16 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
           )}
         </div>
 
+        {vehicle.registered_platforms?.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {vehicle.registered_platforms.map((platform) => (
+              <span key={platform} className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-100 dark:bg-violet-950/30 dark:text-violet-300 dark:ring-violet-900">
+                {platformLabels[platform]}
+              </span>
+            ))}
+          </div>
+        )}
+
         <div className="mt-3 flex items-center gap-2 border-t border-ink-100 pt-3">
           <ShieldCheck className={cn(
             'h-3.5 w-3.5',
@@ -92,7 +105,7 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
           </span>
         </div>
 
-        {showOwner && vehicle.owner && (
+        {showOwner && vehicle.owner ? (
           <div className="mt-3 flex items-center justify-between border-t border-ink-100 pt-3">
             <div className="flex items-center gap-2">
               <Avatar name={vehicle.owner.full_name} src={vehicle.owner.avatar_url} size={28} />
@@ -102,8 +115,10 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
                 <Rating value={vehicle.owner.rating} size={11} count={vehicle.owner.rating_count} showValue />
               </div>
             </div>
-            <span className="text-[10px] text-ink-400">{formatDate(vehicle.created_at)}</span>
+            <span className="shrink-0 text-[10px] text-ink-400">Listed {timeAgo(vehicle.created_at)}</span>
           </div>
+        ) : (
+          <p className="mt-3 border-t border-ink-100 pt-3 text-right text-[10px] text-ink-400">Listed {timeAgo(vehicle.created_at)}</p>
         )}
       </div>
     </Link>

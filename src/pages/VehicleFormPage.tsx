@@ -13,6 +13,13 @@ import { PlatePrivacyEditor } from '@/components/PlatePrivacyEditor';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
 interface IssueDraft { id?: string; description: string; severity: 'minor' | 'moderate' | 'major' }
+const RIDE_HAILING_PLATFORMS: { value: Vehicle['registered_platforms'][number]; label: string }[] = [
+  { value: 'uber', label: 'Uber ready' },
+  { value: 'bolt', label: 'Bolt ready' },
+  { value: 'little', label: 'Little Cab ready' },
+  { value: 'faras', label: 'Faras ready' },
+  { value: 'other', label: 'Other platform' },
+];
 
 export function VehicleFormPage() {
   const { id } = useParams();
@@ -26,6 +33,7 @@ export function VehicleFormPage() {
   const [form, setForm] = useState({
     make: '', model: '', year: new Date().getFullYear(), transmission: 'automatic', fuel_type: 'petrol',
     location: '', weekly_target: '', monthly_target: '', deposit: '', minimum_driver_experience_years: '0', requirements: '',
+    registered_platforms: [] as Vehicle['registered_platforms'],
     availability: 'available', insurance_type: 'third_party', insurance_expiry: '',
     available_from: new Date().toISOString().slice(0, 10),
   });
@@ -48,6 +56,7 @@ export function VehicleFormPage() {
           make: veh.make, model: veh.model, year: veh.year, transmission: veh.transmission, fuel_type: veh.fuel_type,
           location: veh.location, weekly_target: veh.weekly_target?.toString() || '', monthly_target: veh.monthly_target?.toString() || '',
           deposit: veh.deposit?.toString() || '', minimum_driver_experience_years: String(veh.minimum_driver_experience_years ?? 0), requirements: veh.requirements || '',
+          registered_platforms: veh.registered_platforms || [],
           availability: veh.availability, insurance_type: veh.insurance_type, insurance_expiry: veh.insurance_expiry || '',
           available_from: veh.available_from || new Date().toISOString().slice(0, 10),
         });
@@ -125,6 +134,7 @@ export function VehicleFormPage() {
       driver_experience: Number(form.minimum_driver_experience_years) > 0 ? `${form.minimum_driver_experience_years}+ years` : null,
       minimum_driver_experience_years: Number(form.minimum_driver_experience_years),
       requirements: form.requirements || null,
+      registered_platforms: form.registered_platforms,
       availability: form.availability,
       insurance_type: form.insurance_type,
       insurance_expiry: form.insurance_expiry || null,
@@ -233,6 +243,16 @@ export function VehicleFormPage() {
               </select>
             </Field>
           </div>
+        </Card>
+
+        <Card title="Ride-hailing platform readiness" desc="Select every platform this vehicle is already registered or approved to operate on.">
+          <div className="flex flex-wrap gap-2">
+            {RIDE_HAILING_PLATFORMS.map((platform) => {
+              const selected = form.registered_platforms.includes(platform.value);
+              return <button key={platform.value} type="button" aria-pressed={selected} onClick={() => setForm({ ...form, registered_platforms: selected ? form.registered_platforms.filter((value) => value !== platform.value) : [...form.registered_platforms, platform.value] })} className={cn('rounded-full px-4 py-2 text-sm font-medium ring-1 transition', selected ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-700 ring-ink-200 hover:ring-brand-300 dark:bg-[#141416]')}>{selected ? '✓ ' : ''}{platform.label}</button>;
+            })}
+          </div>
+          {form.registered_platforms.length === 0 && <p className="mt-3 text-xs text-ink-500">No platform readiness selected. Drivers will see “Not registered to a platform yet.”</p>}
         </Card>
 
         {/* Targets */}

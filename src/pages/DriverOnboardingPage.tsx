@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, RefreshCw, Users, ShieldCheck } from 'lucide-react';
+import { Upload, Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, RefreshCw, Users, ShieldCheck, Pencil, Clock3 } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -29,6 +29,8 @@ export function DriverOnboardingPage() {
   const [history, setHistory] = useState<PlatformHistory[]>([]);
   const [references, setReferences] = useState<TrustReference[]>([]);
   const [referenceForm, setReferenceForm] = useState({ referee_name: '', relationship: '', referee_contact: '', note: '' });
+  const [trustLoaded, setTrustLoaded] = useState(false);
+  const [editingPassport, setEditingPassport] = useState(false);
 
   const loadTrustData = async () => {
     if (!user) return;
@@ -40,6 +42,7 @@ export function DriverOnboardingPage() {
     setEvidence((docs as DocumentRow[]) || []);
     setHistory((platformHistory as PlatformHistory[]) || []);
     setReferences((refs as TrustReference[]) || []);
+    setTrustLoaded(true);
   };
 
   useEffect(() => {
@@ -154,6 +157,38 @@ export function DriverOnboardingPage() {
     navigate('/dashboard');
   };
 
+  const passportSubmitted = trustLoaded && !editingPassport && (profile?.verification_status === 'pending' || profile?.verification_status === 'approved');
+
+  if (passportSubmitted) {
+    const approved = profile?.verification_status === 'approved';
+    const approvedHistory = history.filter((item) => item.approved).length;
+    const approvedEvidence = evidence.filter((item) => item.verified).length;
+    const approvedReferences = references.filter((item) => item.status === 'approved').length;
+    return (
+      <div className="container-content max-w-3xl py-8">
+        <BackButton to="/dashboard" />
+        <div className="card mt-4 overflow-hidden">
+          <div className={cn('p-6 text-white sm:p-8', approved ? 'bg-gradient-to-br from-emerald-600 to-brand-700' : 'bg-gradient-to-br from-amber-500 to-orange-600')}>
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 ring-1 ring-white/30">
+              {approved ? <CheckCircle2 className="h-8 w-8" /> : <Clock3 className="h-8 w-8" />}
+            </div>
+            <h1 className="mt-5 font-display text-2xl font-bold">Trust Passport {approved ? 'approved' : 'submitted'}</h1>
+            <p className="mt-2 max-w-xl text-sm text-white/85">{approved ? 'Your reviewed trust information is active on your public driver profile.' : 'Your information is complete and waiting for admin review. You will receive a notification when the review is finished.'}</p>
+          </div>
+          <div className="space-y-3 p-6 sm:p-8">
+            <CompletionRow label="Profile details" detail="Done" approved />
+            <CompletionRow label="Platform history" detail={approved ? `${approvedHistory} approved` : 'Done · awaiting review'} approved={approved} />
+            <CompletionRow label="Supporting evidence" detail={approved ? `${approvedEvidence + approvedReferences} approved` : 'Done · awaiting review'} approved={approved} />
+            <div className="border-t border-ink-100 pt-5">
+              <button type="button" onClick={() => setEditingPassport(true)} className="btn-secondary w-full sm:w-auto"><Pencil className="h-4 w-4" /> Edit Trust Passport</button>
+              <p className="mt-2 text-xs text-ink-500">Editing reviewed information may send the updated sections back to admin for approval.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container-content py-8">
       <BackButton to="/dashboard" />
@@ -222,6 +257,10 @@ function UploadStatus({ item }: { item: DocumentRow }) {
   if (item.verified) return <p className="mt-1 text-xs text-success"><CheckCircle2 className="mr-1 inline h-3 w-3" /> Approved</p>;
   if (item.rejected) return <p className="mt-1 text-xs text-danger">Rejected</p>;
   return <p className="mt-1 text-xs text-amber-600">Pending admin approval</p>;
+}
+
+function CompletionRow({ label, detail, approved }: { label: string; detail: string; approved: boolean }) {
+  return <div className="flex items-center justify-between gap-4 rounded-xl bg-ink-50 px-4 py-3 ring-1 ring-ink-100"><div className="flex items-center gap-3"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full', approved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}><CheckCircle2 className="h-4 w-4" /></span><span className="text-sm font-semibold text-ink-900">{label}</span></div><span className={cn('text-xs font-semibold', approved ? 'text-success' : 'text-amber-600')}>{detail}</span></div>;
 }
 
 function TrustNote({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {

@@ -36,7 +36,7 @@ export function createDemoAdminProfile(): Profile {
     is_suspended: false,
     suspension_reason: null,
     suspended_at: null,
-    rating: 0,
+    rating: 5,
     rating_count: 0,
     contracts_completed: 0,
     created_at: now,
