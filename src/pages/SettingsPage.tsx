@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Shield, Bell, LogOut, Camera, Loader2, Check, MapPin, ToggleLeft, ToggleRight, Lock, KeyRound } from 'lucide-react';
-import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
+import { supabase, AVATAR_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { Avatar } from '@/components/Avatar';
@@ -44,19 +44,29 @@ export function SettingsPage() {
 
   const uploadAvatar = async (file: File) => {
     if (!user) return;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast('Choose a JPG, PNG, or WebP image.', 'error');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast('Profile photos must be smaller than 5 MB.', 'error');
+      return;
+    }
     setUploadingAvatar(true);
-    const ext = file.name.split('.').pop();
+    const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
     const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, { upsert: true });
+    const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true, contentType: file.type });
     if (error) {
       toast('Could not upload photo.', 'error');
       setUploadingAvatar(false);
       return;
     }
-    const { data: pub } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
+    const { data: pub } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
     const { error: profileError } = await supabase.from('profiles').update({
-      avatar_pending_url: pub.publicUrl,
-      avatar_upload_status: 'pending',
+      avatar_url: pub.publicUrl,
+      avatar_pending_url: null,
+      avatar_upload_status: 'approved',
       avatar_rejection_reason: null,
     }).eq('id', user.id);
     if (profileError) {
@@ -66,7 +76,7 @@ export function SettingsPage() {
     }
     await refreshProfile();
     setUploadingAvatar(false);
-    toast('Profile photo submitted for admin approval.');
+    toast('Profile photo updated.');
   };
 
   const toggleAvailability = async () => {
@@ -97,16 +107,14 @@ export function SettingsPage() {
             <div className="relative">
               <Avatar name={profile?.full_name || 'User'} src={profile?.avatar_url} size={72} verified={!!profile?.is_verified} />
               <label className="absolute -bottom-1 -right-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-brand-600 text-white shadow-md ring-2 ring-white transition-transform hover:scale-110">
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ''; }} disabled={uploadingAvatar} />
+                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ''; }} disabled={uploadingAvatar} />
                 {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
               </label>
             </div>
             <div>
               <p className="flex items-center gap-1 font-medium text-ink-900">{profile?.full_name} <VerifiedBadge verified={profile?.is_verified} size={13} /></p>
               <p className="text-xs capitalize text-ink-500">{profile?.role} · {profile?.phone}</p>
-              <p className="mt-0.5 text-xs text-ink-400">New photos appear after admin approval</p>
-              {profile?.avatar_upload_status === 'pending' && <p className="mt-1 text-xs text-amber-600">Photo pending approval</p>}
-              {profile?.avatar_upload_status === 'rejected' && <p className="mt-1 text-xs text-danger">Photo rejected{profile.avatar_rejection_reason ? `: ${profile.avatar_rejection_reason}` : ''}</p>}
+              <p className="mt-0.5 text-xs text-ink-400">JPG, PNG, or WebP · maximum 5 MB</p>
             </div>
           </div>
 

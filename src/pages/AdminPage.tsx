@@ -110,7 +110,6 @@ export function AdminPage() {
   const owners = users.filter((u) => u.role === 'owner');
   const pendingVerifications = users.filter((u) => u.role === 'driver' && u.verification_status === 'pending');
   const pendingDocs = documents.filter((d) => !d.verified && !d.rejected);
-  const pendingAvatars = users.filter((u) => u.avatar_upload_status === 'pending' && u.avatar_pending_url);
   const pendingVehiclePhotos = vehicles.flatMap((v) => (v.photos || []).filter((photo) => !photo.approved && !photo.rejected).map((photo) => ({ ...photo, vehicle: v })));
   const pendingReferences = references.filter((reference) => reference.status === 'pending');
 
@@ -168,41 +167,6 @@ export function AdminPage() {
     toast('Evidence rejected with reason.');
     setRejectingDoc(null);
     setRejectReason('');
-    load();
-  };
-
-  const approveAvatar = async (profile: Profile) => {
-    if (!profile.avatar_pending_url) return;
-    let publicUrl: string;
-    try {
-      publicUrl = await publishApprovedImage(profile.avatar_pending_url, profile.id, 'avatar-approved');
-    } catch (error) {
-      toast('Could not publish photo: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
-      return;
-    }
-    const { error } = await supabase.from('profiles').update({
-      avatar_url: publicUrl,
-      avatar_pending_url: null,
-      avatar_upload_status: 'approved',
-      avatar_rejection_reason: null,
-    }).eq('id', profile.id);
-    if (error) { toast('Could not approve photo: ' + error.message, 'error'); return; }
-    await notifyUser(profile.id, 'upload', 'Profile photo approved', 'Your new profile photo is now visible.');
-    toast('Profile photo approved.');
-    load();
-  };
-
-  const rejectAvatar = async (profile: Profile) => {
-    const reason = window.prompt('Why is this profile photo being rejected?');
-    if (!reason?.trim()) return;
-    const { error } = await supabase.from('profiles').update({
-      avatar_pending_url: null,
-      avatar_upload_status: 'rejected',
-      avatar_rejection_reason: reason.trim(),
-    }).eq('id', profile.id);
-    if (error) { toast('Could not reject photo: ' + error.message, 'error'); return; }
-    await notifyUser(profile.id, 'upload', 'Profile photo rejected', reason.trim());
-    toast('Profile photo rejected.');
     load();
   };
 
@@ -309,7 +273,7 @@ export function AdminPage() {
     { label: 'Car owners', value: owners.length, icon: ShieldCheck },
     { label: 'Active listings', value: vehicles.filter((v) => v.status === 'active').length, icon: Car },
     { label: 'Pending Trust Passports', value: pendingVerifications.length, icon: TrendingUp },
-    { label: 'Pending uploads', value: pendingDocs.length + pendingAvatars.length + pendingVehiclePhotos.length, icon: FileText },
+    { label: 'Pending uploads', value: pendingDocs.length + pendingVehiclePhotos.length, icon: FileText },
     { label: 'Open reports', value: reports.filter((r) => r.status === 'open').length, icon: Flag },
     { label: 'Trusted drivers', value: drivers.filter((u) => u.is_verified).length, icon: BadgeCheck },
   ];
@@ -319,7 +283,7 @@ export function AdminPage() {
     { key: 'drivers', label: 'Drivers', icon: Users, badge: drivers.length },
     { key: 'owners', label: 'Car Owners', icon: ShieldCheck, badge: owners.length },
     { key: 'cars', label: 'Cars', icon: Car, badge: vehicles.length },
-    { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingAvatars.length + pendingVehiclePhotos.length + pendingReferences.length },
+    { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length + pendingReferences.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
     { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
     { key: 'chat', label: 'Chat', icon: MessageSquare },
@@ -501,21 +465,6 @@ export function AdminPage() {
         {/* ---------- Uploads and trust evidence ---------- */}
         {tab === 'documents' && !loading && (
           <div className="space-y-6">
-            <section>
-              <h3 className="mb-2 font-semibold text-ink-900">Profile photos</h3>
-              <div className="space-y-2">
-                {pendingAvatars.map((profile) => (
-                  <div key={profile.id} className="card flex flex-wrap items-center gap-3 p-4">
-                    <ModeratedImage src={profile.avatar_pending_url || ''} alt="Pending profile" className="h-16 w-16 rounded-full object-cover ring-1 ring-ink-200" />
-                    <div className="min-w-0 flex-1"><p className="font-medium text-ink-900">{profile.full_name}</p><p className="text-xs text-ink-500">New profile photo · {profile.role}</p></div>
-                    <button onClick={() => approveAvatar(profile)} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Approve</button>
-                    <button onClick={() => rejectAvatar(profile)} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button>
-                  </div>
-                ))}
-                {pendingAvatars.length === 0 && <p className="text-sm text-ink-400">No pending profile photos.</p>}
-              </div>
-            </section>
-
             <section>
               <h3 className="mb-2 font-semibold text-ink-900">Vehicle photos</h3>
               <div className="space-y-2">

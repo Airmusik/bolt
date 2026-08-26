@@ -18,3 +18,4 @@ export const supabase = createClient(url, anonKey, {
 
 export const VEHICLE_BUCKET = 'vehicle-photos';
 export const DOCUMENT_BUCKET = 'documents';
+export const AVATAR_BUCKET = 'avatars';
