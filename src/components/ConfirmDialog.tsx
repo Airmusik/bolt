@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react';
 import { Modal } from './Modal';
+import { useState } from 'react';
 
 export function ConfirmDialog({
   title = 'Are you sure?',
@@ -15,9 +16,15 @@ export function ConfirmDialog({
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onClose: () => void;
 }) {
+  const [confirming, setConfirming] = useState(false);
+  const confirm = async () => {
+    setConfirming(true);
+    try { await onConfirm(); onClose(); }
+    finally { setConfirming(false); }
+  };
   return (
     <Modal title={title} onClose={onClose}>
       <div className="flex items-start gap-3">
@@ -29,12 +36,13 @@ export function ConfirmDialog({
         <p className="text-sm text-ink-700">{message}</p>
       </div>
       <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onClose} className="btn-secondary">{cancelLabel}</button>
+        <button onClick={onClose} disabled={confirming} className="btn-secondary">{cancelLabel}</button>
         <button
-          onClick={() => { onConfirm(); onClose(); }}
+          onClick={confirm}
+          disabled={confirming}
           className={danger ? 'btn bg-danger text-white hover:bg-red-700' : 'btn-primary'}
         >
-          {confirmLabel}
+          {confirming ? 'Working…' : confirmLabel}
         </button>
       </div>
     </Modal>

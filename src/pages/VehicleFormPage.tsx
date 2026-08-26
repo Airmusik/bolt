@@ -58,14 +58,28 @@ export function VehicleFormPage() {
 
   const uploadPhoto = async (file: File) => {
     if (!user) return;
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast('Choose a JPG, PNG, or WebP vehicle photo.', 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast('Vehicle photos must be smaller than 10 MB.', 'error');
+      return;
+    }
     setUploading(true);
-    const ext = file.name.split('.').pop();
+    const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
     const path = `${user.id}/${Date.now()}.${ext}`;
     const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
     if (error) { toast('Upload failed: ' + error.message, 'error'); setUploading(false); return; }
     const { data: pub } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
     if (isEdit && id) {
-      const { data } = await supabase.from('vehicle_photos').insert({ vehicle_id: id, photo_url: pub.publicUrl, position: photos.length }).select().maybeSingle();
+      const { data, error: photoError } = await supabase.from('vehicle_photos').insert({ vehicle_id: id, photo_url: pub.publicUrl, position: photos.length }).select().maybeSingle();
+      if (photoError) {
+        toast('Photo uploaded, but could not be attached to the vehicle: ' + photoError.message, 'error');
+        setUploading(false);
+        return;
+      }
       if (data) setPhotos((p) => [...p, data as VehiclePhoto]);
     } else {
       // store locally until vehicle is created
@@ -76,9 +90,11 @@ export function VehicleFormPage() {
 
   const removePhoto = async (photo: VehiclePhoto) => {
     if (isEdit && id && !photo.id.startsWith('temp-')) {
-      await supabase.from('vehicle_photos').delete().eq('id', photo.id);
+      const { error } = await supabase.from('vehicle_photos').delete().eq('id', photo.id);
+      if (error) { toast('Could not remove photo: ' + error.message, 'error'); return; }
     }
     setPhotos((p) => p.filter((x) => x.id !== photo.id));
+    toast('Photo removed.');
   };
 
   const save = async () => {
@@ -128,10 +144,21 @@ export function VehicleFormPage() {
     }
     // sync issues
     if (vehicleId) {
-      await supabase.from('vehicle_issues').delete().eq('vehicle_id', vehicleId);
-      for (const iss of issues) {
-        if (iss.description.trim()) {
-          await supabase.from('vehicle_issues').insert({ vehicle_id: vehicleId, description: iss.description, severity: iss.severity });
+      const { error: deleteIssuesError } = await supabase.from('vehicle_issues').delete().eq('vehicle_id', vehicleId);
+      if (deleteIssuesError) {
+        toast('Vehicle saved, but existing issue notes could not be updated: ' + deleteIssuesError.message, 'error');
+        setSaving(false);
+        return;
+      }
+      const issueRows = issues
+        .filter((issue) => issue.description.trim())
+        .map((issue) => ({ vehicle_id: vehicleId, description: issue.description.trim(), severity: issue.severity }));
+      if (issueRows.length > 0) {
+        const { error: issueError } = await supabase.from('vehicle_issues').insert(issueRows);
+        if (issueError) {
+          toast('Vehicle saved, but issue notes could not be attached: ' + issueError.message, 'error');
+          setSaving(false);
+          return;
         }
       }
     }
@@ -156,13 +183,21 @@ export function VehicleFormPage() {
               <div key={p.id} className="relative h-24 w-32 overflow-hidden rounded-lg ring-1 ring-ink-200">
                 <ModeratedImage src={p.photo_url} alt="" className="h-full w-full object-cover" />
                 {!p.approved && <span className="absolute bottom-1 left-1 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">{p.rejected ? 'Rejected' : 'Pending'}</span>}
-                <button onClick={() => removePhoto(p)} className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-ink-700 hover:text-danger">
+                <button type="button" onClick={() => removePhoto(p)} aria-label="Remove vehicle photo" className="absolute right-1 top-1 rounded-full bg-white/90 p-1 text-ink-700 hover:text-danger">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             ))}
             <label className={cn('flex h-24 w-32 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-ink-200 text-ink-400 hover:border-brand-400 hover:text-brand-600', uploading && 'opacity-50')}>
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) setPhotoForPrivacyReview(f); e.target.value = ''; }} disabled={uploading} />
+              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) toast('Choose a JPG, PNG, or WebP vehicle photo.', 'error');
+                  else if (file.size > 10 * 1024 * 1024) toast('Vehicle photos must be smaller than 10 MB.', 'error');
+                  else setPhotoForPrivacyReview(file);
+                }
+                e.target.value = '';
+              }} disabled={uploading} />
               <div className="text-center"><Upload className="mx-auto h-5 w-5" /><span className="text-xs">{uploading ? 'Uploading…' : 'Add photo'}</span></div>
             </label>
           </div>
@@ -237,8 +272,8 @@ export function VehicleFormPage() {
           <div className="space-y-3">
             {issues.map((iss, idx) => (
               <div key={idx} className="flex flex-col gap-2 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-100 sm:flex-row sm:items-center">
-                <input value={iss.description} onChange={(e) => setIssues(issues.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))} placeholder="e.g. Left side mirror cracked" className="input flex-1 bg-white" />
-                <select value={iss.severity} onChange={(e) => setIssues(issues.map((x, i) => i === idx ? { ...x, severity: e.target.value as VehicleIssue['severity'] } : x))} className="input w-auto bg-white">
+                <input value={iss.description} onChange={(e) => setIssues(issues.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))} placeholder="e.g. Left side mirror cracked" className="input flex-1 bg-white dark:bg-[#141416]" />
+                <select value={iss.severity} onChange={(e) => setIssues(issues.map((x, i) => i === idx ? { ...x, severity: e.target.value as VehicleIssue['severity'] } : x))} className="input w-auto bg-white dark:bg-[#141416]">
                   <option value="minor">Minor</option>
                   <option value="moderate">Moderate</option>
                   <option value="major">Major</option>

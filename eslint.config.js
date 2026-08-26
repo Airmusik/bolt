@@ -19,6 +19,10 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
+      // Data-loading effects intentionally update local state after external work.
+      // These React Compiler advisory rules are too broad for this React 18 app.
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/purity': 'off',
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/no-unused-vars': 'warn',
       'no-unused-vars': 'off',

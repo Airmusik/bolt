@@ -6,6 +6,7 @@ import { Avatar } from './Avatar';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Header() {
   const { user, profile, signOut } = useAuth();
@@ -63,7 +64,7 @@ export function Header() {
       ].filter((l) => l.show);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur-md dark:bg-[#0b0b0d]/90">
       <div className="container-content flex h-16 items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
@@ -93,6 +94,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {user ? (
             <>
               {!isSuspended && (
@@ -123,7 +125,7 @@ export function Header() {
                 {menuOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                    <div className="absolute right-0 top-12 z-20 w-56 animate-scale-in overflow-hidden rounded-xl bg-white py-1 shadow-card-hover ring-1 ring-ink-200">
+                    <div className="absolute right-0 top-12 z-20 w-56 animate-scale-in overflow-hidden rounded-xl bg-white py-1 shadow-card-hover ring-1 ring-ink-200 dark:bg-[#141416]">
                       <div className="border-b border-ink-100 px-4 py-3">
                         <p className="truncate text-sm font-semibold text-ink-900">{profile?.full_name}</p>
                         <p className="text-xs capitalize text-ink-500">{profile?.role}</p>
@@ -171,7 +173,7 @@ export function Header() {
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-ink-100 bg-white md:hidden">
+        <div className="border-t border-ink-100 bg-white dark:bg-[#0b0b0d] md:hidden">
           <div className="container-content flex flex-col py-3">
             {navLinks.map((l) => (
               <Link key={l.to} to={l.to} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100">

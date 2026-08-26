@@ -127,6 +127,16 @@ export interface TrustReference {
   user?: Profile;
 }
 
+export interface ContactMessage {
+  id: string;
+  name: string;
+  email: string;
+  message: string;
+  status: 'new' | 'resolved';
+  created_at: string;
+  resolved_at: string | null;
+}
+
 export interface TrustPassport {
   account_created_at: string;
   contracts_completed: number;

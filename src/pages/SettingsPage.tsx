@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, LogOut, Camera, Loader2, Check, MapPin, ToggleLeft, ToggleRight, Lock, KeyRound } from 'lucide-react';
+import { User, Shield, Bell, LogOut, Camera, Loader2, Check, MapPin, ToggleLeft, ToggleRight, Lock, KeyRound, Palette } from 'lucide-react';
 import { supabase, AVATAR_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -8,6 +8,7 @@ import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { BackButton } from '@/components/BackButton';
 import { pinToPassword } from '@/lib/phoneAuth';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const KENYA_LOCATIONS = [
   'Nairobi CBD', 'Westlands, Nairobi', 'Kilimani, Nairobi', 'Karen, Nairobi',
@@ -33,8 +34,25 @@ export function SettingsPage() {
 
   const save = async () => {
     if (!user) return;
+    if (fullName.trim().length < 2) {
+      toast('Enter your full name.', 'error');
+      return;
+    }
+    if (!location.trim()) {
+      toast('Choose or enter your location in Kenya.', 'error');
+      return;
+    }
     setSaving(true);
-    await supabase.from('profiles').update({ full_name: fullName, bio, location }).eq('id', user.id);
+    const { error } = await supabase.from('profiles').update({
+      full_name: fullName.trim(),
+      bio: bio.trim(),
+      location: location.trim(),
+    }).eq('id', user.id);
+    if (error) {
+      setSaving(false);
+      toast('Could not save settings: ' + error.message, 'error');
+      return;
+    }
     await refreshProfile();
     setSaving(false);
     setJustSaved(true);
@@ -134,7 +152,7 @@ export function SettingsPage() {
                 />
               </div>
               {showLocations && location && (
-                <div className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-ink-100 bg-white shadow-lg">
+                <div className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-ink-100 bg-white shadow-lg dark:bg-[#141416]">
                   {KENYA_LOCATIONS
                     .filter((l) => l.toLowerCase().includes(location.toLowerCase()))
                     .slice(0, 8)
@@ -179,6 +197,14 @@ export function SettingsPage() {
               {availability === 'available' ? 'Available' : 'Unavailable'}
             </button>
           </div>
+        </div>
+
+        <div className="card flex items-center justify-between gap-4 p-5">
+          <div>
+            <h2 className="flex items-center gap-2 font-semibold text-ink-900"><Palette className="h-5 w-5" /> Appearance</h2>
+            <p className="mt-1 text-sm text-ink-600">Choose the theme that is most comfortable for you.</p>
+          </div>
+          <ThemeToggle showLabel />
         </div>
 
         {profile?.role === 'driver' && <div className="card p-5">

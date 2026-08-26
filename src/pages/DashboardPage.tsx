@@ -17,6 +17,7 @@ import { timeAgo, titleCase, cn, formatDateTime } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import type { ToastType } from '@/components/toastContext';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 type Tab = 'overview' | 'drivers' | 'vehicles' | 'cars' | 'applications' | 'connections' | 'chats';
 type OwnerApplication = Application & { driver?: Profile; vehicle?: VehicleWithRelations };
@@ -29,6 +30,7 @@ type ToastFn = (message: string, type?: ToastType) => void;
 export function DashboardPage() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
+  const { settings } = useSiteSettings();
   const [tab, setTab] = useState<Tab>('overview');
 
   const [vehicles, setVehicles] = useState<VehicleWithRelations[]>([]);
@@ -158,7 +160,7 @@ export function DashboardPage() {
 
       <div className="mt-6">
         {tab === 'overview' && <OverviewTab profile={profile} drivers={drivers} availableCars={availableCars} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
-        {tab === 'drivers' && isOwner && <DriversTab users={drivers} loading={loading} />}
+        {tab === 'drivers' && isOwner && <DriversTab users={drivers} loading={loading} siteName={settings.site_name} />}
         {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars} loading={loading} />}
         {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} />}
         {tab === 'applications' && isOwner && <OwnerApplicationsTab applications={applications} onAction={load} toast={toast} />}
@@ -265,9 +267,9 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
   );
 }
 
-function DriversTab({ users, loading }: { users: Profile[]; loading: boolean }) {
+function DriversTab({ users, loading, siteName }: { users: Profile[]; loading: boolean; siteName: string }) {
   if (loading) return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="card h-40 animate-pulse" />)}</div>;
-  if (users.length === 0) return <EmptyState title="No members found" description="Check back soon as new members join GariLink." />;
+  if (users.length === 0) return <EmptyState title="No members found" description={`Check back soon as new members join ${siteName}.`} />;
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {users.map((d) => (
@@ -339,7 +341,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
             {a.message && <p className="mt-1 text-sm text-ink-600">"{a.message}"</p>}
           </div>
           <div className="flex items-center gap-2">
-            <span className={cn('badge capitalize', a.status === 'pending' && 'badge-warning', a.status === 'accepted' && 'badge-brand', a.status === 'rejected' && 'badge-danger', a.status === 'completed' && 'badge-neutral')}>{a.status}</span>
+            <span className={cn('badge capitalize', a.status === 'pending' && 'badge-warning status-live', a.status === 'accepted' && 'badge-brand', a.status === 'rejected' && 'badge-danger', a.status === 'completed' && 'badge-neutral')}>{a.status}</span>
             {a.status === 'pending' && (
               <>
                 <button onClick={() => act(a, 'accepted')} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
@@ -369,7 +371,7 @@ function DriverApplicationsTab({ applications }: { applications: DriverApplicati
       {applications.map((a) => (
         <div key={a.id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           {a.vehicle && <div className="flex-1"><Link to={`/vehicles/${a.vehicle_id}`} className="font-semibold text-ink-900 hover:text-ink-700">{a.vehicle.make} {a.vehicle.model}</Link><p className="text-xs text-ink-400">{a.vehicle.location} · {timeAgo(a.created_at)}</p></div>}
-          <span className={cn('badge capitalize', a.status === 'pending' && 'badge-warning', a.status === 'accepted' && 'badge-brand', a.status === 'rejected' && 'badge-danger', a.status === 'completed' && 'badge-neutral')}>{a.status}</span>
+          <span className={cn('badge capitalize', a.status === 'pending' && 'badge-warning status-live', a.status === 'accepted' && 'badge-brand', a.status === 'rejected' && 'badge-danger', a.status === 'completed' && 'badge-neutral')}>{a.status}</span>
           {a.status === 'accepted' && <Link to="/chat" className="btn-secondary px-3 py-1.5 text-xs"><MessageSquare className="h-3.5 w-3.5" /> Chat</Link>}
         </div>
       ))}

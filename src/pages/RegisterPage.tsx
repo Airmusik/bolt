@@ -6,11 +6,13 @@ import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import type { Role } from '@/lib/types';
 import { ALL_LOCATIONS } from '@/lib/locations';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 export function RegisterPage() {
   const { signUp, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { settings } = useSiteSettings();
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -41,7 +43,7 @@ export function RegisterPage() {
         toast('Account created. Check your email to confirm it before signing in.');
         navigate('/login');
       } else {
-        toast('Account created. Welcome to GariLink.');
+        toast(`Account created. Welcome to ${settings.site_name}.`);
         navigate(role === 'driver' ? '/onboarding' : '/dashboard');
       }
     } catch {
@@ -62,7 +64,7 @@ export function RegisterPage() {
             </span>
           </Link>
           <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Create your account</h1>
-          <p className="mt-1 text-sm text-ink-500">Join GariLink as a driver or car owner.</p>
+          <p className="mt-1 text-sm text-ink-500">Join {settings.site_name} as a driver or car owner.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6">
@@ -76,7 +78,8 @@ export function RegisterPage() {
                   key={r}
                   type="button"
                   onClick={() => setRole(r)}
-                  className={`relative rounded-xl border p-4 text-left transition ${role === r ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/30' : 'border-ink-200 bg-white hover:border-ink-300'}`}
+                  aria-pressed={role === r}
+                  className={`relative rounded-xl border p-4 text-left transition ${role === r ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/30' : 'border-ink-200 bg-white hover:border-ink-300 dark:bg-[#141416]'}`}
                 >
                   <p className="font-semibold capitalize text-ink-900">{r}</p>
                   <p className="text-xs text-ink-500">{r === 'driver' ? 'Looking for a car' : 'Have a car to rent'}</p>
@@ -115,7 +118,7 @@ export function RegisterPage() {
               <input value={location} onChange={(event) => setLocation(event.target.value)} list="kenyan-registration-locations" autoComplete="address-level2" placeholder="e.g. Ongata Rongai" className="input pl-10" required />
               <datalist id="kenyan-registration-locations">{ALL_LOCATIONS.map((place) => <option key={place} value={place} />)}</datalist>
             </div>
-            <p className="mt-1.5 text-xs text-ink-400">Shown publicly so nearby drivers and owners can find you. GariLink operates in Kenya only.</p>
+            <p className="mt-1.5 text-xs text-ink-400">Shown publicly so nearby drivers and owners can find you. {settings.site_name} operates in Kenya only.</p>
           </div>
 
           <div className="mt-4">
@@ -131,7 +134,7 @@ export function RegisterPage() {
                 className="input pl-10 pr-10"
                 required
               />
-              <button type="button" onClick={() => setShowPin((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700">
+              <button type="button" onClick={() => setShowPin((v) => !v)} aria-label={showPin ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700">
                 {showPin ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>

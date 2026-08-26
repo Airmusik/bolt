@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, BadgeCheck, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save } from 'lucide-react';
+import { Users, Car, BadgeCheck, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET } from '@/lib/supabase';
-import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, TrustReference } from '@/lib/types';
-import { DEFAULT_SITE_SETTINGS, normalizeSiteSettings, type SiteSettings } from '@/lib/siteSettings';
+import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, TrustReference, ContactMessage } from '@/lib/types';
+import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
-import { cn, timeAgo } from '@/lib/utils';
+import { cn, timeAgo, formatDateTime } from '@/lib/utils';
 
 const SUSPEND_REASONS = [
   'Fake or misleading profile',
@@ -59,23 +59,25 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'overview' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'chat' | 'history' | 'settings';
+type Tab = 'overview' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings';
 
 export function AdminPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { settings: siteSettings } = useSiteSettings();
   const [tab, setTab] = useState<Tab>('overview');
   const [users, setUsers] = useState<Profile[]>([]);
   const [vehicles, setVehicles] = useState<AdminVehicle[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
   const [documents, setDocuments] = useState<AdminDocument[]>([]);
   const [references, setReferences] = useState<AdminReference[]>([]);
+  const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [viewingDoc, setViewingDoc] = useState<DocumentRow | null>(null);
   const [rejectingDoc, setRejectingDoc] = useState<DocumentRow | null>(null);
   const [rejectReason, setRejectReason] = useState('');
-  const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void; label: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void | Promise<void>; label: string } | null>(null);
   const [suspendingUser, setSuspendingUser] = useState<Profile | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
   const [suspending, setSuspending] = useState(false);
@@ -87,24 +89,36 @@ export function AdminPage() {
   const [changingPinUser, setChangingPinUser] = useState<Profile | null>(null);
   const [deletingUser, setDeletingUser] = useState<Profile | null>(null);
 
-  const load = async () => {
-    const [{ data: u }, { data: v }, { data: r }, { data: d }, { data: h }, { data: refs }] = await Promise.all([
+  const load = useCallback(async () => {
+    setLoading(true);
+    const [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, referencesResult, contactsResult] = await Promise.all([
       supabase.rpc('admin_list_profiles'),
       supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*)`).order('created_at', { ascending: false }),
       supabase.from('reports').select('*').order('created_at', { ascending: false }),
       supabase.from('documents').select(`*, user:profiles!documents_user_id_fkey(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles!documents_vehicle_id_fkey(id,make,model,year)`).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false }),
       supabase.from('driver_platform_history').select(`*, driver:profiles!driver_platform_history_driver_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
       supabase.from('trust_references').select(`*, user:profiles!trust_references_user_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
+      supabase.from('contact_messages').select('*').order('created_at', { ascending: false }),
     ]);
+    const loadError = [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, referencesResult, contactsResult].find((result) => result.error)?.error;
+    if (loadError) toast('Some admin data could not be loaded: ' + loadError.message, 'error');
+    const { data: u } = usersResult;
+    const { data: v } = vehiclesResult;
+    const { data: r } = reportsResult;
+    const { data: d } = documentsResult;
+    const { data: h } = historyResult;
+    const { data: refs } = referencesResult;
+    const { data: contacts } = contactsResult;
     setUsers((u as Profile[]) || []);
     setVehicles((v as AdminVehicle[]) || []);
     setReports((r as Report[]) || []);
     setDocuments((d as AdminDocument[]) || []);
     setHistory((h as AdminHistory[]) || []);
     setReferences((refs as AdminReference[]) || []);
+    setContactMessages((contacts as ContactMessage[]) || []);
     setLoading(false);
-  };
-  useEffect(() => { load(); }, []);
+  }, [toast]);
+  useEffect(() => { load(); }, [load]);
 
   const drivers = users.filter((u) => u.role === 'driver');
   const owners = users.filter((u) => u.role === 'owner');
@@ -112,24 +126,25 @@ export function AdminPage() {
   const pendingDocs = documents.filter((d) => !d.verified && !d.rejected);
   const pendingVehiclePhotos = vehicles.flatMap((v) => (v.photos || []).filter((photo) => !photo.approved && !photo.rejected).map((photo) => ({ ...photo, vehicle: v })));
   const pendingReferences = references.filter((reference) => reference.status === 'pending');
+  const newContactMessages = contactMessages.filter((message) => message.status === 'new');
 
   const approveVerification = async (p: Profile) => {
     const { error } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', p.id);
-    if (error) { toast('Update failed: ' + error.message); return; }
-    await notifyUser(p.id, 'trust', 'Trust Passport approved', 'Your Trust Passport is now approved on GariLink.');
+    if (error) { toast('Update failed: ' + error.message, 'error'); return; }
+    await notifyUser(p.id, 'trust', 'Trust Passport approved', `Your Trust Passport is now approved on ${siteSettings.site_name}.`);
     toast('Trust Passport approved.');
     load();
   };
   const rejectVerification = async (p: Profile) => {
     const { error } = await supabase.from('profiles').update({ is_verified: false, verification_status: 'rejected' }).eq('id', p.id);
-    if (error) { toast('Update failed: ' + error.message); return; }
+    if (error) { toast('Update failed: ' + error.message, 'error'); return; }
     toast('User rejected.');
     load();
   };
   const suspend = async (p: Profile, reason: string) => {
     setSuspending(true);
     const { error } = await supabase.from('profiles').update({ is_suspended: true, suspension_reason: reason, suspended_at: new Date().toISOString(), verification_status: 'rejected', is_verified: false }).eq('id', p.id);
-    if (error) { toast('Suspend failed: ' + error.message); setSuspending(false); return; }
+    if (error) { toast('Suspend failed: ' + error.message, 'error'); setSuspending(false); return; }
     await notifyUser(p.id, 'suspension', 'Account suspended', `Your account has been suspended: ${reason}`);
     toast('User suspended.');
     setSuspendingUser(null);
@@ -139,25 +154,28 @@ export function AdminPage() {
   };
   const unban = async (p: Profile) => {
     const { error } = await supabase.from('profiles').update({ is_suspended: false, suspension_reason: null, suspended_at: null }).eq('id', p.id);
-    if (error) { toast('Reinstate failed: ' + error.message); return; }
+    if (error) { toast('Reinstate failed: ' + error.message, 'error'); return; }
     toast('User reinstated.');
     load();
   };
   const resolveReport = async (r: Report, status: 'resolved' | 'dismissed') => {
-    await supabase.from('reports').update({ status }).eq('id', r.id);
+    const { error } = await supabase.from('reports').update({ status }).eq('id', r.id);
+    if (error) { toast('Could not update report: ' + error.message, 'error'); return; }
     toast('Report ' + status + '.');
     load();
   };
 
   const verifyDoc = async (d: DocumentRow) => {
-    await supabase.from('documents').update({ verified: true, rejected: false, rejection_reason: null }).eq('id', d.id);
+    const { error } = await supabase.from('documents').update({ verified: true, rejected: false, rejection_reason: null }).eq('id', d.id);
+    if (error) { toast('Could not approve evidence: ' + error.message, 'error'); return; }
     await notifyUser(d.user_id, 'trust', 'Evidence approved', `Your ${d.label || d.type.replace(/_/g, ' ')} was approved.`);
     toast('Evidence approved.');
     load();
   };
 
   const rejectDoc = async (d: DocumentRow, reason: string) => {
-    await supabase.from('documents').update({ verified: false, rejected: true, rejection_reason: reason }).eq('id', d.id);
+    const { error } = await supabase.from('documents').update({ verified: false, rejected: true, rejection_reason: reason }).eq('id', d.id);
+    if (error) { toast('Could not reject evidence: ' + error.message, 'error'); return; }
     await notifyUser(
       d.user_id,
       'trust',
@@ -167,6 +185,20 @@ export function AdminPage() {
     toast('Evidence rejected with reason.');
     setRejectingDoc(null);
     setRejectReason('');
+    load();
+  };
+
+  const resolveContactMessage = async (message: ContactMessage) => {
+    const { error } = await supabase.from('contact_messages').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', message.id);
+    if (error) { toast('Could not resolve message: ' + error.message, 'error'); return; }
+    toast('Contact message marked resolved.');
+    load();
+  };
+
+  const deleteContactMessage = async (message: ContactMessage) => {
+    const { error } = await supabase.from('contact_messages').delete().eq('id', message.id);
+    if (error) { toast('Could not delete message: ' + error.message, 'error'); return; }
+    toast('Contact message deleted.');
     load();
   };
 
@@ -207,20 +239,22 @@ export function AdminPage() {
 
   const toggleVehicle = async (v: Vehicle) => {
     const newStatus = v.status === 'active' ? 'closed' : 'active';
-    await supabase.from('vehicles').update({ status: newStatus }).eq('id', v.id);
+    const { error } = await supabase.from('vehicles').update({ status: newStatus }).eq('id', v.id);
+    if (error) { toast('Could not update listing: ' + error.message, 'error'); return; }
     toast(`Vehicle ${newStatus === 'active' ? 'restored' : 'removed'}.`);
     load();
   };
 
   const deleteVehicle = async (id: string) => {
-    await supabase.from('vehicle_photos').delete().eq('vehicle_id', id);
-    await supabase.from('vehicles').delete().eq('id', id);
+    const { error } = await supabase.from('vehicles').delete().eq('id', id);
+    if (error) { toast('Could not delete listing: ' + error.message, 'error'); return; }
     toast('Vehicle listing deleted.');
     load();
   };
 
   const deleteDoc = async (id: string) => {
-    await supabase.from('documents').delete().eq('id', id);
+    const { error } = await supabase.from('documents').delete().eq('id', id);
+    if (error) { toast('Could not delete document: ' + error.message, 'error'); return; }
     toast('Document deleted.');
     load();
   };
@@ -275,6 +309,7 @@ export function AdminPage() {
     { label: 'Pending Trust Passports', value: pendingVerifications.length, icon: TrendingUp },
     { label: 'Pending uploads', value: pendingDocs.length + pendingVehiclePhotos.length, icon: FileText },
     { label: 'Open reports', value: reports.filter((r) => r.status === 'open').length, icon: Flag },
+    { label: 'New contacts', value: newContactMessages.length, icon: Mail },
     { label: 'Trusted drivers', value: drivers.filter((u) => u.is_verified).length, icon: BadgeCheck },
   ];
 
@@ -285,6 +320,7 @@ export function AdminPage() {
     { key: 'cars', label: 'Cars', icon: Car, badge: vehicles.length },
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length + pendingReferences.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
+    { key: 'contact', label: 'Contact inbox', icon: Mail, badge: newContactMessages.length },
     { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
     { key: 'chat', label: 'Chat', icon: MessageSquare },
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
@@ -325,7 +361,18 @@ export function AdminPage() {
         {(tab === 'drivers' || tab === 'owners' || tab === 'cars') && (
           <div className="mb-4 flex items-center gap-2">
             <Search className="h-4 w-4 text-ink-400" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder={`Search ${tab}…`} className="input max-w-xs" />
+            <input
+              type="search"
+              name="member-filter-query"
+              autoComplete="one-time-code"
+              data-form-type="other"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={`Search ${tab}…`}
+              className="input max-w-xs"
+            />
           </div>
         )}
 
@@ -357,8 +404,8 @@ export function AdminPage() {
                     <span className="text-sm text-ink-700">{d.user?.full_name} — {d.label || d.type.replace(/_/g, ' ')}</span>
                     <div className="flex gap-1">
                       <button onClick={() => setViewingDoc(d)} className="btn-ghost px-2 py-1 text-xs"><Eye className="h-3 w-3" /> View</button>
-                      <button onClick={() => verifyDoc(d)} className="btn-primary px-2 py-1 text-xs"><Check className="h-3 w-3" /></button>
-                      <button onClick={() => { setRejectingDoc(d); }} className="btn-secondary px-2 py-1 text-xs"><X className="h-3 w-3" /></button>
+                      <button onClick={() => verifyDoc(d)} aria-label={`Approve ${d.label || 'document'}`} className="btn-primary px-2 py-1 text-xs"><Check className="h-3 w-3" /></button>
+                      <button onClick={() => { setRejectingDoc(d); }} aria-label={`Reject ${d.label || 'document'}`} className="btn-secondary px-2 py-1 text-xs"><X className="h-3 w-3" /></button>
                     </div>
                   </div>
                 ))}
@@ -386,7 +433,7 @@ export function AdminPage() {
                   <button onClick={() => setViewingUser(u)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
                   {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setViewingUser(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
                   {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
-                  <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
+                  <button onClick={() => setEditingUser(u)} aria-label={`Edit ${u.full_name}`} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
                   <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
                   {u.is_suspended ? (
@@ -416,7 +463,7 @@ export function AdminPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   {u.is_suspended && <span className="badge badge-danger"><Ban className="inline h-3 w-3" /> Suspended</span>}
                   <button onClick={() => setViewingUser(u)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
-                  <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
+                  <button onClick={() => setEditingUser(u)} aria-label={`Edit ${u.full_name}`} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
                   <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
                   {u.is_suspended ? (
@@ -454,7 +501,7 @@ export function AdminPage() {
                   <button onClick={() => setConfirmAction({ message: `${v.status === 'active' ? 'Remove' : 'Restore'} "${v.make} ${v.model}"?`, label: v.status === 'active' ? 'Remove' : 'Restore', onConfirm: () => toggleVehicle(v) })} className={cn('text-sm', v.status === 'active' ? 'btn-secondary' : 'btn-primary')}>
                     {v.status === 'active' ? 'Remove' : 'Restore'}
                   </button>
-                  <button onClick={() => setConfirmAction({ message: `Permanently delete "${v.make} ${v.model}"? This cannot be undone.`, label: 'Delete', onConfirm: () => deleteVehicle(v.id) })} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /></button>
+                  <button onClick={() => setConfirmAction({ message: `Permanently delete "${v.make} ${v.model}"? This cannot be undone.`, label: 'Delete', onConfirm: () => deleteVehicle(v.id) })} aria-label={`Delete ${v.make} ${v.model}`} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /></button>
                 </div>
               </div>
             ))}
@@ -521,12 +568,35 @@ export function AdminPage() {
                 ) : (
                   <span className="badge badge-success">Approved</span>
                 )}
-                <button onClick={() => setConfirmAction({ message: 'Delete this document? This cannot be undone.', label: 'Delete', onConfirm: () => deleteDoc(d.id) })} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /></button>
+                <button onClick={() => setConfirmAction({ message: 'Delete this document? This cannot be undone.', label: 'Delete', onConfirm: () => deleteDoc(d.id) })} aria-label={`Delete ${d.label || 'document'}`} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /></button>
               </div>
             ))}
               {documents.length === 0 && <p className="text-sm text-ink-500">No trust evidence uploaded yet.</p>}
               </div>
             </section>
+          </div>
+        )}
+
+        {/* ---------- Reports ---------- */}
+        {tab === 'contact' && !loading && (
+          <div className="space-y-3">
+            {contactMessages.map((message) => (
+              <div key={message.id} className="card p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold text-ink-900">{message.name} <span className={message.status === 'new' ? 'badge-warning ml-2' : 'badge-success ml-2'}>{message.status}</span></p>
+                    <a href={`mailto:${message.email}`} className="text-sm text-brand-700 hover:underline">{message.email}</a>
+                    <p className="mt-2 whitespace-pre-wrap text-sm text-ink-700">{message.message}</p>
+                    <p className="mt-2 text-xs text-ink-400">{formatDateTime(message.created_at)}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {message.status === 'new' && <button onClick={() => resolveContactMessage(message)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Resolve</button>}
+                    <button onClick={() => setConfirmAction({ message: `Delete the message from ${message.name}?`, label: 'Delete', onConfirm: () => deleteContactMessage(message) })} className="btn-ghost px-3 py-1.5 text-xs text-danger"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {contactMessages.length === 0 && <p className="text-sm text-ink-500">No contact messages yet.</p>}
           </div>
         )}
 
@@ -610,7 +680,7 @@ export function AdminPage() {
       {/* Suspend user modal */}
       {suspendingUser && (
         <Modal title={`Suspend ${suspendingUser.full_name}`} onClose={() => { setSuspendingUser(null); setSuspendReason(''); }}>
-          <p className="text-sm text-ink-600">This user will be immediately logged out and shown a suspension message. They will not be able to use GariLink until reinstated.</p>
+          <p className="text-sm text-ink-600">This user will be immediately logged out and shown a suspension message. They will not be able to use {siteSettings.site_name} until reinstated.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {SUSPEND_REASONS.map((r) => (
               <button
@@ -705,11 +775,12 @@ export function AdminPage() {
             <button onClick={async () => {
               const reason = window.prompt('Why is this platform history being rejected?');
               if (!reason?.trim()) return;
-              await supabase.from('driver_platform_history').update({ approved: false, proof_url: null }).eq('id', viewingHistory.id);
+              const { error } = await supabase.from('driver_platform_history').update({ approved: false, proof_url: null }).eq('id', viewingHistory.id);
+              if (error) { toast('Could not reject platform history: ' + error.message, 'error'); return; }
               await notifyUser(viewingHistory.driver_id, 'trust', 'Platform history rejected', reason.trim());
               toast('Platform history rejected.'); setViewingHistory(null); load();
             }} className="btn-secondary"><X className="h-4 w-4" /> Reject</button>
-            <button onClick={async () => { await supabase.from('driver_platform_history').update({ approved: true }).eq('id', viewingHistory.id); toast('Platform history approved.'); setViewingHistory(null); load(); }} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
+            <button onClick={async () => { const { error } = await supabase.from('driver_platform_history').update({ approved: true }).eq('id', viewingHistory.id); if (error) { toast('Could not approve platform history: ' + error.message, 'error'); return; } toast('Platform history approved.'); setViewingHistory(null); load(); }} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
           </div>
         </Modal>
       )}
@@ -762,32 +833,44 @@ function AdminChangePinModal({ user, onClose, onConfirm }: { user: Profile; onCl
 // ---------- Admin Settings ----------
 function AdminSettings() {
   const { toast } = useToast();
-  const [settings, setSettings] = useState<SiteSettings>({ ...DEFAULT_SITE_SETTINGS });
-  const [loading, setLoading] = useState(true);
+  const { settings: liveSettings, loading, refreshSettings } = useSiteSettings();
+  const [settings, setSettings] = useState<SiteSettings>(liveSettings);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase.from('site_settings').select('key, value');
-      if (error) {
-        toast('Could not load settings: ' + error.message, 'error');
-      } else {
-        setSettings(normalizeSiteSettings(data));
-      }
-      setLoading(false);
-    })();
-  }, [toast]);
+    setSettings(liveSettings);
+  }, [liveSettings]);
 
   const save = async () => {
+    const siteName = settings.site_name.trim();
+    if (siteName.length < 2 || siteName.length > 40) { toast('Site name must be between 2 and 40 characters.', 'error'); return; }
+    if (Number(settings.max_vehicles_per_owner) < 1 || Number(settings.max_vehicles_per_owner) > 100) { toast('Vehicle limit must be between 1 and 100.', 'error'); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.admin_contact_email.trim())) { toast('Enter a valid admin contact email.', 'error'); return; }
+    if (settings.admin_contact_phone.trim().length < 7) { toast('Enter a valid admin contact phone number.', 'error'); return; }
+    for (const [label, value] of [['Facebook', settings.facebook_url], ['Instagram', settings.instagram_url], ['LinkedIn', settings.linkedin_url]]) {
+      if (!value) continue;
+      try { const url = new URL(value); if (!['http:', 'https:'].includes(url.protocol)) throw new Error(); }
+      catch { toast(`${label} URL must start with http:// or https://.`, 'error'); return; }
+    }
     setSaving(true);
     const updated_at = new Date().toISOString();
+    const nextSettings = {
+      ...settings,
+      site_name: siteName,
+      admin_contact_email: settings.admin_contact_email.trim().toLowerCase(),
+      admin_contact_phone: settings.admin_contact_phone.trim(),
+      facebook_url: settings.facebook_url.trim(),
+      instagram_url: settings.instagram_url.trim(),
+      linkedin_url: settings.linkedin_url.trim(),
+    };
     const { error } = await supabase.from('site_settings').upsert(
-      Object.entries(settings).map(([key, value]) => ({ key, value, updated_at })),
+      Object.entries(nextSettings).map(([key, value]) => ({ key, value, updated_at })),
       { onConflict: 'key' },
     );
+    if (error) { setSaving(false); toast('Could not save settings: ' + error.message, 'error'); return; }
+    await refreshSettings();
     setSaving(false);
-    if (error) { toast('Could not save settings: ' + error.message, 'error'); return; }
-    toast('Settings saved.');
+    toast('Settings saved and applied across the site.');
   };
 
   if (loading) return <div className="card h-40 animate-pulse" />;
@@ -799,38 +882,39 @@ function AdminSettings() {
         <p className="mt-1 text-sm text-ink-500">Configure platform-wide settings.</p>
         <div className="mt-4 space-y-4">
           <div>
-            <label className="label">Site name</label>
-            <input value={settings['site_name'] || ''} onChange={(e) => setSettings({ ...settings, site_name: e.target.value })} className="input" />
+            <label htmlFor="admin-site-name" className="label">Site name</label>
+            <input id="admin-site-name" value={settings['site_name'] || ''} onChange={(e) => setSettings({ ...settings, site_name: e.target.value })} className="input" />
           </div>
           <div>
-            <label className="label">Maintenance mode</label>
-            <select value={settings['maintenance_mode'] || 'false'} onChange={(e) => setSettings({ ...settings, maintenance_mode: e.target.value })} className="input">
+            <label htmlFor="admin-maintenance" className="label">Maintenance mode</label>
+            <select id="admin-maintenance" value={settings['maintenance_mode'] || 'false'} onChange={(e) => setSettings({ ...settings, maintenance_mode: e.target.value })} className="input">
               <option value="false">Off</option>
               <option value="true">On (blocks all access)</option>
             </select>
           </div>
           <div>
-            <label className="label">Require email at registration</label>
-            <select value={settings['require_email'] || 'true'} onChange={(e) => setSettings({ ...settings, require_email: e.target.value })} className="input">
+            <label htmlFor="admin-require-email" className="label">Require email at registration</label>
+            <select id="admin-require-email" value={settings['require_email'] || 'true'} onChange={(e) => setSettings({ ...settings, require_email: e.target.value })} className="input">
               <option value="true">Yes (required)</option>
               <option value="false">No (optional)</option>
             </select>
           </div>
           <div>
-            <label className="label">Max vehicles per owner</label>
-            <input type="number" value={settings['max_vehicles_per_owner'] || '10'} onChange={(e) => setSettings({ ...settings, max_vehicles_per_owner: e.target.value })} className="input" />
+            <label htmlFor="admin-max-vehicles" className="label">Max vehicles per owner</label>
+            <input id="admin-max-vehicles" type="number" value={settings['max_vehicles_per_owner'] || '10'} onChange={(e) => setSettings({ ...settings, max_vehicles_per_owner: e.target.value })} className="input" />
           </div>
           <div>
-            <label className="label">Platform fee (%)</label>
-            <input type="number" value={settings['platform_fee_percent'] || '0'} onChange={(e) => setSettings({ ...settings, platform_fee_percent: e.target.value })} className="input" />
+            <label htmlFor="admin-contact-email" className="label">Admin contact email</label>
+            <input id="admin-contact-email" type="email" value={settings['admin_contact_email'] || ''} onChange={(e) => setSettings({ ...settings, admin_contact_email: e.target.value })} className="input" />
           </div>
           <div>
-            <label className="label">Admin contact email</label>
-            <input value={settings['admin_contact_email'] || ''} onChange={(e) => setSettings({ ...settings, admin_contact_email: e.target.value })} className="input" />
+            <label htmlFor="admin-contact-phone" className="label">Admin contact phone</label>
+            <input id="admin-contact-phone" inputMode="tel" value={settings.admin_contact_phone} onChange={(e) => setSettings({ ...settings, admin_contact_phone: e.target.value })} className="input" />
           </div>
-          <div>
-            <label className="label">Admin contact phone</label>
-            <input value={settings.admin_contact_phone} onChange={(e) => setSettings({ ...settings, admin_contact_phone: e.target.value })} className="input" />
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div><label htmlFor="admin-facebook-url" className="label">Facebook URL</label><input id="admin-facebook-url" type="url" value={settings.facebook_url} onChange={(e) => setSettings({ ...settings, facebook_url: e.target.value })} className="input" placeholder="https://facebook.com/…" /></div>
+            <div><label htmlFor="admin-instagram-url" className="label">Instagram URL</label><input id="admin-instagram-url" type="url" value={settings.instagram_url} onChange={(e) => setSettings({ ...settings, instagram_url: e.target.value })} className="input" placeholder="https://instagram.com/…" /></div>
+            <div><label htmlFor="admin-linkedin-url" className="label">LinkedIn URL</label><input id="admin-linkedin-url" type="url" value={settings.linkedin_url} onChange={(e) => setSettings({ ...settings, linkedin_url: e.target.value })} className="input" placeholder="https://linkedin.com/…" /></div>
           </div>
         </div>
         <button onClick={save} disabled={saving} className="btn-primary mt-4"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save settings'}</button>
@@ -865,13 +949,15 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminV
 
   const addIssue = async () => {
     if (!newIssue.description.trim()) return;
-    const { data } = await supabase.from('vehicle_issues').insert({ vehicle_id: vehicle.id, description: newIssue.description, severity: newIssue.severity }).select().maybeSingle();
+    const { data, error } = await supabase.from('vehicle_issues').insert({ vehicle_id: vehicle.id, description: newIssue.description.trim(), severity: newIssue.severity }).select().maybeSingle();
+    if (error) { toast('Could not add issue: ' + error.message, 'error'); return; }
     if (data) setIssues([...issues, data as VehicleIssue]);
     setNewIssue({ description: '', severity: 'minor' });
   };
 
   const removeIssue = async (id: string) => {
-    await supabase.from('vehicle_issues').delete().eq('id', id);
+    const { error } = await supabase.from('vehicle_issues').delete().eq('id', id);
+    if (error) { toast('Could not remove issue: ' + error.message, 'error'); return; }
     setIssues(issues.filter((i) => i.id !== id));
   };
 
@@ -879,7 +965,7 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminV
     setSaving(true);
     const { error } = await supabase.from('vehicles').update(form).eq('id', vehicle.id);
     setSaving(false);
-    if (error) { toast('Failed to save.', 'error'); return; }
+    if (error) { toast('Failed to save vehicle: ' + error.message, 'error'); return; }
     toast('Vehicle updated.');
     onDone();
   };
@@ -915,7 +1001,7 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminV
               <option value="moderate">Moderate</option>
               <option value="major">Major</option>
             </select>
-            <button onClick={addIssue} className="btn-secondary"><Plus className="h-4 w-4" /></button>
+            <button onClick={addIssue} aria-label="Add vehicle issue" className="btn-secondary"><Plus className="h-4 w-4" /></button>
           </div>
         </div>
       </div>
@@ -1092,6 +1178,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 
 // ---------- Admin Chat component ----------
 function AdminChat({ user }: { user: { id: string; email: string } | null }) {
+  const { toast } = useToast();
   const [conversations, setConversations] = useState<(Conversation & { driver?: Profile; owner?: Profile })[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1151,7 +1238,9 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
 
   const send = async () => {
     if (!user || !activeId || !text.trim()) return;
-    const { data } = await supabase.from('messages').insert({ conversation_id: activeId, sender_id: user.id, content: text.trim(), type: 'text' }).select().maybeSingle();
+    const content = text.trim();
+    const { data, error } = await supabase.from('messages').insert({ conversation_id: activeId, sender_id: user.id, content, type: 'text' }).select().maybeSingle();
+    if (error) { toast('Could not send message: ' + error.message, 'error'); return; }
     if (data) {
       setMessages((prev) => prev.some((item) => item.id === data.id) ? prev : [...prev, data as Message]);
     }
@@ -1206,7 +1295,7 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
                 const mine = m.sender_id === user?.id;
                 return (
                   <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                    <div className={cn('max-w-[75%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100')}>
+                    <div className={cn('max-w-[75%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
                       <p className="whitespace-pre-wrap break-words">{m.content}</p>
                       <div className={cn('mt-0.5 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{timeAgo(m.created_at)}</div>
                     </div>
@@ -1216,7 +1305,7 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
             </div>
             <div className="flex items-center gap-2 border-t border-ink-100 p-3">
               <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Type a message…" className="input flex-1" />
-              <button onClick={send} disabled={!text.trim()} className="btn-primary px-3"><Send className="h-4 w-4" /></button>
+              <button onClick={send} disabled={!text.trim()} aria-label="Send message" className="btn-primary px-3"><Send className="h-4 w-4" /></button>
             </div>
           </>
         ) : (

@@ -8,6 +8,7 @@ import { VehicleCard } from '@/components/VehicleCard';
 import { EmptyState } from '@/components/EmptyState';
 import { ALL_LOCATIONS, VEHICLE_MAKES } from '@/lib/locations';
 import { BackButton } from '@/components/BackButton';
+import { useToast } from '@/components/useToast';
 
 const FUELS = ['petrol', 'diesel', 'hybrid', 'electric'];
 const TRANSMISSIONS = ['automatic', 'manual'];
@@ -20,11 +21,11 @@ interface Filters {
   fuel: string;
   maxWeekly: string;
   maxDeposit: string;
-  verifiedOnly: boolean;
   availableNow: boolean;
 }
 
 export function BrowseCarsPage() {
+  const { toast } = useToast();
   const [params] = useSearchParams();
   const [vehicles, setVehicles] = useState<VehicleWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,22 +39,22 @@ export function BrowseCarsPage() {
     fuel: '',
     maxWeekly: '',
     maxDeposit: '',
-    verifiedOnly: false,
     availableNow: false,
   });
 
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('vehicles')
         .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .eq('status', 'active')
         .order('created_at', { ascending: false });
+      if (error) toast('Could not load vehicles: ' + error.message, 'error');
       setVehicles((data as VehicleWithRelations[]) || []);
       setLoading(false);
     })();
-  }, []);
+  }, [toast]);
 
   const filtered = useMemo(() => {
     return vehicles.filter((v) => {
@@ -68,13 +69,13 @@ export function BrowseCarsPage() {
       if (filters.fuel && v.fuel_type !== filters.fuel) return false;
       if (filters.maxWeekly && (v.weekly_target ?? 0) > Number(filters.maxWeekly)) return false;
       if (filters.maxDeposit && v.deposit > Number(filters.maxDeposit)) return false;
-      if (filters.verifiedOnly && !v.owner?.is_verified) return false;
       if (filters.availableNow && v.availability !== 'available') return false;
       return true;
     });
   }, [vehicles, filters]);
 
   const activeCount = Object.entries(filters).filter(([k, val]) => k !== 'q' && val && val !== false && val !== '').length;
+  const hasSearch = Boolean(filters.q.trim()) || activeCount > 0;
 
   return (
     <div className="container-content py-8">
@@ -101,7 +102,7 @@ export function BrowseCarsPage() {
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-ink-900">Filters</h2>
               {activeCount > 0 && (
-                <button onClick={() => setFilters({ q: filters.q, location: '', make: '', transmission: '', fuel: '', maxWeekly: '', maxDeposit: '', verifiedOnly: false, availableNow: false })} className="text-xs font-medium text-brand-700 hover:underline">
+                <button onClick={() => setFilters({ q: filters.q, location: '', make: '', transmission: '', fuel: '', maxWeekly: '', maxDeposit: '', availableNow: false })} className="text-xs font-medium text-brand-700 hover:underline">
                   Clear all
                 </button>
               )}
@@ -128,10 +129,6 @@ export function BrowseCarsPage() {
                 <input type="number" value={filters.maxDeposit} onChange={(e) => setFilters({ ...filters, maxDeposit: e.target.value })} placeholder="No limit" className="input py-2" />
               </div>
               <label className="flex items-center gap-2 text-sm text-ink-700">
-                <input type="checkbox" checked={filters.verifiedOnly} onChange={(e) => setFilters({ ...filters, verifiedOnly: e.target.checked })} className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" />
-                Verified owners only
-              </label>
-              <label className="flex items-center gap-2 text-sm text-ink-700">
                 <input type="checkbox" checked={filters.availableNow} onChange={(e) => setFilters({ ...filters, availableNow: e.target.checked })} className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" />
                 Available immediately
               </label>
@@ -156,9 +153,11 @@ export function BrowseCarsPage() {
             </div>
           ) : (
             <EmptyState
-              title="No vehicles match your filters"
-              description="Try widening your search or clearing some filters."
-              action={<button onClick={() => setFilters({ q: '', location: '', make: '', transmission: '', fuel: '', maxWeekly: '', maxDeposit: '', verifiedOnly: false, availableNow: false })} className="btn-secondary">Clear filters</button>}
+              title={hasSearch ? 'No vehicles match your filters' : 'No vehicles are listed yet'}
+              description={hasSearch ? 'Try widening your search or clearing some filters.' : 'Check back soon, or register as an owner to add the first vehicle.'}
+              action={hasSearch
+                ? <button onClick={() => setFilters({ q: '', location: '', make: '', transmission: '', fuel: '', maxWeekly: '', maxDeposit: '', availableNow: false })} className="btn-secondary">Clear filters</button>
+                : undefined}
             />
           )}
         </div>

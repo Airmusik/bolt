@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { ChevronDown, LifeBuoy } from 'lucide-react';
 import { BackButton } from '@/components/BackButton';
+import { useSiteSettings } from '@/lib/siteSettings';
 
-const FAQS = [
-  { q: 'Does GariLink process payments between users?', a: 'No. GariLink only connects car owners with drivers. Any payments (targets, deposits) are arranged directly between you.' },
+const getFaqs = (siteName: string) => [
+  { q: `Does ${siteName} process payments between users?`, a: `No. ${siteName} only connects car owners with drivers. Any payments (targets, deposits) are arranged directly between you.` },
   { q: 'How does the Trust Passport work?', a: 'No identity document is required. Your passport combines account age, activity, completed matches, reviews, approved references, optional evidence and account standing.' },
   { q: 'Are uploads reviewed?', a: 'Vehicle photos, work-history proofs and other trust evidence remain pending until an admin approves them. Profile photos appear immediately. Private proof files are not shown to other members.' },
   { q: 'Can I see a vehicle\'s insurance status?', a: 'Yes. Every listing shows the insurance type (third party or comprehensive) and its expiry date, along with any known issues the owner has disclosed.' },
@@ -13,6 +14,8 @@ const FAQS = [
 
 export function HelpPage() {
   const [open, setOpen] = useState<number | null>(0);
+  const { settings } = useSiteSettings();
+  const faqs = getFaqs(settings.site_name);
   return (
     <div className="container-content py-12">
       <BackButton to="/" />
@@ -20,9 +23,9 @@ export function HelpPage() {
         <LifeBuoy className="h-7 w-7 text-brand-600" />
         <h1 className="font-display text-3xl font-bold text-ink-900">Help center</h1>
       </div>
-      <p className="mt-2 text-ink-600">Frequently asked questions about GariLink.</p>
+      <p className="mt-2 text-ink-600">Frequently asked questions about {settings.site_name}.</p>
       <div className="mt-8 max-w-2xl space-y-3">
-        {FAQS.map((f, i) => (
+        {faqs.map((f, i) => (
           <div key={i} className="card overflow-hidden">
             <button onClick={() => setOpen(open === i ? null : i)} className="flex w-full items-center justify-between p-4 text-left">
               <span className="font-medium text-ink-900">{f.q}</span>

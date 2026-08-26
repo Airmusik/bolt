@@ -174,7 +174,7 @@ export function LoginPage() {
       const { error } = await signIn(email, pin);
       if (error) setError(error);
       else {
-        toast('Welcome back to GariLink.');
+        toast(`Welcome back to ${settings.site_name}.`);
         navigate('/dashboard');
       }
     } catch {
@@ -229,7 +229,7 @@ export function LoginPage() {
                 className="input pl-10 pr-10"
                 required
               />
-              <button type="button" onClick={() => setShowPin((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700">
+              <button type="button" onClick={() => setShowPin((v) => !v)} aria-label={showPin ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700">
                 {showPin ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
@@ -241,7 +241,7 @@ export function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-ink-500">
-          New to GariLink?{' '}
+          New to {settings.site_name}?{' '}
           <Link to="/register" className="font-semibold text-brand-700 hover:text-brand-800">Create an account</Link>
         </p>
       </div>

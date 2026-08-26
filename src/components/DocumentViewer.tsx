@@ -86,14 +86,14 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-card-hover">
+      <div className="relative flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-card-hover dark:bg-[#141416]">
         <div className="flex items-center justify-between border-b border-ink-100 p-4">
           <h3 className="flex items-center gap-2 font-display text-lg font-bold text-ink-900">
             <FileText className="h-5 w-5 text-brand-600" /> {doc.label || doc.type.replace(/_/g, ' ')}
           </h3>
           <div className="flex items-center gap-2">
             {objectUrl && <button onClick={handleDownload} className="btn-ghost text-sm"><Download className="h-4 w-4" /> Download</button>}
-            <button onClick={onClose} className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700">
+            <button onClick={onClose} aria-label="Close document viewer" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700">
               <X className="h-5 w-5" />
             </button>
           </div>

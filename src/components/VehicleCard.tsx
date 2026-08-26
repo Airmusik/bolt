@@ -4,7 +4,6 @@ import type { VehicleWithRelations } from '@/lib/types';
 import { formatKES, formatDate, expiryStatus, titleCase, cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
 import { Rating } from './Rating';
-import { VerifiedBadge } from './VerifiedBadge';
 
 interface Props {
   vehicle: VehicleWithRelations;
@@ -88,12 +87,10 @@ export function VehicleCard({ vehicle, showOwner = true }: Props) {
         {showOwner && vehicle.owner && (
           <div className="mt-3 flex items-center justify-between border-t border-ink-100 pt-3">
             <div className="flex items-center gap-2">
-              <Avatar name={vehicle.owner.full_name} src={vehicle.owner.avatar_url} size={28} verified={vehicle.owner.is_verified} />
+              <Avatar name={vehicle.owner.full_name} src={vehicle.owner.avatar_url} size={28} />
               <div>
-                <p className="flex items-center gap-1 text-xs font-medium text-ink-800">
-                  {vehicle.owner.full_name}
-                  <VerifiedBadge verified={vehicle.owner.is_verified} size={11} showLabel />
-                </p>
+                <p className="text-xs font-medium text-ink-800">{vehicle.owner.full_name}</p>
+                <p className="flex items-center gap-1 text-[10px] text-success"><ShieldCheck className="h-3 w-3" /> Vehicle photos reviewed</p>
                 <Rating value={vehicle.owner.rating} size={11} count={vehicle.owner.rating_count} showValue />
               </div>
             </div>

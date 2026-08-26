@@ -6,36 +6,47 @@ import type { Notification } from '@/lib/types';
 import { EmptyState } from '@/components/EmptyState';
 import { timeAgo, cn } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
+import { useToast } from '@/components/useToast';
 
 export function NotificationsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    if (error) {
+      setLoading(false);
+      toast('Could not load notifications: ' + error.message, 'error');
+      return;
+    }
     setNotifications((data as Notification[]) || []);
     setLoading(false);
-  }, [user]);
+  }, [user, toast]);
 
   // Auto-mark all unread notifications as read when the page opens
   useEffect(() => {
     if (!user) return;
     (async () => {
-      await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+      const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+      if (error) toast('Could not mark notifications as read.', 'error');
       load();
     })();
-  }, [user, load]);
+  }, [user, load, toast]);
 
   const markAllRead = async () => {
     if (!user) return;
-    await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    if (error) { toast('Could not mark notifications as read.', 'error'); return; }
     load();
   };
   const remove = async (id: string) => {
-    await supabase.from('notifications').delete().eq('id', id);
+    const { error } = await supabase.from('notifications').delete().eq('id', id);
+    if (error) { toast('Could not delete notification.', 'error'); return; }
     setNotifications((n) => n.filter((x) => x.id !== id));
+    toast('Notification deleted.');
   };
 
   return (

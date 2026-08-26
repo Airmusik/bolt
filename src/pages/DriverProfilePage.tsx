@@ -99,7 +99,7 @@ export function DriverProfilePage() {
             <Section title="Platform history (last 5 months)">
               <div className="space-y-3">
                 {history.map((h) => (
-                  <div key={h.id} className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-ink-100">
+                  <div key={h.id} className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-ink-100 dark:bg-[#141416]">
                     <div>
                       <p className="font-semibold text-ink-900">{titleCase(h.platform)}</p>
                       <p className="text-xs text-ink-500">{h.months_active} months active · {h.trips} trips</p>
@@ -177,7 +177,7 @@ export function DriverProfilePage() {
 
 function TrustSignal({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-white p-3 ring-1 ring-ink-100">
+    <div className="rounded-xl bg-white p-3 ring-1 ring-ink-100 dark:bg-[#141416]">
       <p className="flex items-center gap-1 text-xs text-ink-400">{icon}{label}</p>
       <p className="mt-1 text-sm font-semibold text-ink-800">{value}</p>
     </div>

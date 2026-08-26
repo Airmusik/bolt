@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { createContext, createElement, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
 
 export const DEFAULT_SITE_SETTINGS = {
@@ -7,7 +7,7 @@ export const DEFAULT_SITE_SETTINGS = {
   max_vehicles_per_owner: '10',
   require_email: 'true',
   platform_fee_percent: '0',
-  admin_contact_email: 'airmusikinck@gmail.com',
+  admin_contact_email: 'airmusikinc@gmail.com',
   admin_contact_phone: '+254708593011',
   kyc_enabled: 'false',
   facebook_url: '',
@@ -42,9 +42,24 @@ export async function fetchSiteSettings(): Promise<SiteSettings> {
   return normalizeSiteSettings(data as SiteSettingRow[] | null);
 }
 
-export function useSiteSettings() {
+type SiteSettingsContextValue = {
+  settings: SiteSettings;
+  loading: boolean;
+  refreshSettings: () => Promise<SiteSettings>;
+};
+
+const SiteSettingsContext = createContext<SiteSettingsContextValue | null>(null);
+
+export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<SiteSettings>({ ...DEFAULT_SITE_SETTINGS });
   const [loading, setLoading] = useState(true);
+
+  const refreshSettings = useCallback(async () => {
+    const loaded = await fetchSiteSettings();
+    setSettings(loaded);
+    setLoading(false);
+    return loaded;
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -53,8 +68,23 @@ export function useSiteSettings() {
       setSettings(loaded);
       setLoading(false);
     });
-    return () => { active = false; };
-  }, []);
+    const channel = supabase
+      .channel('site-settings-live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'site_settings' }, () => { if (active) refreshSettings(); })
+      .subscribe();
+    return () => { active = false; supabase.removeChannel(channel); };
+  }, [refreshSettings]);
 
-  return { settings, loading };
+  useEffect(() => {
+    document.title = `${settings.site_name} — Find the Right Driver or the Right Car`;
+  }, [settings.site_name]);
+
+  const value = useMemo(() => ({ settings, loading, refreshSettings }), [settings, loading, refreshSettings]);
+  return createElement(SiteSettingsContext.Provider, { value }, children);
+}
+
+export function useSiteSettings() {
+  const context = useContext(SiteSettingsContext);
+  if (!context) throw new Error('useSiteSettings must be used within SiteSettingsProvider');
+  return context;
 }

@@ -11,7 +11,7 @@ export function createDemoAdminProfile(): Profile {
   return {
     id: DEMO_ADMIN_ID,
     role: 'admin',
-    full_name: 'GariLink Admin',
+    full_name: 'Platform Admin',
     phone: null,
     avatar_url: null,
     avatar_pending_url: null,

@@ -1,12 +1,14 @@
 import { BackButton } from '@/components/BackButton';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 export function PrivacyPage() {
+  const { settings } = useSiteSettings();
   return (
     <div className="container-content py-12 max-w-3xl">
       <BackButton to="/" />
       <h1 className="font-display text-3xl font-bold text-ink-900">Privacy Policy</h1>
       <div className="mt-6 space-y-4 text-sm text-ink-700">
-        <p>GariLink respects your privacy. This policy explains what we collect and how we use it.</p>
+        <p>{settings.site_name} respects your privacy. This policy explains what we collect and how we use it.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">Information we collect</h2>
         <p>Your name, phone number, location, profile details, references and optional trust evidence. Profile photos appear immediately; vehicle photos remain private until an admin approves them.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">How we use it</h2>

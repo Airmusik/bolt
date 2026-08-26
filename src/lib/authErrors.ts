@@ -30,13 +30,13 @@ export function getAuthErrorMessage(error: unknown, action: AuthAction): string 
     return 'Incorrect email or password. Please try again.';
   }
   if (message.includes('signup is disabled') || message.includes('signups not allowed')) {
-    return 'New account registration is temporarily unavailable. Please contact GariLink support.';
+    return 'New account registration is temporarily unavailable. Please contact platform support.';
   }
   if (message.includes('database error saving new user') || message.includes('unexpected_failure')) {
     return 'This email or phone number may already be registered. Sign in instead, or reset your password.';
   }
   if (message.includes('failed to fetch') || message.includes('network') || message.includes('fetch')) {
-    return 'Could not reach GariLink. Check your internet connection and try again.';
+    return 'Could not reach the platform. Check your internet connection and try again.';
   }
   if (action === 'profile') {
     return 'Your account was created, but profile setup could not finish. Sign in to continue or contact support.';

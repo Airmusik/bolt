@@ -11,17 +11,18 @@ import { useToast } from '@/components/useToast';
 import type { VehicleWithRelations, Review } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
-import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { Modal } from '@/components/Modal';
 import { ConnectionButton } from '@/components/ConnectionButton';
 import { formatKES, formatDate, timeAgo, expiryStatus, titleCase, cn } from '@/lib/utils';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 export function VehicleDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const { settings } = useSiteSettings();
 
   const [vehicle, setVehicle] = useState<VehicleWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
@@ -69,11 +70,13 @@ export function VehicleDetailsPage() {
   const toggleSave = async () => {
     if (!user) { navigate('/login', { state: { from: `/vehicles/${id}` } }); return; }
     if (saved && favId) {
-      await supabase.from('favorites').delete().eq('id', favId);
+      const { error } = await supabase.from('favorites').delete().eq('id', favId);
+      if (error) { toast('Could not remove this vehicle from saved items.', 'error'); return; }
       setSaved(false); setFavId(null);
       toast('Removed from saved.');
     } else {
-      const { data } = await supabase.from('favorites').insert({ user_id: user.id, vehicle_id: vehicle!.id }).select().maybeSingle();
+      const { data, error } = await supabase.from('favorites').insert({ user_id: user.id, vehicle_id: vehicle!.id }).select().maybeSingle();
+      if (error) { toast('Could not save this vehicle: ' + error.message, 'error'); return; }
       if (data) { setSaved(true); setFavId(data.id); toast('Saved to your favourites.'); }
     }
   };
@@ -82,7 +85,7 @@ export function VehicleDetailsPage() {
     const url = window.location.href;
     try {
       if (navigator.share) {
-        await navigator.share({ title: `${vehicle?.make} ${vehicle?.model} on GariLink`, url });
+        await navigator.share({ title: `${vehicle?.make} ${vehicle?.model} on ${settings.site_name}`, url });
       } else {
         await navigator.clipboard.writeText(url);
         toast('Link copied to clipboard.');
@@ -153,7 +156,7 @@ export function VehicleDetailsPage() {
                 <Heart className={cn('h-4 w-4', saved && 'fill-brand-600 text-brand-600')} /> {saved ? 'Saved' : 'Save'}
               </button>
               <button onClick={handleShare} className="btn-secondary"><Share2 className="h-4 w-4" /> Share</button>
-              <button onClick={() => setShowReport(true)} className="btn-ghost text-ink-500"><Flag className="h-4 w-4" /></button>
+              <button onClick={() => setShowReport(true)} aria-label="Report vehicle" className="btn-ghost text-ink-500"><Flag className="h-4 w-4" /></button>
             </div>
           </div>
 
@@ -265,12 +268,12 @@ export function VehicleDetailsPage() {
             {/* Owner card */}
             {vehicle.owner && (
               <Link to={`/members/${vehicle.owner.id}`} className="mt-4 flex items-center gap-3 rounded-xl border border-ink-100 p-3 hover:bg-ink-50">
-                <Avatar name={vehicle.owner.full_name} src={vehicle.owner.avatar_url} size={44} verified={vehicle.owner.is_verified} />
+                <Avatar name={vehicle.owner.full_name} src={vehicle.owner.avatar_url} size={44} />
                 <div className="min-w-0">
                   <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
                     {vehicle.owner.full_name}
                   </p>
-                  <div className="mt-1"><VerifiedBadge verified={vehicle.owner.is_verified} size={11} showLabel /></div>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-success"><ShieldCheck className="h-3.5 w-3.5" /> Vehicle photos reviewed by admin</p>
                   <p className="mt-1 text-xs text-ink-500">{vehicle.owner.location || 'Location not provided'}</p>
                   <Rating value={vehicle.owner.rating} size={11} showValue count={vehicle.owner.rating_count} />
                 </div>
@@ -306,7 +309,7 @@ export function VehicleDetailsPage() {
 
 function Fact({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-white p-3 ring-1 ring-ink-100">
+    <div className="rounded-xl bg-white p-3 ring-1 ring-ink-100 dark:bg-[#141416]">
       <p className="flex items-center gap-1.5 text-xs text-ink-400">{icon} {label}</p>
       <p className="mt-1 text-sm font-semibold text-ink-900">{value}</p>
     </div>
@@ -324,6 +327,7 @@ function Section({ title, icon, children }: { title: string; icon?: React.ReactN
 
 export function ReportModal({ targetType, targetId, reportedId, onClose, onDone }: { targetType: 'user' | 'listing' | 'conversation' | 'review'; targetId: string; reportedId: string; onClose: () => void; onDone: () => void }) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [reason, setReason] = useState('');
   const [desc, setDesc] = useState('');
   const [loading, setLoading] = useState(false);
@@ -331,10 +335,11 @@ export function ReportModal({ targetType, targetId, reportedId, onClose, onDone 
   const submit = async () => {
     if (!user) return;
     setLoading(true);
-    await supabase.from('reports').insert({
+    const { error } = await supabase.from('reports').insert({
       reporter_id: user.id, reported_id: reportedId, target_type: targetType, target_id: targetId, reason, description: desc,
     });
     setLoading(false);
+    if (error) { toast('Could not submit report: ' + error.message, 'error'); return; }
     onDone();
   };
 

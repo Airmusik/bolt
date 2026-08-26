@@ -122,8 +122,10 @@ export function DriverOnboardingPage() {
   };
 
   const removeHistory = async (item: PlatformHistory) => {
-    await supabase.from('driver_platform_history').delete().eq('id', item.id);
+    const { error } = await supabase.from('driver_platform_history').delete().eq('id', item.id);
+    if (error) { toast('Could not remove platform history.', 'error'); return; }
     setHistory((items) => items.filter((entry) => entry.id !== item.id));
+    toast('Platform history removed.');
   };
 
   const saveProfile = async () => {
@@ -177,7 +179,7 @@ export function DriverOnboardingPage() {
           </div>
           <Field label="Bio / About me"><textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} rows={3} className="input" placeholder="Tell owners about your experience and working style…" /></Field>
           <Field label="Platforms you've worked on"><div className="flex flex-wrap gap-2">{PLATFORMS.map((platform) => (
-            <button key={platform} type="button" onClick={() => setProfileForm({ ...profileForm, platforms_worked: profileForm.platforms_worked.includes(platform) ? profileForm.platforms_worked.filter((value) => value !== platform) : [...profileForm.platforms_worked, platform] })} className={cn('rounded-full px-4 py-2 text-sm font-medium ring-1 transition', profileForm.platforms_worked.includes(platform) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-700 ring-ink-200 hover:ring-ink-300')}>{titleCase(platform)}</button>
+            <button key={platform} type="button" onClick={() => setProfileForm({ ...profileForm, platforms_worked: profileForm.platforms_worked.includes(platform) ? profileForm.platforms_worked.filter((value) => value !== platform) : [...profileForm.platforms_worked, platform] })} className={cn('rounded-full px-4 py-2 text-sm font-medium ring-1 transition', profileForm.platforms_worked.includes(platform) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-700 ring-ink-200 hover:ring-ink-300 dark:bg-[#141416]')}>{titleCase(platform)}</button>
           ))}</div></Field>
         </Section>
 

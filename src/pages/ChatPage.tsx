@@ -11,6 +11,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { ReportModal } from './VehicleDetailsPage';
 import { cn, timeAgo } from '@/lib/utils';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 
@@ -18,6 +19,7 @@ export function ChatPage() {
   const { conversationId } = useParams();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { settings } = useSiteSettings();
 
   const [conversations, setConversations] = useState<(Conversation & { vehicle?: VehicleWithRelations; driver?: Profile; owner?: Profile })[]>([]);
   const [active, setActive] = useState<Conversation | null>(null);
@@ -103,9 +105,13 @@ export function ChatPage() {
     if (!user || !active) return;
     const body = text.trim();
     if (!body) return;
-    const { data } = await supabase.from('messages').insert({
+    const { data, error } = await supabase.from('messages').insert({
       conversation_id: active.id, sender_id: user.id, content: body, type: 'text',
     }).select().maybeSingle();
+    if (error) {
+      toast('Could not send message: ' + error.message, 'error');
+      return;
+    }
     if (data) {
       setMessages((prev) => prev.some((item) => item.id === data.id) ? prev : [...prev, data as Message]);
     }
@@ -117,7 +123,9 @@ export function ChatPage() {
   const blockUser = async () => {
     if (!user || !active) return;
     const otherId = user.id === active.driver_id ? active.owner_id : active.driver_id;
-    await supabase.from('blocks').insert({ blocker_id: user.id, blocked_id: otherId });
+    if (!otherId) { toast('Could not identify this user.', 'error'); return; }
+    const { error } = await supabase.from('blocks').insert({ blocker_id: user.id, blocked_id: otherId });
+    if (error) { toast('Could not block user: ' + error.message, 'error'); return; }
     toast('User blocked.');
     setActive(null);
   };
@@ -149,7 +157,7 @@ export function ChatPage() {
                   <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
                     {otherUser?.full_name} <VerifiedBadge verified={otherUser?.is_verified} size={11} />
                   </p>
-                  <p className="truncate text-xs text-ink-500">{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : c.admin_id ? 'GariLink Admin' : 'Conversation'} </p>
+                  <p className="truncate text-xs text-ink-500">{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : c.admin_id ? `${settings.site_name} Admin` : 'Conversation'} </p>
                 </div>
                 {c.last_message_at && <span className="text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}
               </button>
@@ -172,8 +180,8 @@ export function ChatPage() {
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <button onClick={() => setShowReport(true)} className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><Flag className="h-4 w-4" /></button>
-                  <button onClick={blockUser} className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-danger"><Ban className="h-4 w-4" /></button>
+                  <button onClick={() => setShowReport(true)} aria-label="Report conversation" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><Flag className="h-4 w-4" /></button>
+                  <button onClick={blockUser} aria-label="Block user" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-danger"><Ban className="h-4 w-4" /></button>
                 </div>
               </div>
 
@@ -183,7 +191,7 @@ export function ChatPage() {
                   const mine = m.sender_id === user?.id;
                   return (
                     <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                      <div className={cn('max-w-[75%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100')}>
+                      <div className={cn('max-w-[75%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
                         {m.type === 'image' ? (
                           <img src={m.content || ''} alt="" className="max-h-48 rounded-lg" />
                         ) : (
@@ -210,7 +218,7 @@ export function ChatPage() {
 
               {/* Input */}
               <div className="flex items-center gap-2 border-t border-ink-100 p-3">
-                <button onClick={() => setShowEmoji((v) => !v)} className="rounded-full p-2 text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
+                <button onClick={() => setShowEmoji((v) => !v)} aria-label="Choose emoji" className="rounded-full p-2 text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
                 <input
                   ref={inputRef}
                   value={text}

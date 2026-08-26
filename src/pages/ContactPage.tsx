@@ -3,6 +3,7 @@ import { Mail, MapPin, Phone, Send } from 'lucide-react';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { supabase } from '@/lib/supabase';
 
 export function ContactPage() {
   const { toast } = useToast();
@@ -10,10 +11,18 @@ export function ContactPage() {
   const [loading, setLoading] = useState(false);
   const { settings } = useSiteSettings();
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => { setLoading(false); toast('Message sent. We\'ll be in touch soon.'); setForm({ name: '', email: '', message: '' }); }, 800);
+    const { error } = await supabase.from('contact_messages').insert({
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      message: form.message.trim(),
+    });
+    setLoading(false);
+    if (error) { toast('Could not send your message. Please use the contact email instead.', 'error'); return; }
+    toast('Message sent. We\'ll be in touch soon.');
+    setForm({ name: '', email: '', message: '' });
   };
 
   return (
@@ -23,8 +32,8 @@ export function ContactPage() {
       <p className="mt-2 text-ink-600">Questions, feedback or need help? Reach out.</p>
       <div className="mt-8 grid gap-8 lg:grid-cols-2">
         <div className="space-y-4">
-          <div className="flex items-center gap-3"><Mail className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Email</p><p className="text-sm text-ink-500">{settings.admin_contact_email}</p></div></div>
-          <div className="flex items-center gap-3"><Phone className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Phone</p><p className="text-sm text-ink-500">{settings.admin_contact_phone}</p></div></div>
+          <a href={`mailto:${settings.admin_contact_email}`} className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-ink-50"><Mail className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Email</p><p className="text-sm text-ink-500">{settings.admin_contact_email}</p></div></a>
+          <a href={`tel:${settings.admin_contact_phone.replace(/\s/g, '')}`} className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-ink-50"><Phone className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Phone</p><p className="text-sm text-ink-500">{settings.admin_contact_phone}</p></div></a>
           <div className="flex items-center gap-3"><MapPin className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Address</p><p className="text-sm text-ink-500">Nairobi, Kenya</p></div></div>
         </div>
         <form onSubmit={submit} className="card p-6">

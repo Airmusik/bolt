@@ -8,14 +8,11 @@ export function Footer() {
   const { settings } = useSiteSettings();
 
   return (
-    <footer className="border-t border-ink-100 bg-white">
+    <footer className="border-t border-ink-100 bg-white dark:bg-[#0b0b0d]">
       <div className="container-content py-6">
         {/* Mobile: collapsed behind a button */}
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="flex w-full items-center justify-between md:hidden"
-        >
-          <Link to="/" className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+        <div className="flex w-full items-center justify-between md:hidden">
+          <Link to="/" className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
               <Car className="h-5 w-5" />
             </span>
@@ -23,8 +20,8 @@ export function Footer() {
               {settings.site_name}
             </span>
           </Link>
-          <ChevronDown className={`h-5 w-5 text-ink-400 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-        </button>
+          <button type="button" onClick={() => setExpanded((v) => !v)} className="rounded-full p-2 text-ink-500 hover:bg-ink-100" aria-expanded={expanded} aria-label={expanded ? 'Collapse footer links' : 'Expand footer links'}><ChevronDown className={`h-5 w-5 transition-transform ${expanded ? 'rotate-180' : ''}`} /></button>
+        </div>
 
         {/* Desktop: always visible grid; Mobile: only when expanded */}
         <div className={`mt-0 md:mt-0 ${expanded ? 'mt-6 grid' : 'hidden'} gap-10 md:grid md:grid-cols-4`}>
@@ -40,11 +37,11 @@ export function Footer() {
             <p className="mt-3 text-sm text-ink-500">
               Connecting trusted car owners and ride-hailing drivers across Kenya — safely and simply.
             </p>
-            <div className="mt-4 flex gap-3">
-              <a href="#" aria-label="Facebook" className="rounded-full bg-ink-100 p-2 text-ink-600 hover:bg-ink-200"><Facebook className="h-4 w-4" /></a>
-              <a href="#" aria-label="Instagram" className="rounded-full bg-ink-100 p-2 text-ink-600 hover:bg-ink-200"><Instagram className="h-4 w-4" /></a>
-              <a href="#" aria-label="LinkedIn" className="rounded-full bg-ink-100 p-2 text-ink-600 hover:bg-ink-200"><Linkedin className="h-4 w-4" /></a>
-            </div>
+            {(settings.facebook_url || settings.instagram_url || settings.linkedin_url) && <div className="mt-4 flex gap-3">
+              {settings.facebook_url && <SocialLink href={settings.facebook_url} label="Facebook" icon={<Facebook className="h-4 w-4" />} />}
+              {settings.instagram_url && <SocialLink href={settings.instagram_url} label="Instagram" icon={<Instagram className="h-4 w-4" />} />}
+              {settings.linkedin_url && <SocialLink href={settings.linkedin_url} label="LinkedIn" icon={<Linkedin className="h-4 w-4" />} />}
+            </div>}
           </div>
 
           <FooterCol title="Company" links={[
@@ -71,11 +68,15 @@ export function Footer() {
         </div>
 
         <div className="mt-6 border-t border-ink-100 pt-4 text-center text-xs text-ink-400 md:mt-10 md:pt-6">
-          © {new Date().getFullYear()} GariLink. All rights reserved. GariLink does not process payments between users.
+          © {new Date().getFullYear()} {settings.site_name}. All rights reserved. {settings.site_name} does not process payments between users.
         </div>
       </div>
     </footer>
   );
+}
+
+function SocialLink({ href, label, icon }: { href: string; label: string; icon: React.ReactNode }) {
+  return <a href={href} target="_blank" rel="noreferrer" aria-label={label} className="rounded-full bg-ink-100 p-2 text-ink-600 transition hover:-translate-y-0.5 hover:bg-ink-200 hover:text-ink-900">{icon}</a>;
 }
 
 function FooterCol({ title, links }: { title: string; links: { to: string; label: string }[] }) {

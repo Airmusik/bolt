@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, DEMO_ADMIN_SESSION_KEY, DEMO_MODE } from '@/lib/demoMode';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 export function AdminLoginPage() {
   const { user, profile } = useAuth();
@@ -15,6 +16,7 @@ export function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { settings } = useSiteSettings();
 
   useEffect(() => {
     if (user && profile?.role === 'admin') {
@@ -117,7 +119,7 @@ export function AdminLoginPage() {
                 className="input pl-10 pr-10"
                 required
               />
-              <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700">
+              <button type="button" onClick={() => setShowPassword((v) => !v)} aria-label={showPassword ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700">
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
@@ -129,7 +131,7 @@ export function AdminLoginPage() {
 
         <div className="mt-6 text-center">
           <Link to="/" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-800">
-            <ArrowLeft className="h-4 w-4" /> Back to GariLink
+            <ArrowLeft className="h-4 w-4" /> Back to {settings.site_name}
           </Link>
         </div>
       </div>

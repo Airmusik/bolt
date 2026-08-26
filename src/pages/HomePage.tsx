@@ -14,10 +14,12 @@ import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { ALL_LOCATIONS } from '@/lib/locations';
 import { titleCase } from '@/lib/utils';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
+import { useSiteSettings } from '@/lib/siteSettings';
 
 export function HomePage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  const { settings } = useSiteSettings();
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
   const [featured, setFeatured] = useState<VehicleWithRelations[]>([]);
@@ -65,29 +67,30 @@ export function HomePage() {
     <div>
       {/* HERO */}
       {!user && (
-      <section className="relative overflow-hidden bg-gradient-to-b from-brand-50/60 to-white">
+      <section className="relative overflow-hidden bg-gradient-to-b from-brand-50/60 to-white dark:to-[#0b0b0d]">
         <div className="absolute inset-0 -z-10">
           <div className="absolute -top-24 left-1/2 h-72 w-[60rem] -translate-x-1/2 rounded-full bg-brand-100/50 blur-3xl" />
         </div>
+        <div className="hero-road pointer-events-none hidden md:block" aria-hidden="true"><Car className="hero-car h-6 w-6" /></div>
         <div className="container-content py-16 md:py-24">
           <div className="mx-auto max-w-3xl text-center animate-slide-up">
             <span className="badge-brand mx-auto mb-5">
               <ShieldCheck className="h-3.5 w-3.5" /> Transparent driver Trust Passports across Kenya
             </span>
             <h1 className="font-display text-4xl font-extrabold leading-[1.1] text-ink-950 sm:text-5xl md:text-6xl">
-              <span className="text-brand-600">GariLink</span>
+              <span className="text-brand-600">{settings.site_name}</span>
               <br />
               <span className="text-ink-950">Find the Right Driver or the Right Car.</span>
             </h1>
             <p className="mt-5 text-lg text-ink-600">
-              GariLink connects car owners and ride-hailing drivers through approved evidence, references, reviews, and transparent activity.
+              {settings.site_name} connects car owners and ride-hailing drivers through approved evidence, references, reviews, and transparent activity.
             </p>
           </div>
 
           {/* Search bar */}
           <form
             onSubmit={handleSearch}
-            className="mx-auto mt-10 max-w-3xl animate-fade-in rounded-2xl bg-white p-3 shadow-card-hover ring-1 ring-ink-100"
+            className="mx-auto mt-10 max-w-3xl animate-fade-in rounded-2xl bg-white p-3 shadow-card-hover ring-1 ring-ink-100 dark:bg-[#141416]"
           >
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="relative flex-1">
@@ -156,10 +159,10 @@ export function HomePage() {
             {featured.map((v) => <VehicleCard key={v.id} vehicle={v} />)}
           </div>
         ) : (
-          <div className="mt-8 rounded-2xl border border-dashed border-ink-200 bg-white p-12 text-center">
+          <div className="mt-8 rounded-2xl border border-dashed border-ink-200 bg-white p-12 text-center dark:bg-[#141416]">
             <Car className="mx-auto h-10 w-10 text-ink-300" />
             <p className="mt-3 font-medium text-ink-700">No listings yet</p>
-            <p className="text-sm text-ink-500">Be the first to list a vehicle on GariLink.</p>
+            <p className="text-sm text-ink-500">Be the first to list a vehicle on {settings.site_name}.</p>
             <Link to="/register" className="btn-primary mt-5">List your car</Link>
           </div>
         )}
@@ -170,14 +173,14 @@ export function HomePage() {
         <div className="container-content py-14">
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
             {[
-              { icon: Users, label: 'Trusted members', value: '2,400+' },
-              { icon: Car, label: 'Active listings', value: '850+' },
-              { icon: CheckCircle2, label: 'Successful matches', value: '1,200+' },
-              { icon: Star, label: 'Avg. rating', value: '4.8/5' },
+              { icon: MapPin, label: 'Built for Kenyan towns', value: 'Kenya only' },
+              { icon: CheckCircle2, label: 'Vehicle photos and evidence', value: 'Admin reviewed' },
+              { icon: ShieldCheck, label: 'Sensitive uploads', value: 'Kept private' },
+              { icon: MessageSquare, label: 'Members arrange terms directly', value: 'No payment handling' },
             ].map((s) => (
               <div key={s.label} className="text-center">
                 <s.icon className="mx-auto h-7 w-7 text-brand-400" />
-                <p className="mt-3 font-display text-3xl font-extrabold">{s.value}</p>
+                <p className="mt-3 font-display text-xl font-extrabold">{s.value}</p>
                 <p className="text-sm text-ink-300">{s.label}</p>
               </div>
             ))}
@@ -188,7 +191,7 @@ export function HomePage() {
       {/* HOW IT WORKS */}
       <section className="container-content py-16">
         <div className="text-center">
-          <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">How GariLink works</h2>
+          <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">How {settings.site_name} works</h2>
           <p className="mt-1 text-sm text-ink-500">Two simple paths to earning or renting out your car.</p>
         </div>
 
@@ -267,7 +270,7 @@ export function HomePage() {
             <ul className="mt-6 space-y-3">
               {[
                 'Transparent driver Trust Passport and account standing',
-                'All user-uploaded photos and proofs reviewed by admins',
+                'Vehicle photos and trust evidence reviewed by admins',
                 'Insurance type and expiry visible on every listing',
                 'Known vehicle issues disclosed by the owner',
                 'Approved references and work history shown as counts',
@@ -296,28 +299,23 @@ export function HomePage() {
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
+      {/* MEMBER EXPECTATIONS */}
       <section className="bg-ink-50 py-16">
         <div className="container-content">
           <div className="text-center">
-            <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">What members say</h2>
+            <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">Choose with more context</h2>
+            <p className="mt-2 text-sm text-ink-500">No hidden scoring and no invented promises—just useful information for both sides.</p>
           </div>
           <div className="mt-10 grid gap-6 md:grid-cols-3">
             {[
-              { name: 'James M.', role: 'Car owner, Nairobi', text: 'Found a trusted driver in two days. The insurance and issue disclosures gave me real peace of mind.' },
-              { name: 'Aisha W.', role: 'Driver, Mombasa', text: 'I could see which cars had comprehensive insurance and which had minor issues before applying. No surprises.' },
-              { name: 'Kevin O.', role: 'Car owner, Eldoret', text: 'The chat is fast and I can see when my driver reads my messages. GariLink just works.' },
-            ].map((t) => (
-              <div key={t.name} className="card p-6">
-                <Rating value={5} size={15} />
-                <p className="mt-3 text-sm text-ink-700">"{t.text}"</p>
-                <div className="mt-4 flex items-center gap-2 border-t border-ink-100 pt-4">
-                  <Avatar name={t.name} size={36} />
-                  <div>
-                    <p className="text-sm font-semibold text-ink-900">{t.name}</p>
-                    <p className="text-xs text-ink-500">{t.role}</p>
-                  </div>
-                </div>
+              { icon: Users, title: 'Owners compare drivers', text: 'See location, experience, reviews, platform history, and whether trust evidence is approved.' },
+              { icon: Car, title: 'Drivers compare cars', text: 'See targets, deposit, insurance status, required experience, approved photos, and disclosed issues.' },
+              { icon: MessageSquare, title: 'Both sides stay in control', text: 'Chat after an accepted match, report concerns, block users, and leave reviews after completed work.' },
+            ].map((item) => (
+              <div key={item.title} className="card p-6">
+                <item.icon className="h-7 w-7 text-brand-600" />
+                <p className="mt-4 font-semibold text-ink-900">{item.title}</p>
+                <p className="mt-2 text-sm text-ink-600">{item.text}</p>
               </div>
             ))}
           </div>
@@ -332,7 +330,7 @@ export function HomePage() {
           <div className="relative">
             <h2 className="font-display text-3xl font-extrabold sm:text-4xl">Ready to get moving?</h2>
             <p className="mx-auto mt-3 max-w-xl text-brand-50">
-              Join thousands of owners and drivers building trust on GariLink. It's free to get started.
+              Join thousands of owners and drivers building trust on {settings.site_name}. It's free to get started.
             </p>
             <div className="mt-7 flex flex-wrap justify-center gap-3">
               <Link to="/register" className="btn bg-white text-brand-700 hover:bg-brand-50">

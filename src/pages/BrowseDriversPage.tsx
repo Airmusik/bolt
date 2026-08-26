@@ -13,10 +13,12 @@ import { ConnectionButton } from '@/components/ConnectionButton';
 import { ALL_LOCATIONS } from '@/lib/locations';
 import { titleCase } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
+import { useToast } from '@/components/useToast';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras'];
 
 export function BrowseDriversPage() {
+  const { toast } = useToast();
   const [drivers, setDrivers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState('');
@@ -25,17 +27,18 @@ export function BrowseDriversPage() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
         .select(PUBLIC_PROFILE_FIELDS)
         .eq('role', 'driver')
         .order('is_verified', { ascending: false })
         .order('rating', { ascending: false })
         .order('created_at', { ascending: false });
+      if (error) toast('Could not load drivers: ' + error.message, 'error');
       setDrivers((data as Profile[]) || []);
       setLoading(false);
     })();
-  }, []);
+  }, [toast]);
 
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
@@ -61,7 +64,7 @@ export function BrowseDriversPage() {
           <option value="">All platforms</option>
           {PLATFORMS.map((p) => <option key={p} value={p}>{titleCase(p)}</option>)}
         </select>
-        <label className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm text-ink-700 ring-1 ring-ink-200">
+        <label className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm text-ink-700 ring-1 ring-ink-200 dark:bg-[#141416]">
           <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" />
           Verified only
         </label>
@@ -107,7 +110,10 @@ export function BrowseDriversPage() {
             ))}
           </div>
         ) : (
-          <EmptyState title="No drivers found" description="Try adjusting your filters." />
+          <EmptyState
+            title={(location || platform || verifiedOnly) ? 'No drivers match your filters' : 'No driver profiles are available yet'}
+            description={(location || platform || verifiedOnly) ? 'Try adjusting your filters.' : 'Approved and unverified driver profiles will appear here after registration.'}
+          />
         )}
       </div>
     </div>

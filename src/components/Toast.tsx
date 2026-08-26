@@ -24,13 +24,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="animate-scale-in flex items-start gap-3 rounded-xl bg-white px-4 py-3 shadow-card-hover ring-1 ring-ink-200"
+            className="animate-scale-in flex items-start gap-3 rounded-xl bg-white px-4 py-3 shadow-card-hover ring-1 ring-ink-200 dark:bg-[#141416]"
           >
             {t.type === 'success' && <CheckCircle2 className="h-5 w-5 shrink-0 text-brand-600" />}
             {t.type === 'error' && <AlertCircle className="h-5 w-5 shrink-0 text-danger" />}
             {t.type === 'info' && <Info className="h-5 w-5 shrink-0 text-blue-600" />}
             <p className="text-sm text-ink-800 flex-1">{t.message}</p>
-            <button onClick={() => remove(t.id)} className="text-ink-400 hover:text-ink-700">
+            <button onClick={() => remove(t.id)} aria-label="Dismiss notification" className="text-ink-400 hover:text-ink-700">
               <X className="h-4 w-4" />
             </button>
           </div>

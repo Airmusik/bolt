@@ -80,7 +80,7 @@ export function PlatePrivacyEditor({ file, onCancel, onUploadOriginal, onComplet
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-label="Hide number plate">
-      <div className="max-h-[95vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl">
+      <div className="max-h-[95vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl dark:bg-[#141416]">
         <div className="flex items-start justify-between gap-4">
           <div><h2 className="font-display text-xl font-bold text-ink-900">Hide the number plate</h2><p className="mt-1 text-sm text-ink-500">Move and resize the red box over the plate. This preview shows the blur that will be uploaded.</p></div>
           <button type="button" onClick={onCancel} className="btn-ghost p-2" aria-label="Close"><X className="h-5 w-5" /></button>
