@@ -161,9 +161,6 @@ export function DriverOnboardingPage() {
 
   if (passportSubmitted) {
     const approved = profile?.verification_status === 'approved';
-    const approvedHistory = history.filter((item) => item.approved).length;
-    const approvedEvidence = evidence.filter((item) => item.verified).length;
-    const approvedReferences = references.filter((item) => item.status === 'approved').length;
     return (
       <div className="container-content max-w-3xl py-8">
         <BackButton to="/dashboard" />
@@ -177,8 +174,8 @@ export function DriverOnboardingPage() {
           </div>
           <div className="space-y-3 p-6 sm:p-8">
             <CompletionRow label="Profile details" detail="Done" approved />
-            <CompletionRow label="Platform history" detail={approved ? `${approvedHistory} approved` : 'Done · awaiting review'} approved={approved} />
-            <CompletionRow label="Supporting evidence" detail={approved ? `${approvedEvidence + approvedReferences} approved` : 'Done · awaiting review'} approved={approved} />
+            <CompletionRow label="Platform history" detail="Done" approved={approved} />
+            <CompletionRow label="Supporting evidence" detail="Done" approved={approved} />
             <div className="border-t border-ink-100 pt-5">
               <button type="button" onClick={() => setEditingPassport(true)} className="btn-secondary w-full sm:w-auto"><Pencil className="h-4 w-4" /> Edit Trust Passport</button>
               <p className="mt-2 text-xs text-ink-500">Editing reviewed information may send the updated sections back to admin for approval.</p>
