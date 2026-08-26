@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 
 export const DEFAULT_SITE_SETTINGS = {
   site_name: 'GariLink',
+  site_logo_url: '',
   maintenance_mode: 'false',
   max_vehicles_per_owner: '10',
   require_email: 'true',
@@ -77,7 +78,20 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.title = `${settings.site_name} — Find the Right Driver or the Right Car`;
+    const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
+    if (description) description.content = `${settings.site_name} connects car owners with trusted ride-hailing drivers across Kenya.`;
   }, [settings.site_name]);
+
+  useEffect(() => {
+    let favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (!favicon) {
+      favicon = document.createElement('link');
+      favicon.rel = 'icon';
+      document.head.appendChild(favicon);
+    }
+    favicon.href = settings.site_logo_url || '/favicon.svg';
+    favicon.type = settings.site_logo_url ? '' : 'image/svg+xml';
+  }, [settings.site_logo_url]);
 
   const value = useMemo(() => ({ settings, loading, refreshSettings }), [settings, loading, refreshSettings]);
   return createElement(SiteSettingsContext.Provider, { value }, children);

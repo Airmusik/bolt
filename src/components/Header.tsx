@@ -1,12 +1,14 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Car, Menu, X, Bell, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy } from 'lucide-react';
+import { Menu, X, Bell, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { Avatar } from './Avatar';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ThemeToggle } from './ThemeToggle';
+import { SiteLogo } from './SiteLogo';
+import { NOTIFICATIONS_CHANGED_EVENT } from '@/lib/notificationEvents';
 
 export function Header() {
   const { user, profile, signOut } = useAuth();
@@ -34,12 +36,14 @@ export function Header() {
       if (active) setUnread(count ?? 0);
     };
     load();
+    window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, load);
     const channel = supabase
       .channel('notif-unread')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, load)
       .subscribe();
     return () => {
       active = false;
+      window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, load);
       supabase.removeChannel(channel);
     };
   }, [user]);
@@ -67,9 +71,7 @@ export function Header() {
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur-md dark:bg-[#0b0b0d]/90">
       <div className="container-content flex h-16 items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
-            <Car className="h-5 w-5" />
-          </span>
+          <SiteLogo />
           <span className="font-display text-lg font-extrabold tracking-tight text-ink-900">
             {settings.site_name}
           </span>

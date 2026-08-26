@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, BadgeCheck, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole } from 'lucide-react';
-import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET } from '@/lib/supabase';
+import { Users, Car, BadgeCheck, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole, Upload, ImageIcon, Loader2 } from 'lucide-react';
+import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
 import { Avatar } from '@/components/Avatar';
@@ -1026,6 +1026,7 @@ function AdminSettings() {
   const { settings: liveSettings, loading, refreshSettings } = useSiteSettings();
   const [settings, setSettings] = useState<SiteSettings>(liveSettings);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     setSettings(liveSettings);
@@ -1063,6 +1064,35 @@ function AdminSettings() {
     toast('Settings saved and applied across the site.');
   };
 
+  const uploadSiteLogo = async (file: File) => {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) { toast('Choose a JPG, PNG, or WebP site image.', 'error'); return; }
+    if (file.size > 3 * 1024 * 1024) { toast('Site image must be smaller than 3 MB.', 'error'); return; }
+    setUploadingLogo(true);
+    const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+    const path = `branding/site-logo-${Date.now()}.${ext}`;
+    const { error: uploadError } = await supabase.storage.from(SITE_ASSETS_BUCKET).upload(path, file, { cacheControl: '3600', upsert: false });
+    if (uploadError) { setUploadingLogo(false); toast('Could not upload site image: ' + uploadError.message, 'error'); return; }
+    const { data } = supabase.storage.from(SITE_ASSETS_BUCKET).getPublicUrl(path);
+    const updated_at = new Date().toISOString();
+    const { error } = await supabase.from('site_settings').upsert({ key: 'site_logo_url', value: data.publicUrl, updated_at }, { onConflict: 'key' });
+    if (error) { setUploadingLogo(false); toast('Image uploaded, but the site setting could not be updated: ' + error.message, 'error'); return; }
+    setSettings((current) => ({ ...current, site_logo_url: data.publicUrl }));
+    await refreshSettings();
+    setUploadingLogo(false);
+    toast('Site image updated across the site.');
+  };
+
+  const removeSiteLogo = async () => {
+    setUploadingLogo(true);
+    const { error } = await supabase.from('site_settings').upsert({ key: 'site_logo_url', value: '', updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    if (error) { setUploadingLogo(false); toast('Could not remove site image: ' + error.message, 'error'); return; }
+    setSettings((current) => ({ ...current, site_logo_url: '' }));
+    await refreshSettings();
+    setUploadingLogo(false);
+    toast('Site image removed. The default car icon is active.');
+  };
+
   if (loading) return <div className="card h-40 animate-pulse" />;
 
   return (
@@ -1074,6 +1104,25 @@ function AdminSettings() {
           <div>
             <label htmlFor="admin-site-name" className="label">Site name</label>
             <input id="admin-site-name" value={settings['site_name'] || ''} onChange={(e) => setSettings({ ...settings, site_name: e.target.value })} className="input" />
+          </div>
+          <div>
+            <label className="label">Site image / logo</label>
+            <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-ink-100 bg-ink-50/60 p-4 dark:bg-[#101012]">
+              <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-ink-100 dark:bg-[#1d1d20]">
+                {settings.site_logo_url ? <img src={settings.site_logo_url} alt="Current site logo" className="h-full w-full object-contain" /> : <ImageIcon className="h-8 w-8 text-ink-300" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-ink-800">Used in the header, footer, sign-in pages, and browser icon.</p>
+                <p className="mt-1 text-xs text-ink-500">Upload a square JPG, PNG, or WebP up to 3 MB. A transparent PNG works best.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <label className="btn-secondary cursor-pointer text-sm">
+                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={uploadingLogo} onChange={(event) => { const file = event.target.files?.[0]; if (file) uploadSiteLogo(file); event.target.value = ''; }} />
+                    {uploadingLogo ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} {settings.site_logo_url ? 'Replace image' : 'Upload image'}
+                  </label>
+                  {settings.site_logo_url && <button type="button" onClick={removeSiteLogo} disabled={uploadingLogo} className="btn-ghost text-sm text-danger">Remove image</button>}
+                </div>
+              </div>
+            </div>
           </div>
           <div>
             <label htmlFor="admin-maintenance" className="label">Maintenance mode</label>
@@ -1473,7 +1522,7 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
     if (!user || !activeId || !text.trim()) return;
     if (!active || (active.admin_id !== user.id && !joinedConversationIds.has(active.id))) { toast('Join this conversation before sending a message.', 'error'); return; }
     const content = text.trim();
-    const { data, error } = await supabase.from('messages').insert({ conversation_id: activeId, sender_id: user.id, content, type: 'text' }).select().maybeSingle();
+    const { data, error } = await supabase.rpc('send_message', { p_conversation_id: activeId, p_content: content });
     if (error) { toast('Could not send message: ' + error.message, 'error'); return; }
     if (data) {
       setMessages((prev) => prev.some((item) => item.id === data.id) ? prev : [...prev, data as Message]);

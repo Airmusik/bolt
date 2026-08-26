@@ -106,9 +106,10 @@ export function ChatPage() {
     if (active.closed_at) { toast('This connection has ended. The chat is saved as read-only history.', 'error'); return; }
     const body = text.trim();
     if (!body) return;
-    const { data, error } = await supabase.from('messages').insert({
-      conversation_id: active.id, sender_id: user.id, content: body, type: 'text',
-    }).select().maybeSingle();
+    const { data, error } = await supabase.rpc('send_message', {
+      p_conversation_id: active.id,
+      p_content: body,
+    });
     if (error) {
       toast('Could not send message: ' + error.message, 'error');
       return;

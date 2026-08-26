@@ -8,6 +8,7 @@ import { timeAgo, cn } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 import { useToast } from '@/components/useToast';
 import { Modal } from '@/components/Modal';
+import { notifyUnreadCountChanged } from '@/lib/notificationEvents';
 
 export function NotificationsPage() {
   const { user } = useAuth();
@@ -37,18 +38,21 @@ export function NotificationsPage() {
     if (error) { toast('Could not mark this notification as read.', 'error'); return; }
     setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, read: true } : item));
     setSelected({ ...notification, read: true });
+    notifyUnreadCountChanged();
   };
 
   const markAllRead = async () => {
     if (!user) return;
     const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
     if (error) { toast('Could not mark notifications as read.', 'error'); return; }
-    load();
+    await load();
+    notifyUnreadCountChanged();
   };
   const remove = async (id: string) => {
     const { error } = await supabase.from('notifications').delete().eq('id', id);
     if (error) { toast('Could not delete notification.', 'error'); return; }
     setNotifications((n) => n.filter((x) => x.id !== id));
+    notifyUnreadCountChanged();
     toast('Notification deleted.');
   };
 

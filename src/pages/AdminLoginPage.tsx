@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD, DEMO_ADMIN_SESSION_KEY, DEMO_MODE } from '@/lib/demoMode';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { SiteLogo } from '@/components/SiteLogo';
 
 export function AdminLoginPage() {
   const { user, profile } = useAuth();
@@ -82,9 +83,7 @@ export function AdminLoginPage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <Link to="/" className="inline-flex items-center gap-2">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ink-900 text-white">
-              <ShieldCheck className="h-6 w-6" />
-            </span>
+            <SiteLogo size="lg" />
           </Link>
           <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Admin Portal</h1>
           <p className="mt-1 text-sm text-ink-500">Sign in with the email and password provisioned for your admin account.</p>

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Car, Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail } from 'lucide-react';
+import { Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import type { Role } from '@/lib/types';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { SiteLogo } from '@/components/SiteLogo';
 
 export function RegisterPage() {
   const { signUp, user } = useAuth();
@@ -59,9 +60,7 @@ export function RegisterPage() {
         <BackButton to="/" className="mb-4" />
         <div className="mb-8 text-center">
           <Link to="/" className="inline-flex items-center gap-2">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
-              <Car className="h-6 w-6" />
-            </span>
+            <SiteLogo size="lg" />
           </Link>
           <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Create your account</h1>
           <p className="mt-1 text-sm text-ink-500">Join {settings.site_name} as a driver or car owner.</p>

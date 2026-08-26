@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Car, Facebook, Instagram, Linkedin, Mail, MapPin, Phone, ChevronDown } from 'lucide-react';
+import { Facebook, Instagram, Linkedin, Mail, MapPin, Phone, ChevronDown } from 'lucide-react';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { SiteLogo } from './SiteLogo';
 
 export function Footer() {
   const [expanded, setExpanded] = useState(false);
@@ -13,9 +14,7 @@ export function Footer() {
         {/* Mobile: collapsed behind a button */}
         <div className="flex w-full items-center justify-between md:hidden">
           <Link to="/" className="flex items-center gap-2">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
-              <Car className="h-5 w-5" />
-            </span>
+            <SiteLogo />
             <span className="font-display text-lg font-extrabold tracking-tight">
               {settings.site_name}
             </span>
@@ -27,9 +26,7 @@ export function Footer() {
         <div className={`mt-0 md:mt-0 ${expanded ? 'mt-6 grid' : 'hidden'} gap-10 md:grid md:grid-cols-4`}>
           <div>
             <Link to="/" className="hidden items-center gap-2 md:flex">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-600 text-white">
-                <Car className="h-5 w-5" />
-              </span>
+              <SiteLogo />
               <span className="font-display text-lg font-extrabold tracking-tight">
                 {settings.site_name}
               </span>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Car, Lock, Eye, EyeOff, ArrowRight, Mail, Check } from 'lucide-react';
+import { Lock, Eye, EyeOff, ArrowRight, Mail, Check } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
@@ -8,6 +8,7 @@ import { useSiteSettings } from '@/lib/siteSettings';
 import { supabase } from '@/lib/supabase';
 import { getAuthErrorMessage } from '@/lib/authErrors';
 import { isValidPin } from '@/lib/phoneAuth';
+import { SiteLogo } from '@/components/SiteLogo';
 
 export function LoginPage() {
   const { signIn, user, resetPin } = useAuth();
@@ -190,9 +191,7 @@ export function LoginPage() {
         <BackButton to="/" className="mb-4" />
         <div className="mb-8 text-center">
           <Link to="/" className="inline-flex items-center gap-2">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
-              <Car className="h-6 w-6" />
-            </span>
+            <SiteLogo size="lg" />
           </Link>
           <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Welcome back</h1>
           <p className="mt-1 text-sm text-ink-500">Sign in with your email and password.</p>
