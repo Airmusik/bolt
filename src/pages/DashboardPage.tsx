@@ -244,7 +244,7 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
                   <AvailabilityBadge availability={d.availability} />
                 </div>
                 <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-2" />
-                <div className="mt-2 flex items-center gap-1 text-xs text-ink-500"><Briefcase className="h-3 w-3" /> {d.driving_experience_years || 0} yrs</div>
+                <div className="mt-2 flex items-center gap-1 text-xs text-ink-500"><Briefcase className="h-3 w-3" /> {Math.max(1, d.driving_experience_years || 1)} {d.driving_experience_years === 1 ? 'year' : 'years'}</div>
               </Link>
             ))}
           </div>

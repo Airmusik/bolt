@@ -17,7 +17,7 @@ const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '
 
 export function ChatPage() {
   const { conversationId } = useParams();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const { settings } = useSiteSettings();
 
@@ -78,7 +78,7 @@ export function ChatPage() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const m = payload.new as Message;
         if (active && m.conversation_id === active.id) {
-          setMessages((prev) => prev.some((item) => item.id === m.id) ? prev : [...prev, m]);
+          loadMessages();
           if (m.sender_id !== user.id) {
             supabase.from('messages').update({ read: true }).eq('id', m.id);
           }
@@ -91,7 +91,7 @@ export function ChatPage() {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, active, loadConversations]);
+  }, [user, active, loadConversations, loadMessages]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
@@ -106,7 +106,7 @@ export function ChatPage() {
     if (active.closed_at) { toast('This connection has ended. The chat is saved as read-only history.', 'error'); return; }
     const body = text.trim();
     if (!body) return;
-    const { data, error } = await supabase.rpc('send_message', {
+    const { error } = await supabase.rpc('send_message', {
       p_conversation_id: active.id,
       p_content: body,
     });
@@ -114,11 +114,9 @@ export function ChatPage() {
       toast('Could not send message: ' + error.message, 'error');
       return;
     }
-    if (data) {
-      setMessages((prev) => prev.some((item) => item.id === data.id) ? prev : [...prev, data as Message]);
-    }
     setText('');
     setShowEmoji(false);
+    await loadMessages();
     loadConversations();
   };
 
@@ -202,6 +200,7 @@ export function ChatPage() {
                 {messages.length === 0 && <div className="flex h-full flex-col items-center justify-center text-center"><span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm ring-1 ring-brand-100 dark:bg-[#1d1d20]"><Sparkles className="h-6 w-6" /></span><p className="mt-3 text-sm font-semibold text-ink-800">Start the conversation</p><p className="mt-1 max-w-xs text-xs text-ink-500">Keep arrangements in chat so both members have a clear record.</p></div>}
                 {messages.map((m, index) => {
                   const mine = m.sender_id === user?.id;
+                  const senderName = m.type === 'system' ? `${settings.site_name} system` : mine ? (profile?.full_name || 'You') : (m.sender?.full_name || other.full_name || 'Member');
                   const previous = messages[index - 1];
                   const showDay = !previous || new Date(previous.created_at).toDateString() !== new Date(m.created_at).toDateString();
                   return (
@@ -209,14 +208,14 @@ export function ChatPage() {
                       {showDay && <div className="my-4 flex items-center gap-3"><span className="h-px flex-1 bg-ink-100" /><span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold text-ink-400 shadow-sm ring-1 ring-ink-100 dark:bg-[#1d1d20]">{formatChatDay(m.created_at)}</span><span className="h-px flex-1 bg-ink-100" /></div>}
                       <div className={cn('flex', m.type === 'system' ? 'justify-center' : mine ? 'justify-end' : 'justify-start')}>
                       <div className={cn('max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm sm:max-w-[72%]', m.type === 'system' ? 'bg-violet-50 text-center text-xs font-medium text-violet-800 ring-1 ring-violet-100 dark:bg-violet-950/30 dark:text-violet-200' : mine ? 'rounded-br-md bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-brand-900/10' : 'rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
-                        {!mine && m.type !== 'system' && m.sender?.role === 'admin' && <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-violet-600">Admin support</p>}
+                        <p className={cn('mb-1 text-[10px] font-bold', mine && m.type !== 'system' ? 'text-brand-100' : m.sender?.role === 'admin' || m.type === 'system' ? 'text-violet-600 dark:text-violet-300' : 'text-brand-700')}>{senderName}{m.sender?.role === 'admin' && m.type !== 'system' ? ' · Admin support' : ''}</p>
                         {m.type === 'image' ? (
                           <img src={m.content || ''} alt="" className="max-h-48 rounded-lg" />
                         ) : (
                           <p className="whitespace-pre-wrap break-words">{m.content}</p>
                         )}
                         <div className={cn('mt-0.5 flex items-center justify-end gap-1 text-[10px]', mine && m.type !== 'system' ? 'text-brand-100' : 'text-ink-400')}>
-                          {timeAgo(m.created_at)}
+                          {formatMessageTimestamp(m.created_at)}
                           {mine && (m.read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />)}
                         </div>
                       </div>
@@ -276,4 +275,8 @@ function formatChatDay(iso: string) {
   if (date.toDateString() === today.toDateString()) return 'Today';
   if (date.toDateString() === yesterday.toDateString()) return 'Yesterday';
   return date.toLocaleDateString('en-KE', { day: 'numeric', month: 'short', year: date.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+}
+
+function formatMessageTimestamp(iso: string) {
+  return new Date(iso).toLocaleString('en-KE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }

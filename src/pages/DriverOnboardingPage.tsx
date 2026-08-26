@@ -120,6 +120,11 @@ export function DriverOnboardingPage() {
 
   const saveProfile = async () => {
     if (!user) return;
+    const experienceYears = Number(profileForm.driving_experience_years);
+    if (!experienceYears || experienceYears < 1 || experienceYears > 60) {
+      toast('Driving experience must be between 1 and 60 years.', 'error');
+      return;
+    }
     const completeHistory = history.filter((item) => item.months_active > 0 && Boolean(item.proof_url));
     if (completeHistory.length === 0) {
       toast('Add at least one platform history entry with months active and proof before submitting.', 'error');
@@ -129,7 +134,7 @@ export function DriverOnboardingPage() {
     const { error: profileError } = await supabase.from('profiles').update({
       full_name: profileForm.full_name, bio: profileForm.bio, location: profileForm.location,
       age: profileForm.age ? Number(profileForm.age) : null,
-      driving_experience_years: profileForm.driving_experience_years ? Number(profileForm.driving_experience_years) : 0,
+      driving_experience_years: experienceYears,
       languages: profileForm.languages.split(',').map((value) => value.trim()).filter(Boolean),
       preferred_locations: profileForm.preferred_locations.split(',').map((value) => value.trim()).filter(Boolean),
       platforms_worked: profileForm.platforms_worked,
@@ -152,10 +157,12 @@ export function DriverOnboardingPage() {
     if (!age || age < 18 || age > 85) { toast('Enter a valid age between 18 and 85.', 'error'); return; }
     const languages = profileForm.languages.split(',').map((value) => value.trim()).filter(Boolean);
     if (languages.length === 0) { toast('Add at least one language you speak.', 'error'); return; }
+    const experienceYears = Number(profileForm.driving_experience_years);
+    if (!experienceYears || experienceYears < 1 || experienceYears > 60) { toast('Driving experience must be between 1 and 60 years.', 'error'); return; }
     setSaving(true);
     const { error } = await supabase.from('profiles').update({
       full_name: profileForm.full_name.trim(), bio: profileForm.bio.trim(), location: profileForm.location.trim(), age,
-      driving_experience_years: Math.max(0, Number(profileForm.driving_experience_years) || 0),
+      driving_experience_years: experienceYears,
       languages, preferred_locations: profileForm.preferred_locations.split(',').map((value) => value.trim()).filter(Boolean),
       platforms_worked: profileForm.platforms_worked, onboarding_completed: true,
     }).eq('id', user.id);
@@ -253,7 +260,7 @@ function AboutFields({ profileForm, setProfileForm }: { profileForm: DriverAbout
       <Field label="Full name"><input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="input" /></Field>
       <Field label="Age"><input type="number" min={18} max={85} value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="input" /></Field>
       <Field label="Location"><PlaceAutocomplete value={profileForm.location} onChange={(location) => setProfileForm({ ...profileForm, location })} placeholder="e.g. Ongata Rongai" required /></Field>
-      <Field label="Driving experience (years)"><input type="number" min={0} value={profileForm.driving_experience_years} onChange={(e) => setProfileForm({ ...profileForm, driving_experience_years: e.target.value })} className="input" /></Field>
+      <Field label="Driving experience (years)"><input type="number" min={1} max={60} value={profileForm.driving_experience_years} onChange={(e) => setProfileForm({ ...profileForm, driving_experience_years: e.target.value })} className="input" /></Field>
       <Field label="Languages spoken"><input value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="input" placeholder="English, Swahili" /></Field>
       <Field label="Preferred work locations"><input value={profileForm.preferred_locations} onChange={(e) => setProfileForm({ ...profileForm, preferred_locations: e.target.value })} className="input" placeholder="Nairobi, Mombasa" /></Field>
     </div>

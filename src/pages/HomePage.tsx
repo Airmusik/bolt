@@ -257,7 +257,7 @@ export function HomePage() {
               Built for trust, end to end
             </h2>
             <p className="mt-3 text-ink-600">
-              Trust is earned through account history, completed matches, two-way reviews, recent platform activity, and optional evidence. Vehicle insurance and known issues are shown upfront. Report or block anyone, anytime.
+              Trust is earned through account history, two-way reviews, recent platform activity, and optional evidence. Vehicle insurance and known issues are shown upfront. Report or block anyone, anytime.
             </p>
             <ul className="mt-6 space-y-3">
               {[

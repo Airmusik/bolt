@@ -111,9 +111,15 @@ export function AdminPage() {
     const { data: d } = documentsResult;
     const { data: h } = historyResult;
     const { data: contacts } = contactsResult;
-    setUsers((u as Profile[]) || []);
+    const loadedUsers = (u as Profile[]) || [];
+    const usersById = new Map(loadedUsers.map((member) => [member.id, member]));
+    setUsers(loadedUsers);
     setVehicles((v as AdminVehicle[]) || []);
-    setReports((r as AdminReport[]) || []);
+    setReports(((r as AdminReport[]) || []).map((report) => ({
+      ...report,
+      reporter: usersById.get(report.reporter_id) || report.reporter,
+      reported: report.reported_id ? usersById.get(report.reported_id) || report.reported : report.reported,
+    })));
     setDocuments((d as AdminDocument[]) || []);
     setHistory((h as AdminHistory[]) || []);
     setContactMessages((contacts as ContactMessage[]) || []);
@@ -368,8 +374,8 @@ export function AdminPage() {
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
-  const filteredDrivers = drivers.filter((d) => d.full_name.toLowerCase().includes(search.toLowerCase()) || (d.phone || '').includes(search));
-  const filteredOwners = owners.filter((o) => o.full_name.toLowerCase().includes(search.toLowerCase()) || (o.phone || '').includes(search));
+  const filteredDrivers = drivers.filter((d) => `${d.full_name} ${d.email || ''} ${d.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
+  const filteredOwners = owners.filter((o) => `${o.full_name} ${o.email || ''} ${o.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
   const filteredUsers = users.filter((member) => `${member.full_name} ${member.email || ''} ${member.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
   const filteredVehicles = vehicles.filter((v) => {
     const matchesSearch = `${v.make} ${v.model} ${v.location}`.toLowerCase().includes(search.toLowerCase());
@@ -419,7 +425,7 @@ export function AdminPage() {
               data-lpignore="true"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search ${tab}…`}
+              placeholder={tab === 'cars' ? 'Search cars…' : 'Search name, email, or phone…'}
               className="input max-w-xs"
             />
           </div>
@@ -1358,12 +1364,11 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
           {user.role === 'driver' && <InfoRow label="Trust Passport" value={<span className="capitalize">{user.verification_status}</span>} />}
           <InfoRow label="Suspended" value={user.is_suspended ? 'Yes' : 'No'} />
           <InfoRow label="Rating" value={user.rating > 0 ? `${user.rating.toFixed(1)} (${user.rating_count})` : 'No ratings'} />
-          <InfoRow label="Contracts" value={String(user.contracts_completed)} />
           <InfoRow label="Availability" value={<span className="capitalize">{user.availability}</span>} />
           <InfoRow label="Location" value={user.location || 'Not set'} />
           <InfoRow label="Registered email" value={user.email || 'Not set'} />
           {user.role === 'driver' && <InfoRow label="Age" value={user.age ? String(user.age) : 'Not set'} />}
-          {user.role === 'driver' && <InfoRow label="Experience" value={`${user.driving_experience_years} yrs`} />}
+          {user.role === 'driver' && <InfoRow label="Experience" value={`${user.driving_experience_years} ${user.driving_experience_years === 1 ? 'year' : 'years'}`} />}
           {user.role === 'driver' && <InfoRow label="Licence #" value={user.licence_number || 'Not set'} />}
           {user.role === 'driver' && <InfoRow label="Languages" value={user.languages.join(', ') || 'None'} />}
           {user.role === 'driver' && <InfoRow label="Platforms" value={user.platforms_worked.join(', ') || 'None'} />}
@@ -1452,6 +1457,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 // ---------- Admin Chat component ----------
 function AdminChat({ user }: { user: { id: string; email: string } | null }) {
   const { toast } = useToast();
+  const { settings: siteSettings } = useSiteSettings();
   const [conversations, setConversations] = useState<(Conversation & { driver?: Profile; owner?: Profile })[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -1507,14 +1513,14 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const m = payload.new as Message;
         if (activeId && m.conversation_id === activeId) {
-          setMessages((prev) => prev.some((item) => item.id === m.id) ? prev : [...prev, m]);
+          loadMessages();
           if (m.sender_id !== user.id) supabase.from('messages').update({ read: true }).eq('id', m.id);
         }
         loadConversations();
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, activeId, loadConversations]);
+  }, [user, activeId, loadConversations, loadMessages]);
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
 
@@ -1522,12 +1528,10 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
     if (!user || !activeId || !text.trim()) return;
     if (!active || (active.admin_id !== user.id && !joinedConversationIds.has(active.id))) { toast('Join this conversation before sending a message.', 'error'); return; }
     const content = text.trim();
-    const { data, error } = await supabase.rpc('send_message', { p_conversation_id: activeId, p_content: content });
+    const { error } = await supabase.rpc('send_message', { p_conversation_id: activeId, p_content: content });
     if (error) { toast('Could not send message: ' + error.message, 'error'); return; }
-    if (data) {
-      setMessages((prev) => prev.some((item) => item.id === data.id) ? prev : [...prev, data as Message]);
-    }
     setText('');
+    await loadMessages();
     loadConversations();
   };
 
@@ -1590,12 +1594,13 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
             <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-ink-50/50 p-4">
               {messages.map((m) => {
                 const mine = m.sender_id === user?.id;
+                const senderName = m.type === 'system' ? `${siteSettings.site_name} system` : (m.sender?.full_name || (mine ? 'Administrator' : 'Member'));
                 return (
                   <div key={m.id} className={cn('flex', m.type === 'system' ? 'justify-center' : mine ? 'justify-end' : 'justify-start')}>
                     <div className={cn('max-w-[75%] rounded-2xl px-3 py-2 text-sm', m.type === 'system' ? 'bg-violet-50 text-center text-xs text-violet-800 ring-1 ring-violet-100' : mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
-                      {!mine && m.type !== 'system' && <p className="mb-1 text-[10px] font-semibold text-brand-700">{m.sender?.full_name || 'Member'}</p>}
+                      <p className={cn('mb-1 text-[10px] font-bold', mine && m.type !== 'system' ? 'text-brand-100' : m.sender?.role === 'admin' || m.type === 'system' ? 'text-violet-600' : 'text-brand-700')}>{senderName}{m.sender?.role === 'admin' && m.type !== 'system' ? ' · Admin' : ''}</p>
                       <p className="whitespace-pre-wrap break-words">{m.content}</p>
-                      <div className={cn('mt-0.5 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{timeAgo(m.created_at)}</div>
+                      <div className={cn('mt-0.5 text-[10px]', mine && m.type !== 'system' ? 'text-brand-100' : 'text-ink-400')}>{formatMessageTimestamp(m.created_at)}</div>
                     </div>
                   </div>
                 );
@@ -1614,4 +1619,8 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
       </div>
     </div>
   );
+}
+
+function formatMessageTimestamp(iso: string) {
+  return new Date(iso).toLocaleString('en-KE', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }

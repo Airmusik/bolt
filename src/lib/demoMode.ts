@@ -24,7 +24,7 @@ export function createDemoAdminProfile(): Profile {
     availability: 'available',
     languages: [],
     age: null,
-    driving_experience_years: 0,
+    driving_experience_years: 1,
     platforms_worked: [],
     id_number: null,
     licence_number: null,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, ArrowLeft, BadgeCheck, CalendarDays, Award, Mail } from 'lucide-react';
+import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, ArrowLeft, CalendarDays, Award, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useAuth } from '@/lib/useAuth';
@@ -27,8 +27,11 @@ export function DriverProfilePage() {
   useEffect(() => {
     if (!id) return;
     (async () => {
+      const profileRequest = user?.id === id
+        ? supabase.rpc('get_my_profile').maybeSingle()
+        : supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', id).maybeSingle();
       const [{ data: p }, { data: h }, { data: r }, { data: trust }] = await Promise.all([
-        supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', id).maybeSingle(),
+        profileRequest,
         supabase.from('driver_platform_history').select('id,driver_id,platform,months_active,trips,rating,approved,created_at').eq('driver_id', id).eq('approved', true),
         supabase.from('reviews').select(`*, reviewer:profiles(${PUBLIC_PROFILE_FIELDS})`).eq('reviewee_id', id).order('created_at', { ascending: false }),
         supabase.rpc('get_trust_passport', { p_user_id: id }).maybeSingle(),
@@ -39,7 +42,7 @@ export function DriverProfilePage() {
       setTrustPassport(trust as TrustPassport | null);
       setLoading(false);
     })();
-  }, [id]);
+  }, [id, user?.id]);
 
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
   if (!profile) return <div className="container-content py-12"><EmptyState title="Profile not found" /></div>;
@@ -65,9 +68,9 @@ export function DriverProfilePage() {
                 </h1>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
                   <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {profile.location || 'Location not provided'}</span>
-                  {profile.email && <a href={`mailto:${profile.email}`} className="inline-flex items-center gap-1 hover:text-brand-700"><Mail className="h-4 w-4" /> {profile.email}</a>}
+                  {user?.id === profile.id && profile.email && <span className="inline-flex items-center gap-1"><Mail className="h-4 w-4" /> {profile.email} <span className="text-xs">(only you can see this)</span></span>}
                   {!isOwner && profile.age && <span>{profile.age} years old</span>}
-                  {!isOwner && <span className="inline-flex items-center gap-1"><Briefcase className="h-4 w-4" /> {profile.driving_experience_years} yrs experience</span>}
+                  {!isOwner && <span className="inline-flex items-center gap-1"><Briefcase className="h-4 w-4" /> {profile.driving_experience_years} {profile.driving_experience_years === 1 ? 'year' : 'years'} experience</span>}
                 </div>
                 <Rating value={profile.rating} size={15} showValue count={profile.rating_count} className="mt-2" />
                 {!isOwner && <div className="mt-2">
@@ -81,10 +84,9 @@ export function DriverProfilePage() {
 
             {profile.bio && <p className="mt-5 text-sm text-ink-700">{profile.bio}</p>}
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              <span className="badge-brand"><BadgeCheck className="h-3.5 w-3.5" /> {profile.contracts_completed} contracts completed</span>
+            {!isOwner && <div className="mt-5 flex flex-wrap gap-2">
               {!isOwner && (profile.platforms_worked || []).map((p) => <span key={p} className="badge-neutral">{titleCase(p)}</span>)}
-            </div>
+            </div>}
           </div>
 
           {/* Languages */}
@@ -125,7 +127,6 @@ export function DriverProfilePage() {
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <TrustSignal icon={<Award className="h-4 w-4" />} label="Trust level" value={titleCase(trustPassport?.trust_level || 'new')} />
                 <TrustSignal icon={<CalendarDays className="h-4 w-4" />} label="Member since" value={new Date(trustPassport?.account_created_at || profile.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} />
-                <TrustSignal icon={<BadgeCheck className="h-4 w-4" />} label="Completed matches" value={String(trustPassport?.contracts_completed ?? profile.contracts_completed)} />
                 <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Approved evidence" value={String(trustPassport?.approved_evidence ?? 0)} />
                 <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Account standing" value={trustPassport?.account_standing === 'restricted' ? 'Restricted' : 'Good standing'} />
               </div>

@@ -88,7 +88,7 @@ export function BrowseDriversPage() {
                   </div>
                   <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-3" />
                   <div className="mt-3 space-y-1.5 text-xs text-ink-500">
-                    <p className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> {d.driving_experience_years} yrs experience</p>
+                    <p className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> {Math.max(1, d.driving_experience_years || 1)} {d.driving_experience_years === 1 ? 'year' : 'years'} experience</p>
                     {d.languages?.length > 0 && (
                       <p className="flex items-center gap-1.5"><Languages className="h-3.5 w-3.5" /> {d.languages.slice(0, 3).join(', ')}</p>
                     )}
