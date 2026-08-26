@@ -10,6 +10,7 @@ export function createDemoAdminProfile(): Profile {
   const now = new Date().toISOString();
   return {
     id: DEMO_ADMIN_ID,
+    email: DEMO_ADMIN_EMAIL,
     role: 'admin',
     full_name: 'Platform Admin',
     phone: null,

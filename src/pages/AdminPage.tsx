@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Users, Car, BadgeCheck, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET } from '@/lib/supabase';
-import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, TrustReference, ContactMessage } from '@/lib/types';
+import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, TrustReference, ContactMessage, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
@@ -34,6 +34,7 @@ type AdminVehicle = Vehicle & { owner?: Profile; photos?: VehiclePhoto[]; issues
 type AdminDocument = DocumentRow & { user?: Profile; vehicle?: Pick<Vehicle, 'id' | 'make' | 'model' | 'year'> };
 type AdminHistory = PlatformHistory & { driver?: Profile };
 type AdminReference = TrustReference & { user?: Profile };
+type AdminReport = Report & { reporter?: Profile; reported?: Profile; warnings?: UserWarning[] };
 type ToastFn = (message: string, type?: ToastType) => void;
 
 async function notifyUser(userId: string, type: string, title: string, body: string, data?: Record<string, unknown>) {
@@ -60,7 +61,7 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'overview' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings';
+type Tab = 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings';
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -69,7 +70,7 @@ export function AdminPage() {
   const [tab, setTab] = useState<Tab>('overview');
   const [users, setUsers] = useState<Profile[]>([]);
   const [vehicles, setVehicles] = useState<AdminVehicle[]>([]);
-  const [reports, setReports] = useState<Report[]>([]);
+  const [reports, setReports] = useState<AdminReport[]>([]);
   const [documents, setDocuments] = useState<AdminDocument[]>([]);
   const [references, setReferences] = useState<AdminReference[]>([]);
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
@@ -91,13 +92,15 @@ export function AdminPage() {
   const [deletingUser, setDeletingUser] = useState<Profile | null>(null);
   const [reviewingVehicle, setReviewingVehicle] = useState<AdminVehicle | null>(null);
   const [listingActionLoading, setListingActionLoading] = useState(false);
+  const [viewingReport, setViewingReport] = useState<AdminReport | null>(null);
+  const [carStatusFilter, setCarStatusFilter] = useState<'all' | 'live' | 'pending'>('all');
 
   const load = useCallback(async () => {
     setLoading(true);
     const [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, referencesResult, contactsResult] = await Promise.all([
       supabase.rpc('admin_list_profiles'),
       supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).order('created_at', { ascending: false }),
-      supabase.from('reports').select('*').order('created_at', { ascending: false }),
+      supabase.from('reports').select(`*, reporter:profiles!reports_reporter_id_fkey(${PUBLIC_PROFILE_FIELDS}), reported:profiles!reports_reported_id_fkey(${PUBLIC_PROFILE_FIELDS}), warnings:user_warnings(*)`).order('created_at', { ascending: false }),
       supabase.from('documents').select(`*, user:profiles!documents_user_id_fkey(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles!documents_vehicle_id_fkey(id,make,model,year)`).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false }),
       supabase.from('driver_platform_history').select(`*, driver:profiles!driver_platform_history_driver_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
       supabase.from('trust_references').select(`*, user:profiles!trust_references_user_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
@@ -114,7 +117,7 @@ export function AdminPage() {
     const { data: contacts } = contactsResult;
     setUsers((u as Profile[]) || []);
     setVehicles((v as AdminVehicle[]) || []);
-    setReports((r as Report[]) || []);
+    setReports((r as AdminReport[]) || []);
     setDocuments((d as AdminDocument[]) || []);
     setHistory((h as AdminHistory[]) || []);
     setReferences((refs as AdminReference[]) || []);
@@ -197,6 +200,15 @@ export function AdminPage() {
     if (error) { toast('Could not resolve message: ' + error.message, 'error'); return; }
     toast('Contact message marked resolved.');
     load();
+  };
+
+  const issueReportWarning = async (report: AdminReport, message: string) => {
+    const { data, error } = await supabase.rpc('admin_issue_report_warning', { p_report_id: report.id, p_message: message.trim() });
+    if (error) { toast('Could not send warning: ' + error.message, 'error'); return false; }
+    toast(`Warning ${Number(data) || 1} sent with the report details.`);
+    setViewingReport(null);
+    await load();
+    return true;
   };
 
   const deleteContactMessage = async (message: ContactMessage) => {
@@ -316,8 +328,11 @@ export function AdminPage() {
     setChangingPinUser(null);
   };
 
-  const adminStartChat = async (targetUser: Profile) => {
+  const adminStartChat = async (targetUser: Profile, report?: AdminReport) => {
     if (!user) return;
+    const prefill = report
+      ? `I am contacting you about a ${report.target_type} report: "${report.reason}".${report.description ? ` Report details: ${report.description}` : ''} `
+      : '';
     // Check if conversation already exists
     const { data: existing } = await supabase
       .from('conversations')
@@ -327,7 +342,7 @@ export function AdminPage() {
       .maybeSingle();
     if (existing) {
       setTab('chat');
-      window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: existing.id }));
+      window.setTimeout(() => window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: { conversationId: existing.id, prefill } })), 50);
       return;
     }
     // Create new conversation
@@ -339,24 +354,25 @@ export function AdminPage() {
       .maybeSingle();
     if (error) { toast('Could not start chat: ' + error.message, 'error'); return; }
     setTab('chat');
-    window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: conv?.id }));
+    if (conv?.id) window.setTimeout(() => window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: { conversationId: conv.id, prefill } })), 50);
   };
 
-  const stats = [
-    { label: 'Total users', value: users.length, icon: Users },
-    { label: 'Drivers', value: drivers.length, icon: Users },
-    { label: 'Car owners', value: owners.length, icon: ShieldCheck },
-    { label: 'Live listings', value: vehicles.filter((v) => v.status === 'active' && v.approval_status === 'approved').length, icon: Car },
-    { label: 'Pending listings', value: pendingListings.length, icon: Car },
-    { label: 'Pending Trust Passports', value: pendingVerifications.length, icon: TrendingUp },
-    { label: 'Pending uploads', value: pendingDocs.length + pendingVehiclePhotos.length, icon: FileText },
-    { label: 'Open reports', value: reports.filter((r) => r.status === 'open').length, icon: Flag },
-    { label: 'New contacts', value: newContactMessages.length, icon: Mail },
-    { label: 'Trusted drivers', value: drivers.filter((u) => u.is_verified).length, icon: BadgeCheck },
+  const stats: { label: string; value: number; icon: LucideIcon; tab: Tab; carFilter?: 'live' | 'pending' }[] = [
+    { label: 'Total users', value: users.length, icon: Users, tab: 'members' },
+    { label: 'Drivers', value: drivers.length, icon: Users, tab: 'drivers' },
+    { label: 'Car owners', value: owners.length, icon: ShieldCheck, tab: 'owners' },
+    { label: 'Live listings', value: vehicles.filter((v) => v.status === 'active' && v.approval_status === 'approved').length, icon: Car, tab: 'cars', carFilter: 'live' },
+    { label: 'Pending listings', value: pendingListings.length, icon: Car, tab: 'cars', carFilter: 'pending' },
+    { label: 'Pending Trust Passports', value: pendingVerifications.length, icon: TrendingUp, tab: 'drivers' },
+    { label: 'Pending uploads', value: pendingDocs.length + pendingVehiclePhotos.length, icon: FileText, tab: 'documents' },
+    { label: 'Open reports', value: reports.filter((r) => r.status === 'open').length, icon: Flag, tab: 'reports' },
+    { label: 'New contacts', value: newContactMessages.length, icon: Mail, tab: 'contact' },
+    { label: 'Trusted drivers', value: drivers.filter((u) => u.is_verified).length, icon: BadgeCheck, tab: 'drivers' },
   ];
 
   const tabs: { key: Tab; label: string; icon: LucideIcon; badge?: number }[] = [
     { key: 'overview', label: 'Overview', icon: TrendingUp },
+    { key: 'members', label: 'All Users', icon: Users, badge: users.length },
     { key: 'drivers', label: 'Drivers', icon: Users, badge: drivers.length },
     { key: 'owners', label: 'Car Owners', icon: ShieldCheck, badge: owners.length },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
@@ -370,7 +386,14 @@ export function AdminPage() {
 
   const filteredDrivers = drivers.filter((d) => d.full_name.toLowerCase().includes(search.toLowerCase()) || (d.phone || '').includes(search));
   const filteredOwners = owners.filter((o) => o.full_name.toLowerCase().includes(search.toLowerCase()) || (o.phone || '').includes(search));
-  const filteredVehicles = vehicles.filter((v) => `${v.make} ${v.model}`.toLowerCase().includes(search.toLowerCase()) || v.location.toLowerCase().includes(search.toLowerCase()));
+  const filteredUsers = users.filter((member) => `${member.full_name} ${member.email || ''} ${member.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
+  const filteredVehicles = vehicles.filter((v) => {
+    const matchesSearch = `${v.make} ${v.model} ${v.location}`.toLowerCase().includes(search.toLowerCase());
+    if (!matchesSearch) return false;
+    if (carStatusFilter === 'live') return v.status === 'active' && v.approval_status === 'approved';
+    if (carStatusFilter === 'pending') return v.approval_status === 'pending';
+    return true;
+  });
 
   return (
     <div className="container-content py-8">
@@ -382,17 +405,17 @@ export function AdminPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className="card p-4">
+          <button key={s.label} onClick={() => { setSearch(''); setCarStatusFilter(s.carFilter || 'all'); setTab(s.tab); }} className="card p-4 text-left hover:-translate-y-0.5 hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-brand-500" aria-label={`View ${s.label.toLowerCase()}`}>
             <s.icon className="h-5 w-5 text-brand-600" />
             <p className="mt-2 font-display text-xl font-bold text-ink-900">{s.value}</p>
             <p className="text-xs text-ink-500">{s.label}</p>
-          </div>
+          </button>
         ))}
       </div>
 
       <div className="mt-8 flex gap-1 overflow-x-auto border-b border-ink-100">
         {tabs.map((t) => (
-          <button key={t.key} onClick={() => setTab(t.key)} className={cn('flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium', tab === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-ink-500 hover:text-ink-800')}>
+          <button key={t.key} onClick={() => { if (t.key === 'cars') setCarStatusFilter('all'); setTab(t.key); }} className={cn('flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium', tab === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-ink-500 hover:text-ink-800')}>
             <t.icon className="h-4 w-4" /> {t.label}
             {t.badge !== undefined && t.badge > 0 && <span className="ml-0.5 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{t.badge}</span>}
           </button>
@@ -400,7 +423,7 @@ export function AdminPage() {
       </div>
 
       <div className="mt-6">
-        {(tab === 'drivers' || tab === 'owners' || tab === 'cars') && (
+        {(tab === 'members' || tab === 'drivers' || tab === 'owners' || tab === 'cars') && (
           <div className="mb-4 flex items-center gap-2">
             <Search className="h-4 w-4 text-ink-400" />
             <input
@@ -466,6 +489,21 @@ export function AdminPage() {
                 {pendingDocs.length === 0 && <p className="text-sm text-ink-400">No pending trust evidence.</p>}
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ---------- All members ---------- */}
+        {tab === 'members' && !loading && (
+          <div className="space-y-2">
+            {filteredUsers.map((member) => (
+              <div key={member.id} className="card flex flex-wrap items-center gap-3 p-4">
+                <Avatar name={member.full_name} src={member.avatar_url} size={42} verified={member.is_verified} />
+                <div className="min-w-0 flex-1"><p className="font-medium text-ink-900">{member.full_name || 'Unnamed member'}</p><p className="truncate text-xs text-ink-500">{member.email || 'No email'} · {member.phone || 'No phone'} · <span className="capitalize">{member.role}</span></p></div>
+                {member.is_suspended && <span className="badge-danger"><Ban className="h-3 w-3" /> Suspended</span>}
+                <button onClick={() => setViewingUser(member)} className="btn-primary px-3 py-2 text-sm"><Eye className="h-4 w-4" /> View profile</button>
+              </div>
+            ))}
+            {filteredUsers.length === 0 && <p className="text-sm text-ink-500">No users found.</p>}
           </div>
         )}
 
@@ -535,7 +573,10 @@ export function AdminPage() {
 
         {/* ---------- Cars ---------- */}
         {tab === 'cars' && !loading && (
-          <div className="space-y-2">
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              {(['all', 'live', 'pending'] as const).map((filter) => <button key={filter} onClick={() => setCarStatusFilter(filter)} className={cn('rounded-full px-3 py-1.5 text-xs font-medium capitalize ring-1', carStatusFilter === filter ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-600 ring-ink-200')}>{filter === 'all' ? 'All listings' : `${filter} listings`}</button>)}
+            </div>
             {filteredVehicles.map((v) => (
               <div key={v.id} className="card flex items-center gap-3 p-4">
                 <div className="h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-ink-100">
@@ -662,18 +703,13 @@ export function AdminPage() {
           <div className="space-y-2">
             {reports.map((r) => (
               <div key={r.id} className="card p-4">
-                <div className="flex items-center justify-between">
-                  <p className="font-medium text-ink-900">{r.reason} <span className="capitalize text-ink-400">({r.target_type})</span></p>
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div><p className="font-medium text-ink-900">{r.reason} <span className="capitalize text-ink-400">({r.target_type})</span></p><p className="mt-0.5 text-xs text-ink-500">Reported: {r.reported?.full_name || 'Unknown user'} · By: {r.reporter?.full_name || 'Unknown reporter'}</p></div>
                   <span className={cn('badge capitalize', r.status === 'open' && 'badge-warning', r.status === 'resolved' && 'badge-brand', r.status === 'dismissed' && 'badge-neutral')}>{r.status}</span>
                 </div>
-                {r.description && <p className="mt-1 text-sm text-ink-600">{r.description}</p>}
+                {r.description && <p className="mt-2 line-clamp-2 text-sm text-ink-600">{r.description}</p>}
                 <p className="mt-1 text-xs text-ink-400">{timeAgo(r.created_at)}</p>
-                {r.status === 'open' && (
-                  <div className="mt-2 flex gap-2">
-                    <button onClick={() => resolveReport(r, 'resolved')} className="btn-primary px-3 py-1 text-xs">Resolve</button>
-                    <button onClick={() => resolveReport(r, 'dismissed')} className="btn-secondary px-3 py-1 text-xs">Dismiss</button>
-                  </div>
-                )}
+                <div className="mt-3 flex flex-wrap items-center gap-2"><button onClick={() => setViewingReport(r)} className="btn-primary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View report and actions</button>{(r.warnings || []).length > 0 && <span className="badge-warning">Warning sent</span>}</div>
               </div>
             ))}
             {reports.length === 0 && <p className="text-sm text-ink-500">No reports.</p>}
@@ -857,6 +893,31 @@ export function AdminPage() {
         />
       )}
 
+      {viewingReport && (
+        <ReportReviewModal
+          report={viewingReport}
+          onClose={() => setViewingReport(null)}
+          onWarn={(message) => issueReportWarning(viewingReport, message)}
+          onContact={() => {
+            if (!viewingReport.reported) return;
+            adminStartChat(viewingReport.reported, viewingReport);
+            setViewingReport(null);
+          }}
+          onViewProfile={() => {
+            if (viewingReport.reported) setViewingUser(viewingReport.reported);
+            setViewingReport(null);
+          }}
+          onSuspend={() => {
+            if (viewingReport.reported) {
+              setSuspendingUser(viewingReport.reported);
+              setSuspendReason(`Report: ${viewingReport.reason}${viewingReport.description ? ` — ${viewingReport.description}` : ''}`);
+            }
+            setViewingReport(null);
+          }}
+          onStatus={async (status) => { await resolveReport(viewingReport, status); setViewingReport(null); }}
+        />
+      )}
+
       {/* Change password modal */}
       {changingPinUser && (
         <AdminChangePinModal user={changingPinUser} onClose={() => setChangingPinUser(null)} onConfirm={(pin) => adminChangePin(changingPinUser, pin)} />
@@ -874,6 +935,53 @@ export function AdminPage() {
         />
       )}
     </div>
+  );
+}
+
+function ReportReviewModal({ report, onClose, onWarn, onContact, onViewProfile, onSuspend, onStatus }: {
+  report: AdminReport;
+  onClose: () => void;
+  onWarn: (message: string) => Promise<boolean>;
+  onContact: () => void;
+  onViewProfile: () => void;
+  onSuspend: () => void;
+  onStatus: (status: 'resolved' | 'dismissed') => void | Promise<void>;
+}) {
+  const [warningMessage, setWarningMessage] = useState('Please review our community rules and correct this behaviour immediately.');
+  const [sending, setSending] = useState(false);
+  const warningSent = (report.warnings || []).length > 0;
+  const sendWarning = async () => {
+    setSending(true);
+    await onWarn(warningMessage);
+    setSending(false);
+  };
+  return (
+    <Modal title={`Report: ${report.reason}`} onClose={onClose} size="xl">
+      <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
+        <div className="grid gap-3 rounded-xl bg-ink-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
+          <InfoRow label="Status" value={<span className="capitalize">{report.status}</span>} />
+          <InfoRow label="Target" value={<span className="capitalize">{report.target_type}</span>} />
+          <InfoRow label="Submitted" value={formatDateTime(report.created_at)} />
+          <InfoRow label="Target ID" value={report.target_id || 'Not supplied'} />
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-xl border border-ink-100 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-ink-400">Reported user</p><p className="mt-1 font-semibold text-ink-900">{report.reported?.full_name || 'Unknown user'}</p><p className="text-sm text-ink-500">{report.reported?.email || 'No email'} · {report.reported?.phone || 'No phone'}</p></div>
+          <div className="rounded-xl border border-ink-100 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-ink-400">Reported by</p><p className="mt-1 font-semibold text-ink-900">{report.reporter?.full_name || 'Unknown reporter'}</p><p className="text-sm text-ink-500">{report.reporter?.email || 'No email'} · {report.reporter?.phone || 'No phone'}</p></div>
+        </div>
+        <div><p className="label">What was reported</p><div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="font-semibold text-amber-900">{report.reason}</p><p className="mt-1 whitespace-pre-wrap text-sm text-amber-800">{report.description || 'No additional description was supplied.'}</p></div></div>
+        {warningSent ? (
+          <div className="rounded-xl border border-amber-200 p-4"><p className="font-semibold text-amber-800">Warning already sent for this report</p>{report.warnings!.map((warning) => <div key={warning.id} className="mt-2 text-sm text-ink-600"><p>{warning.message}</p><p className="text-xs text-ink-400">{formatDateTime(warning.created_at)}</p></div>)}</div>
+        ) : report.reported ? (
+          <div><label className="label">Warning message</label><textarea value={warningMessage} onChange={(event) => setWarningMessage(event.target.value)} rows={3} className="input" /><p className="mt-1 text-xs text-ink-500">The member will also receive the report reason, report details, their warning count, and: “Three warnings may lead to account suspension.”</p><button onClick={sendWarning} disabled={sending || warningMessage.trim().length < 3} className="btn-secondary mt-3 text-amber-800"><Flag className="h-4 w-4" /> {sending ? 'Sending…' : 'Send warning'}</button></div>
+        ) : null}
+        <div className="flex flex-wrap gap-2 border-t border-ink-100 pt-4">
+          {report.reported && <><button onClick={onViewProfile} className="btn-secondary"><Eye className="h-4 w-4" /> User profile</button><button onClick={onContact} className="btn-secondary"><MessageSquare className="h-4 w-4" /> Contact user</button><button onClick={onSuspend} className="btn-secondary text-danger"><Ban className="h-4 w-4" /> Suspend user</button></>}
+          <div className="flex-1" />
+          <button onClick={() => onStatus('dismissed')} className="btn-ghost">Dismiss report</button>
+          <button onClick={() => onStatus('resolved')} className="btn-primary"><Check className="h-4 w-4" /> Mark resolved</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -1185,16 +1293,21 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
 }) {
   const [docs, setDocs] = useState<DocumentRow[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
+  const [profileReports, setProfileReports] = useState<AdminReport[]>([]);
+  const [profileWarnings, setProfileWarnings] = useState<UserWarning[]>([]);
 
   useEffect(() => {
-    if (user.role !== 'driver') {
-      setDocs([]);
-      setLoadingDocs(false);
-      return;
-    }
     (async () => {
-      const { data } = await supabase.from('documents').select('*').eq('user_id', user.id).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false });
-      setDocs((data as DocumentRow[]) || []);
+      const [docsResult, reportsResult, warningsResult] = await Promise.all([
+        user.role === 'driver'
+          ? supabase.from('documents').select('*').eq('user_id', user.id).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false })
+          : Promise.resolve({ data: [] }),
+        supabase.from('reports').select('*, warnings:user_warnings(*)').eq('reported_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('user_warnings').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      ]);
+      setDocs((docsResult.data as DocumentRow[]) || []);
+      setProfileReports((reportsResult.data as AdminReport[]) || []);
+      setProfileWarnings((warningsResult.data as UserWarning[]) || []);
       setLoadingDocs(false);
     })();
   }, [user.id, user.role]);
@@ -1208,7 +1321,8 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
           <div>
             <p className="font-display text-lg font-bold text-ink-900">{user.full_name}</p>
             <p className="text-sm capitalize text-ink-500">{user.role}</p>
-            <p className="text-xs text-ink-400">{user.phone}</p>
+            <p className="text-xs text-ink-400">{user.email || 'No registered email'}</p>
+            <p className="text-xs text-ink-400">{user.phone || 'No phone'}</p>
           </div>
         </div>
 
@@ -1219,6 +1333,7 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
           <InfoRow label="Contracts" value={String(user.contracts_completed)} />
           <InfoRow label="Availability" value={<span className="capitalize">{user.availability}</span>} />
           <InfoRow label="Location" value={user.location || 'Not set'} />
+          <InfoRow label="Registered email" value={user.email || 'Not set'} />
           {user.role === 'driver' && <InfoRow label="Age" value={user.age ? String(user.age) : 'Not set'} />}
           {user.role === 'driver' && <InfoRow label="Experience" value={`${user.driving_experience_years} yrs`} />}
           {user.role === 'driver' && <InfoRow label="Licence #" value={user.licence_number || 'Not set'} />}
@@ -1259,6 +1374,20 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
             </div>
           )}
         </div>}
+
+        <div>
+          <div className="flex items-center justify-between"><p className="label">Reports and warnings</p><span className={cn('badge', profileWarnings.length >= 3 ? 'badge-danger' : profileWarnings.length > 0 ? 'badge-warning' : 'badge-neutral')}>{profileWarnings.length} warning{profileWarnings.length === 1 ? '' : 's'}</span></div>
+          {profileReports.length === 0 ? <p className="text-sm text-ink-400">No reports have been filed against this user.</p> : (
+            <div className="space-y-4">
+              {(['open', 'reviewing', 'resolved', 'dismissed'] as const).map((status) => {
+                const grouped = profileReports.filter((report) => report.status === status);
+                if (grouped.length === 0) return null;
+                return <section key={status}><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">{status} ({grouped.length})</p><div className="space-y-2">{grouped.map((report) => <div key={report.id} className="rounded-xl border border-ink-100 p-3"><div className="flex items-start justify-between gap-2"><p className="text-sm font-semibold text-ink-800">{report.reason}</p>{(report.warnings || []).length > 0 && <span className="badge-warning">Warned</span>}</div><p className="mt-1 text-xs text-ink-600">{report.description || 'No additional details.'}</p><p className="mt-1 text-[11px] capitalize text-ink-400">{report.target_type} · {formatDateTime(report.created_at)}</p></div>)}</div></section>;
+              })}
+            </div>
+          )}
+          {profileWarnings.length >= 3 && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700">This user has reached three warnings. Review the reports before deciding whether suspension is appropriate.</p>}
+        </div>
       </div>
 
       {/* Actions */}
@@ -1317,7 +1446,15 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
   useEffect(() => {
-    const handler = (e: Event) => setActiveId((e as CustomEvent).detail as string);
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<string | { conversationId: string; prefill?: string }>).detail;
+      if (typeof detail === 'string') {
+        setActiveId(detail);
+      } else {
+        setActiveId(detail.conversationId);
+        if (detail.prefill) setText(detail.prefill);
+      }
+    };
     window.addEventListener('admin-open-chat', handler);
     return () => window.removeEventListener('admin-open-chat', handler);
   }, []);

@@ -5,6 +5,7 @@ export type ListingApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Profile {
   id: string;
+  email: string | null;
   role: Role;
   full_name: string;
   phone: string | null;
@@ -224,6 +225,17 @@ export interface Report {
   reason: string;
   description: string | null;
   status: 'open' | 'reviewing' | 'resolved' | 'dismissed';
+  created_at: string;
+}
+
+export interface UserWarning {
+  id: string;
+  user_id: string;
+  report_id: string;
+  admin_id: string;
+  message: string;
+  report_reason: string;
+  report_description: string | null;
   created_at: string;
 }
 

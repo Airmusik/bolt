@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, LogOut, Camera, Loader2, Check, ToggleLeft, ToggleRight, Lock, KeyRound, Palette } from 'lucide-react';
+import { User, Shield, Bell, LogOut, Camera, Loader2, Check, ToggleLeft, ToggleRight, Lock, KeyRound, Palette, Mail } from 'lucide-react';
 import { supabase, AVATAR_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -129,6 +129,7 @@ export function SettingsPage() {
 
           <div className="mt-4 space-y-4">
             <div><label className="label">Full name</label><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" /></div>
+            <div><label className="label">Registered email address</label><div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={user?.email || profile?.email || ''} readOnly className="input pl-10 opacity-80" /></div><p className="mt-1 text-xs text-ink-400">This is the address you use to sign in.</p></div>
             <div>
               <label className="label">Location</label>
               <PlaceAutocomplete value={location} onChange={setLocation} />

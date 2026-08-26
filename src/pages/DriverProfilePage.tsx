@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, ArrowLeft, BadgeCheck, CalendarDays, UserCheck, Award } from 'lucide-react';
+import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, ArrowLeft, BadgeCheck, CalendarDays, UserCheck, Award, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useAuth } from '@/lib/useAuth';
@@ -64,6 +64,7 @@ export function DriverProfilePage() {
                 </h1>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
                   <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {profile.location || 'Location not provided'}</span>
+                  {profile.email && <a href={`mailto:${profile.email}`} className="inline-flex items-center gap-1 hover:text-brand-700"><Mail className="h-4 w-4" /> {profile.email}</a>}
                   {!isOwner && profile.age && <span>{profile.age} years old</span>}
                   {!isOwner && <span className="inline-flex items-center gap-1"><Briefcase className="h-4 w-4" /> {profile.driving_experience_years} yrs experience</span>}
                 </div>
