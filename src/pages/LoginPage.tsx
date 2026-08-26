@@ -1,57 +1,86 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Car, Phone, Lock, Eye, EyeOff, ArrowRight, Mail, Check } from 'lucide-react';
+import { Car, Lock, Eye, EyeOff, ArrowRight, Mail, Check } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { supabase } from '@/lib/supabase';
+import { getAuthErrorMessage } from '@/lib/authErrors';
+import { isValidPin } from '@/lib/phoneAuth';
 
 export function LoginPage() {
   const { signIn, user, resetPin } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [showReset, setShowReset] = useState(false);
-  const [resetPhone, setResetPhone] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [resetting, setResetting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
-  const [resetMode, setResetMode] = useState(false);
+  const [resetMode, setResetMode] = useState(() => new URLSearchParams(window.location.search).get('reset') === '1');
   const { settings } = useSiteSettings();
   const supportMessage = `Contact support at ${settings.admin_contact_email} or ${settings.admin_contact_phone} to reset your password.`;
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('reset') === '1') {
-      setResetMode(true);
-    }
-  }, []);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetError(null);
     setResetting(true);
-    const { error } = await resetPin(resetPhone);
-    setResetting(false);
-    if (error) {
-      setResetError(error);
-    } else {
-      setResetSent(true);
+    try {
+      const { error } = await resetPin(resetEmail);
+      if (error) setResetError(error);
+      else setResetSent(true);
+    } catch {
+      setResetError('Something unexpected happened. Check your connection and try again.');
+    } finally {
+      setResetting(false);
+    }
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError(null);
+    if (!isValidPin(newPassword)) {
+      setResetError('Use at least 10 characters with uppercase, lowercase, and a number.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setResetError('Passwords do not match. Please re-enter them.');
+      return;
+    }
+    setResetting(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        setResetError(getAuthErrorMessage(error, 'reset'));
+      } else {
+        toast('Password updated successfully.');
+        await supabase.auth.signOut();
+        setResetMode(false);
+        navigate('/login', { replace: true });
+      }
+    } catch (error) {
+      setResetError(getAuthErrorMessage(error, 'reset'));
+    } finally {
+      setResetting(false);
     }
   };
 
   useEffect(() => {
-    if (user) {
+    if (user && !resetMode) {
       const from = (location.state as { from?: string })?.from || '/dashboard';
       navigate(from, { replace: true });
     }
-  }, [user, navigate, location.state]);
+  }, [user, resetMode, navigate, location.state]);
 
   if (resetMode) {
     return (
@@ -69,21 +98,28 @@ export function LoginPage() {
           {resetSent ? (
             <div className="card p-6 text-center">
               <Check className="mx-auto h-10 w-10 text-success" />
-              <p className="mt-3 text-sm text-ink-600">If an account exists for <strong>{resetPhone}</strong>, a reset link has been sent to the email on file.</p>
+              <p className="mt-3 text-sm text-ink-600">If an account exists for <strong>{resetEmail}</strong>, a password-reset link has been sent.</p>
               <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
               <button onClick={() => { setResetMode(false); setResetSent(false); }} className="btn-secondary mt-4">Back to sign in</button>
             </div>
           ) : (
-            <form onSubmit={handleReset} className="card p-6">
-              {resetError && <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{resetError}</div>}
+            <form onSubmit={handlePasswordUpdate} className="card p-6">
+              {resetError && <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{resetError}</div>}
               <div>
-                <label className="label">Phone number</label>
+                <label className="label">New password</label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-                  <input value={resetPhone} onChange={(e) => setResetPhone(e.target.value)} placeholder="0712 345 678" inputMode="tel" className="input pl-10" required />
+                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                  <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" autoComplete="new-password" placeholder="At least 10 characters" className="input pl-10" required />
                 </div>
               </div>
-              <button type="submit" disabled={resetting} className="btn-primary mt-6 w-full">{resetting ? 'Sending…' : 'Send reset link'} <ArrowRight className="h-4 w-4" /></button>
+              <div className="mt-4">
+                <label className="label">Confirm new password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                  <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" autoComplete="new-password" placeholder="Repeat password" className="input pl-10" required />
+                </div>
+              </div>
+              <button type="submit" disabled={resetting} className="btn-primary mt-6 w-full">{resetting ? 'Updating…' : 'Update password'} <ArrowRight className="h-4 w-4" /></button>
             </form>
           )}
         </div>
@@ -101,24 +137,24 @@ export function LoginPage() {
               <Mail className="h-6 w-6" />
             </div>
             <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Reset your password</h1>
-            <p className="mt-1 text-sm text-ink-500">Enter your phone number so support can identify your account.</p>
+            <p className="mt-1 text-sm text-ink-500">Enter your account email and we will send a reset link.</p>
             <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
           </div>
           {resetSent ? (
             <div className="card p-6 text-center">
               <Check className="mx-auto h-10 w-10 text-success" />
-              <p className="mt-3 text-sm text-ink-600">If an account exists for <strong>{resetPhone}</strong>, a reset link has been sent to the email on file.</p>
+              <p className="mt-3 text-sm text-ink-600">If an account exists for <strong>{resetEmail}</strong>, a password-reset link has been sent.</p>
               <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
               <button onClick={() => { setShowReset(false); setResetSent(false); }} className="btn-secondary mt-4">Back to sign in</button>
             </div>
           ) : (
             <form onSubmit={handleReset} className="card p-6">
-              {resetError && <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{resetError}</div>}
+              {resetError && <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{resetError}</div>}
               <div>
-                <label className="label">Phone number</label>
+                <label className="label">Email address</label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-                  <input value={resetPhone} onChange={(e) => setResetPhone(e.target.value)} placeholder="0712 345 678" inputMode="tel" className="input pl-10" required />
+                  <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                  <input value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="input pl-10" required />
                 </div>
               </div>
               <button type="submit" disabled={resetting} className="btn-primary mt-6 w-full">{resetting ? 'Sending…' : 'Send reset link'} <ArrowRight className="h-4 w-4" /></button>
@@ -134,13 +170,17 @@ export function LoginPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const { error } = await signIn(phone, pin);
-    setLoading(false);
-    if (error) {
-      setError(error);
-    } else {
-      toast('Welcome back to GariLink.');
-      navigate('/dashboard');
+    try {
+      const { error } = await signIn(email, pin);
+      if (error) setError(error);
+      else {
+        toast('Welcome back to GariLink.');
+        navigate('/dashboard');
+      }
+    } catch {
+      setError('Something unexpected happened. Check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -155,22 +195,23 @@ export function LoginPage() {
             </span>
           </Link>
           <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Welcome back</h1>
-          <p className="mt-1 text-sm text-ink-500">Sign in with your phone number and password.</p>
+          <p className="mt-1 text-sm text-ink-500">Sign in with your email and password.</p>
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6">
           {error && (
-            <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+            <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
           )}
           <div>
-            <label className="label">Phone number</label>
+            <label className="label">Email address</label>
             <div className="relative">
-              <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+              <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="0712 345 678"
-                inputMode="tel"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                autoComplete="email"
+                placeholder="you@example.com"
                 className="input pl-10"
                 required
               />

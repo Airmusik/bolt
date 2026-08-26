@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, ReactNode } from 'react';
 import { supabase } from './supabase';
-import { phoneToEmail, normalizePhone, isValidPin, isValidPhone, pinToPassword } from './phoneAuth';
+import { normalizePhone, isValidEmail, isValidPin, isValidPhone, pinToPassword } from './phoneAuth';
+import { getAuthErrorMessage } from './authErrors';
 import type { Profile } from './types';
 import { AuthContext, type AuthContextValue } from './authContext';
 import { createDemoAdminProfile, DEMO_ADMIN_EMAIL, DEMO_ADMIN_ID, DEMO_ADMIN_SESSION_KEY, DEMO_MODE } from './demoMode';
@@ -77,46 +78,60 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail) => {
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number (e.g. 0712 345 678).' };
     if (!isValidPin(pin)) return { error: 'Password must be at least 10 characters and include uppercase, lowercase, and a number.' };
+    if (!fullName.trim()) return { error: 'Please enter your full name.' };
+    if (!isValidEmail(userEmail)) return { error: 'Enter a valid email address, for example name@example.com.' };
 
     const password = pinToPassword(pin);
-    if (!fullName.trim()) return { error: 'Please enter your full name.' };
-
-    const email = phoneToEmail(phone);
+    const email = userEmail.trim().toLowerCase();
     const normalized = normalizePhone(phone);
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: fullName, role, phone: normalized } },
-    });
-    if (error) {
-      if (error.message.toLowerCase().includes('already')) {
-        return { error: 'An account with this phone number already exists. Try signing in.' };
-      }
-      return { error: error.message };
-    }
-    if (data.user) {
-      // create profile row
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
-        role,
-        full_name: fullName,
-        phone: normalized,
-        email: userEmail || null,
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName.trim(), role, phone: normalized, email } },
       });
+      if (error) return { error: getAuthErrorMessage(error, 'signup') };
+
+      // Supabase may obscure duplicate-email attempts by returning a user with
+      // no identities. Treat that as an existing account instead of success.
+      if (data.user && data.user.identities?.length === 0) {
+        return { error: 'An account with this email already exists. Try signing in instead.' };
+      }
+
+      // With email confirmation enabled there is no authenticated session yet,
+      // so the database trigger creates the profile from auth metadata.
+      if (data.user && data.session) {
+        const { error: profileError } = await supabase.from('profiles').upsert({
+          id: data.user.id,
+          role,
+          full_name: fullName.trim(),
+          phone: normalized,
+          email,
+        });
+        if (profileError) {
+          console.error('profile setup error', profileError);
+          return { error: getAuthErrorMessage(profileError, 'profile') };
+        }
+      }
+      return { error: null, requiresEmailConfirmation: !data.session };
+    } catch (error) {
+      console.error('signup error', error);
+      return { error: getAuthErrorMessage(error, 'signup') };
     }
-    return { error: null };
   }, []);
 
-  const signIn = useCallback<AuthContextValue['signIn']>(async (phone, pin) => {
-    if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number.' };
+  const signIn = useCallback<AuthContextValue['signIn']>(async (email, pin) => {
+    if (!isValidEmail(email)) return { error: 'Enter a valid email address.' };
     if (!isValidPin(pin)) return { error: 'Enter your password (at least 10 characters).' };
-    const email = phoneToEmail(phone);
-    const { error } = await supabase.auth.signInWithPassword({ email, password: pinToPassword(pin) });
-    if (error) {
-      return { error: 'Wrong phone number or password. Please try again.' };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password: pinToPassword(pin) });
+      if (error) return { error: getAuthErrorMessage(error, 'signin') };
+      return { error: null };
+    } catch (error) {
+      console.error('signin error', error);
+      return { error: getAuthErrorMessage(error, 'signin') };
     }
-    return { error: null };
   }, []);
 
   const signOut = useCallback(async () => {
@@ -131,10 +146,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setProfile(null);
   }, []);
 
-  const resetPin = useCallback<AuthContextValue['resetPin']>(async (phone) => {
-    if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number.' };
-    normalizePhone(phone);
-    return { error: 'For account security, please contact GariLink support to reset your password.' };
+  const resetPin = useCallback<AuthContextValue['resetPin']>(async (email) => {
+    if (!isValidEmail(email)) return { error: 'Enter a valid email address.' };
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/login?reset=1`,
+      });
+      if (error) return { error: getAuthErrorMessage(error, 'reset') };
+      return { error: null };
+    } catch (error) {
+      console.error('password reset error', error);
+      return { error: getAuthErrorMessage(error, 'reset') };
+    }
   }, []);
 
   return (

@@ -1,11 +1,3 @@
-// Maps a Kenyan phone number to the internal Supabase email identifier while
-// keeping the user's actual password unchanged.
-
-export function phoneToEmail(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  return `${digits}@garilink.app`;
-}
-
 export function normalizePhone(phone: string): string {
   let normalized = phone.replace(/[^\d+]/g, '');
   if (normalized.startsWith('+')) normalized = normalized.slice(1);
@@ -24,6 +16,12 @@ export function isValidPin(password: string): boolean {
 
 export function isValidPhone(phone: string): boolean {
   return /^\+254\d{9}$/.test(normalizePhone(phone));
+}
+
+export function isValidEmail(email: string): boolean {
+  // This intentionally catches common input mistakes; Supabase remains the
+  // authoritative validator for the complete email specification.
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 }
 
 /** Kept as a compatibility name for existing callers; no fixed prefix is used. */

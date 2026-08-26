@@ -5,7 +5,6 @@ import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import type { Role } from '@/lib/types';
-import { useSiteSettings } from '@/lib/siteSettings';
 
 export function RegisterPage() {
   const { signUp, user } = useAuth();
@@ -20,8 +19,6 @@ export function RegisterPage() {
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { settings } = useSiteSettings();
-  const emailRequired = settings.require_email === 'true';
 
   useEffect(() => {
     if (user) navigate('/dashboard', { replace: true });
@@ -30,16 +27,24 @@ export function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (pin !== confirmPin) { setError('Passwords do not match. Please re-enter.'); return; }
+    if (!email.trim()) { setError('Email address is required.'); return; }
     setLoading(true);
-    if (pin !== confirmPin) { setError('Passwords do not match. Please re-enter.'); setLoading(false); return; }
-    if (emailRequired && !email.trim()) { setError('Email address is required.'); setLoading(false); return; }
-    const { error } = await signUp(phone, pin, fullName, role, email.trim() || undefined);
-    setLoading(false);
-    if (error) {
-      setError(error);
-    } else {
-      toast('Account created. Welcome to GariLink.');
-      navigate(role === 'driver' ? '/onboarding' : '/dashboard');
+    try {
+      const result = await signUp(phone, pin, fullName, role, email);
+      if (result.error) {
+        setError(result.error);
+      } else if (result.requiresEmailConfirmation) {
+        toast('Account created. Check your email to confirm it before signing in.');
+        navigate('/login');
+      } else {
+        toast('Account created. Welcome to GariLink.');
+        navigate(role === 'driver' ? '/onboarding' : '/dashboard');
+      }
+    } catch {
+      setError('Something unexpected happened. Check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -58,7 +63,7 @@ export function RegisterPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="card p-6">
-          {error && <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+          {error && <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
 
           <div className="mb-5">
             <label className="label">I am a…</label>
@@ -93,12 +98,12 @@ export function RegisterPage() {
             </div>
           </div>
           <div className="mt-4">
-            <label className="label">Email{emailRequired ? "" : " (optional)"}</label>
+            <label className="label">Email</label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@example.com" className="input pl-10" required={emailRequired} />
+              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="input pl-10" required />
             </div>
-            <p className="mt-1.5 text-xs text-ink-400">{emailRequired ? "Email is required by current site settings." : "Your email helps support verify password-reset requests."}</p>
+            <p className="mt-1.5 text-xs text-ink-400">You will use this email to sign in and reset your password.</p>
           </div>
 
           <div className="mt-4">
@@ -109,7 +114,7 @@ export function RegisterPage() {
                 value={pin}
                 onChange={(e) => setPin(e.target.value)}
                 type={showPin ? 'text' : 'password'}
-                inputMode="numeric"
+                autoComplete="new-password"
                 placeholder="At least 10 characters"
                 className="input pl-10 pr-10"
                 required
@@ -129,7 +134,7 @@ export function RegisterPage() {
                 value={confirmPin}
                 onChange={(e) => setConfirmPin(e.target.value)}
                 type={showPin ? 'text' : 'password'}
-                inputMode="numeric"
+                autoComplete="new-password"
                 placeholder="Repeat password"
                 className="input pl-10"
                 required

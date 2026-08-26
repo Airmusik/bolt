@@ -7,9 +7,8 @@ with ride-hailing drivers (Uber/Bolt/Faras/Little) across Kenya. GariLink only
 connects parties; it does NOT process payments between users.
 
 ## Authentication model
-Uses Supabase built-in auth.users. The frontend presents a "phone + PIN" UX by
-mapping the phone number to a derived email (`<phone>@garilink.app`) and using
-the PIN as the password. No custom auth table is created.
+Uses Supabase built-in auth.users with the user's real email and password.
+The Kenyan phone number is stored separately on the user's profile.
 
 ## New Tables
 1. `profiles` — extends auth.users with role, verification, rating, location,
