@@ -1,19 +1,29 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, RefreshCw, Users, ShieldCheck, Pencil, Clock3 } from 'lucide-react';
+import { Upload, Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, RefreshCw, ShieldCheck, Pencil, Clock3, History } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
-import type { DocumentRow, PlatformHistory, TrustReference } from '@/lib/types';
+import type { DocumentRow, PlatformHistory } from '@/lib/types';
 import { cn, titleCase } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 const EVIDENCE_TYPES = [
-  { type: 'work_history', label: 'Work history proof', help: 'A statement, activity screenshot, or employer letter.' },
-  { type: 'reference_letter', label: 'Reference letter', help: 'Optional written endorsement from someone you have worked with.' },
+  { type: 'work_history', label: 'Latest platform history proof', help: 'Upload your latest Uber, Bolt, Faras, Little Cab, or other ride-hailing platform activity history.' },
 ] as const;
+
+interface DriverAboutForm {
+  full_name: string;
+  bio: string;
+  location: string;
+  age: string;
+  driving_experience_years: string;
+  languages: string;
+  preferred_locations: string;
+  platforms_worked: string[];
+}
 
 export function DriverOnboardingPage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -21,27 +31,23 @@ export function DriverOnboardingPage() {
   const navigate = useNavigate();
   const [saving, setSaving] = useState(false);
   const [uploadingType, setUploadingType] = useState<string | null>(null);
-  const [profileForm, setProfileForm] = useState({
+  const [profileForm, setProfileForm] = useState<DriverAboutForm>({
     full_name: '', bio: '', location: '', age: '', driving_experience_years: '',
     languages: '', preferred_locations: '', platforms_worked: [] as string[],
   });
   const [evidence, setEvidence] = useState<DocumentRow[]>([]);
   const [history, setHistory] = useState<PlatformHistory[]>([]);
-  const [references, setReferences] = useState<TrustReference[]>([]);
-  const [referenceForm, setReferenceForm] = useState({ referee_name: '', relationship: '', referee_contact: '', note: '' });
   const [trustLoaded, setTrustLoaded] = useState(false);
   const [editingPassport, setEditingPassport] = useState(false);
 
   const loadTrustData = async () => {
     if (!user) return;
-    const [{ data: docs }, { data: platformHistory }, { data: refs }] = await Promise.all([
+    const [{ data: docs }, { data: platformHistory }] = await Promise.all([
       supabase.from('documents').select('*').eq('user_id', user.id).in('type', EVIDENCE_TYPES.map((item) => item.type)),
       supabase.from('driver_platform_history').select('*').eq('driver_id', user.id),
-      supabase.from('trust_references').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
     ]);
     setEvidence((docs as DocumentRow[]) || []);
     setHistory((platformHistory as PlatformHistory[]) || []);
-    setReferences((refs as TrustReference[]) || []);
     setTrustLoaded(true);
   };
 
@@ -75,26 +81,6 @@ export function DriverOnboardingPage() {
     if (error) { toast('Could not save evidence: ' + error.message, 'error'); return; }
     await loadTrustData();
     toast('Evidence uploaded and sent for admin approval.');
-  };
-
-  const addReference = async () => {
-    if (!user || !referenceForm.referee_name.trim() || !referenceForm.relationship.trim() || !referenceForm.referee_contact.trim()) {
-      toast('Name, relationship, and contact are required.', 'error'); return;
-    }
-    const { error } = await supabase.from('trust_references').insert({
-      user_id: user.id, referee_name: referenceForm.referee_name.trim(), relationship: referenceForm.relationship.trim(),
-      referee_contact: referenceForm.referee_contact.trim(), note: referenceForm.note.trim() || null,
-    });
-    if (error) { toast('Could not add reference: ' + error.message, 'error'); return; }
-    setReferenceForm({ referee_name: '', relationship: '', referee_contact: '', note: '' });
-    await loadTrustData();
-    toast('Reference submitted for admin review.');
-  };
-
-  const removeReference = async (reference: TrustReference) => {
-    const { error } = await supabase.from('trust_references').delete().eq('id', reference.id);
-    if (error) { toast('Could not remove reference.', 'error'); return; }
-    setReferences((items) => items.filter((item) => item.id !== reference.id));
   };
 
   const addHistory = async () => {
@@ -157,6 +143,41 @@ export function DriverOnboardingPage() {
     navigate('/dashboard');
   };
 
+  const saveAbout = async () => {
+    if (!user) return;
+    if (profileForm.full_name.trim().length < 2 || !profileForm.location.trim() || profileForm.bio.trim().length < 20) {
+      toast('Add your full name, location, and an About Me description of at least 20 characters.', 'error'); return;
+    }
+    const age = Number(profileForm.age);
+    if (!age || age < 18 || age > 85) { toast('Enter a valid age between 18 and 85.', 'error'); return; }
+    const languages = profileForm.languages.split(',').map((value) => value.trim()).filter(Boolean);
+    if (languages.length === 0) { toast('Add at least one language you speak.', 'error'); return; }
+    setSaving(true);
+    const { error } = await supabase.from('profiles').update({
+      full_name: profileForm.full_name.trim(), bio: profileForm.bio.trim(), location: profileForm.location.trim(), age,
+      driving_experience_years: Math.max(0, Number(profileForm.driving_experience_years) || 0),
+      languages, preferred_locations: profileForm.preferred_locations.split(',').map((value) => value.trim()).filter(Boolean),
+      platforms_worked: profileForm.platforms_worked, onboarding_completed: true,
+    }).eq('id', user.id);
+    setSaving(false);
+    if (error) { toast('Could not publish your profile: ' + error.message, 'error'); return; }
+    await refreshProfile();
+    toast('About You completed. Your profile is now public, and you can continue building trust evidence.');
+  };
+
+  if (profile && !profile.onboarding_completed) {
+    return (
+      <div className="container-content max-w-3xl py-8">
+        <BackButton to="/" />
+        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+          <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" /><div><h1 className="font-display text-xl font-bold">Complete About You first</h1><p className="mt-1 text-sm">Your driver profile is not public yet. Complete the information below so owners can understand your experience before connecting with you.</p></div></div>
+        </div>
+        <div className="mt-6"><AboutFields profileForm={profileForm} setProfileForm={setProfileForm} /></div>
+        <button type="button" onClick={saveAbout} disabled={saving} className="btn-primary mt-5 w-full sm:w-auto">{saving ? 'Publishing…' : 'Save About You & continue'} <ArrowRight className="h-4 w-4" /></button>
+      </div>
+    );
+  }
+
   const passportSubmitted = trustLoaded && !editingPassport && (profile?.verification_status === 'pending' || profile?.verification_status === 'approved');
 
   if (passportSubmitted) {
@@ -175,7 +196,7 @@ export function DriverOnboardingPage() {
           <div className="space-y-3 p-6 sm:p-8">
             <CompletionRow label="Profile details" detail="Done" approved />
             <CompletionRow label="Platform history" detail="Done" approved={approved} />
-            <CompletionRow label="Supporting evidence" detail="Done" approved={approved} />
+            <CompletionRow label="Latest platform evidence" detail="Done" approved={approved} />
             <div className="border-t border-ink-100 pt-5">
               <button type="button" onClick={() => setEditingPassport(true)} className="btn-secondary w-full sm:w-auto"><Pencil className="h-4 w-4" /> Edit Trust Passport</button>
               <p className="mt-2 text-xs text-ink-500">Editing reviewed information may send the updated sections back to admin for approval.</p>
@@ -190,31 +211,18 @@ export function DriverOnboardingPage() {
     <div className="container-content py-8">
       <BackButton to="/dashboard" />
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Build your Trust Passport</h1>
-      <p className="mt-1 max-w-3xl text-sm text-ink-500">No identity document is required. Platform history with proof is required so admins can verify real driving activity. Other evidence and references strengthen your Trust Passport.</p>
+      <p className="mt-1 max-w-3xl text-sm text-ink-500">No identity document is required. Your latest ride-hailing platform history with proof is required so admins can verify real driving activity.</p>
 
       <div className="mt-6 space-y-6">
-        <Section title="How trust works" desc="People can see the signal and its status, never your reference contact details or private files.">
+        <Section title="How trust works" desc="People can see approved trust signals and their status, never your private proof files.">
           <div className="grid gap-3 sm:grid-cols-3">
             <TrustNote icon={<ShieldCheck className="h-5 w-5" />} title="Transparent" text="Account age, activity, reviews, and standing are shown." />
-            <TrustNote icon={<Users className="h-5 w-5" />} title="Reference-backed" text="References are reviewed before they count." />
+            <TrustNote icon={<History className="h-5 w-5" />} title="History-backed" text="Recent platform activity helps owners assess genuine driving experience." />
             <TrustNote icon={<CheckCircle2 className="h-5 w-5" />} title="Admin-moderated" text="Every uploaded photo or proof needs approval." />
           </div>
         </Section>
 
-        <Section title="About you">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Full name"><input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="input" /></Field>
-            <Field label="Age"><input type="number" value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="input" /></Field>
-            <Field label="Location"><PlaceAutocomplete value={profileForm.location} onChange={(location) => setProfileForm({ ...profileForm, location })} placeholder="e.g. Ongata Rongai" required /></Field>
-            <Field label="Driving experience (years)"><input type="number" value={profileForm.driving_experience_years} onChange={(e) => setProfileForm({ ...profileForm, driving_experience_years: e.target.value })} className="input" /></Field>
-            <Field label="Languages spoken"><input value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="input" placeholder="English, Swahili" /></Field>
-            <Field label="Preferred work locations"><input value={profileForm.preferred_locations} onChange={(e) => setProfileForm({ ...profileForm, preferred_locations: e.target.value })} className="input" placeholder="Nairobi, Mombasa" /></Field>
-          </div>
-          <Field label="Bio / About me"><textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} rows={3} className="input" placeholder="Tell owners about your experience and working style…" /></Field>
-          <Field label="Platforms you've worked on"><div className="flex flex-wrap gap-2">{PLATFORMS.map((platform) => (
-            <button key={platform} type="button" onClick={() => setProfileForm({ ...profileForm, platforms_worked: profileForm.platforms_worked.includes(platform) ? profileForm.platforms_worked.filter((value) => value !== platform) : [...profileForm.platforms_worked, platform] })} className={cn('rounded-full px-4 py-2 text-sm font-medium ring-1 transition', profileForm.platforms_worked.includes(platform) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-700 ring-ink-200 hover:ring-ink-300 dark:bg-[#141416]')}>{titleCase(platform)}</button>
-          ))}</div></Field>
-        </Section>
+        <AboutFields profileForm={profileForm} setProfileForm={setProfileForm} />
 
         <Section title="Driver trust evidence" desc="These files are not identity documents. Admins review them privately; other members only see the approved count.">
           <div className="space-y-3">{EVIDENCE_TYPES.map((definition) => {
@@ -224,17 +232,6 @@ export function DriverOnboardingPage() {
                 <label className="btn-secondary cursor-pointer text-xs"><input type="file" accept="image/*,.pdf" className="hidden" disabled={uploadingType === definition.type} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadEvidence(file, definition.type, definition.label); e.target.value = ''; }} />{uploadingType === definition.type ? <><Upload className="h-3.5 w-3.5" /> Uploading…</> : item ? <><RefreshCw className="h-3.5 w-3.5" /> Replace</> : <><Upload className="h-3.5 w-3.5" /> Upload</>}</label>
               </div>{item?.rejected && item.rejection_reason && <p className="mt-2 rounded-lg bg-red-100 px-3 py-2 text-xs text-danger"><AlertCircle className="mr-1 inline h-3 w-3" /> {item.rejection_reason}</p>}</div>;
           })}</div>
-        </Section>
-
-        <Section title="References" desc="Admins may contact a referee. Contact details remain private; public profiles only show the number approved.">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Referee name"><input value={referenceForm.referee_name} onChange={(e) => setReferenceForm({ ...referenceForm, referee_name: e.target.value })} className="input" /></Field>
-            <Field label="Relationship"><input value={referenceForm.relationship} onChange={(e) => setReferenceForm({ ...referenceForm, relationship: e.target.value })} className="input" placeholder="Former employer, vehicle owner…" /></Field>
-            <Field label="Phone or email"><input value={referenceForm.referee_contact} onChange={(e) => setReferenceForm({ ...referenceForm, referee_contact: e.target.value })} className="input" /></Field>
-            <Field label="Short note (optional)"><input value={referenceForm.note} onChange={(e) => setReferenceForm({ ...referenceForm, note: e.target.value })} className="input" /></Field>
-          </div>
-          <button type="button" onClick={addReference} className="btn-secondary"><Plus className="h-4 w-4" /> Add reference</button>
-          <div className="mt-4 space-y-2">{references.map((reference) => <div key={reference.id} className="flex items-center justify-between rounded-xl border border-ink-100 p-3"><div><p className="text-sm font-medium text-ink-900">{reference.referee_name} · {reference.relationship}</p><p className={cn('text-xs capitalize', reference.status === 'approved' ? 'text-success' : reference.status === 'rejected' ? 'text-danger' : 'text-amber-600')}>{reference.status}</p>{reference.rejection_reason && <p className="text-xs text-danger">{reference.rejection_reason}</p>}</div><button type="button" onClick={() => removeReference(reference)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button></div>)}</div>
         </Section>
 
         <Section title="Platform history (required)" desc="Add at least one platform, enter your months active, and upload proof. Only admin-approved entries appear publicly.">
@@ -248,6 +245,23 @@ export function DriverOnboardingPage() {
       </div>
     </div>
   );
+}
+
+function AboutFields({ profileForm, setProfileForm }: { profileForm: DriverAboutForm; setProfileForm: (value: DriverAboutForm) => void }) {
+  return <Section title="About you" desc="This information is required before your driver profile can appear publicly.">
+    <div className="grid gap-4 sm:grid-cols-2">
+      <Field label="Full name"><input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="input" /></Field>
+      <Field label="Age"><input type="number" min={18} max={85} value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="input" /></Field>
+      <Field label="Location"><PlaceAutocomplete value={profileForm.location} onChange={(location) => setProfileForm({ ...profileForm, location })} placeholder="e.g. Ongata Rongai" required /></Field>
+      <Field label="Driving experience (years)"><input type="number" min={0} value={profileForm.driving_experience_years} onChange={(e) => setProfileForm({ ...profileForm, driving_experience_years: e.target.value })} className="input" /></Field>
+      <Field label="Languages spoken"><input value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="input" placeholder="English, Swahili" /></Field>
+      <Field label="Preferred work locations"><input value={profileForm.preferred_locations} onChange={(e) => setProfileForm({ ...profileForm, preferred_locations: e.target.value })} className="input" placeholder="Nairobi, Mombasa" /></Field>
+    </div>
+    <Field label="Bio / About me"><textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} rows={3} className="input" placeholder="Tell owners about your experience and working style…" /></Field>
+    <Field label="Platforms you've worked on"><div className="flex flex-wrap gap-2">{PLATFORMS.map((platform) => (
+      <button key={platform} type="button" onClick={() => setProfileForm({ ...profileForm, platforms_worked: profileForm.platforms_worked.includes(platform) ? profileForm.platforms_worked.filter((value) => value !== platform) : [...profileForm.platforms_worked, platform] })} className={cn('rounded-full px-4 py-2 text-sm font-medium ring-1 transition', profileForm.platforms_worked.includes(platform) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-700 ring-ink-200 hover:ring-ink-300 dark:bg-[#141416]')}>{titleCase(platform)}</button>
+    ))}</div></Field>
+  </Section>;
 }
 
 function UploadStatus({ item }: { item: DocumentRow }) {

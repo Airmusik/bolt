@@ -31,6 +31,7 @@ export function BrowseDriversPage() {
         .from('profiles')
         .select(PUBLIC_PROFILE_FIELDS)
         .eq('role', 'driver')
+        .eq('onboarding_completed', true)
         .order('is_verified', { ascending: false })
         .order('rating', { ascending: false })
         .order('created_at', { ascending: false });

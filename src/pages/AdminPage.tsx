@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, BadgeCheck, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail } from 'lucide-react';
+import { Users, Car, BadgeCheck, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET } from '@/lib/supabase';
-import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, TrustReference, ContactMessage, UserWarning } from '@/lib/types';
+import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
@@ -18,7 +18,7 @@ const SUSPEND_REASONS = [
   'Repeated no-shows or cancellations',
   'Violation of community guidelines',
 ];
-const TRUST_EVIDENCE_TYPES = ['work_history', 'reference_letter', 'other_trust_evidence'];
+const TRUST_EVIDENCE_TYPES = ['work_history', 'other_trust_evidence'];
 import { useToast } from '@/components/useToast';
 import { useAuth } from '@/lib/useAuth';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -33,7 +33,6 @@ import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 type AdminVehicle = Vehicle & { owner?: Profile; photos?: VehiclePhoto[]; issues?: VehicleIssue[]; description?: string };
 type AdminDocument = DocumentRow & { user?: Profile; vehicle?: Pick<Vehicle, 'id' | 'make' | 'model' | 'year'> };
 type AdminHistory = PlatformHistory & { driver?: Profile };
-type AdminReference = TrustReference & { user?: Profile };
 type AdminReport = Report & { reporter?: Profile; reported?: Profile; warnings?: UserWarning[] };
 type ToastFn = (message: string, type?: ToastType) => void;
 
@@ -72,7 +71,6 @@ export function AdminPage() {
   const [vehicles, setVehicles] = useState<AdminVehicle[]>([]);
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [documents, setDocuments] = useState<AdminDocument[]>([]);
-  const [references, setReferences] = useState<AdminReference[]>([]);
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -97,30 +95,27 @@ export function AdminPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, referencesResult, contactsResult] = await Promise.all([
+    const [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, contactsResult] = await Promise.all([
       supabase.rpc('admin_list_profiles'),
       supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).order('created_at', { ascending: false }),
       supabase.from('reports').select(`*, reporter:profiles!reports_reporter_id_fkey(${PUBLIC_PROFILE_FIELDS}), reported:profiles!reports_reported_id_fkey(${PUBLIC_PROFILE_FIELDS}), warnings:user_warnings(*)`).order('created_at', { ascending: false }),
       supabase.from('documents').select(`*, user:profiles!documents_user_id_fkey(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles!documents_vehicle_id_fkey(id,make,model,year)`).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false }),
       supabase.from('driver_platform_history').select(`*, driver:profiles!driver_platform_history_driver_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
-      supabase.from('trust_references').select(`*, user:profiles!trust_references_user_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
       supabase.from('contact_messages').select('*').order('created_at', { ascending: false }),
     ]);
-    const loadError = [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, referencesResult, contactsResult].find((result) => result.error)?.error;
+    const loadError = [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, contactsResult].find((result) => result.error)?.error;
     if (loadError) toast('Some admin data could not be loaded: ' + loadError.message, 'error');
     const { data: u } = usersResult;
     const { data: v } = vehiclesResult;
     const { data: r } = reportsResult;
     const { data: d } = documentsResult;
     const { data: h } = historyResult;
-    const { data: refs } = referencesResult;
     const { data: contacts } = contactsResult;
     setUsers((u as Profile[]) || []);
     setVehicles((v as AdminVehicle[]) || []);
     setReports((r as AdminReport[]) || []);
     setDocuments((d as AdminDocument[]) || []);
     setHistory((h as AdminHistory[]) || []);
-    setReferences((refs as AdminReference[]) || []);
     setContactMessages((contacts as ContactMessage[]) || []);
     setLoading(false);
   }, [toast]);
@@ -132,7 +127,6 @@ export function AdminPage() {
   const pendingDocs = documents.filter((d) => !d.verified && !d.rejected);
   const pendingVehiclePhotos = vehicles.flatMap((v) => (v.photos || []).filter((photo) => !photo.approved && !photo.rejected).map((photo) => ({ ...photo, vehicle: v })));
   const pendingListings = vehicles.filter((vehicle) => vehicle.approval_status === 'pending');
-  const pendingReferences = references.filter((reference) => reference.status === 'pending');
   const newContactMessages = contactMessages.filter((message) => message.status === 'new');
 
   const approveVerification = async (p: Profile) => {
@@ -280,16 +274,6 @@ export function AdminPage() {
     load();
   };
 
-  const reviewReference = async (reference: AdminReference, status: 'approved' | 'rejected') => {
-    const reason = status === 'rejected' ? window.prompt('Why is this reference being rejected?') : null;
-    if (status === 'rejected' && !reason?.trim()) return;
-    const { error } = await supabase.from('trust_references').update({ status, rejection_reason: reason?.trim() || null }).eq('id', reference.id);
-    if (error) { toast('Could not review reference: ' + error.message, 'error'); return; }
-    await notifyUser(reference.user_id, 'trust', `Reference ${status}`, status === 'approved' ? `${reference.referee_name} now counts toward your Trust Passport.` : reason!.trim());
-    toast(`Reference ${status}.`);
-    load();
-  };
-
   const toggleVehicle = async (v: Vehicle) => {
     const newStatus = v.status === 'active' ? 'closed' : 'active';
     const { error } = await supabase.from('vehicles').update({ status: newStatus }).eq('id', v.id);
@@ -376,7 +360,7 @@ export function AdminPage() {
     { key: 'drivers', label: 'Drivers', icon: Users, badge: drivers.length },
     { key: 'owners', label: 'Car Owners', icon: ShieldCheck, badge: owners.length },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
-    { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length + pendingReferences.length },
+    { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
     { key: 'contact', label: 'Contact inbox', icon: Mail, badge: newContactMessages.length },
     { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
@@ -622,25 +606,6 @@ export function AdminPage() {
                   </div>
                 ))}
                 {pendingVehiclePhotos.length === 0 && <p className="text-sm text-ink-400">No pending vehicle photos.</p>}
-              </div>
-            </section>
-
-            <section>
-              <h3 className="mb-2 font-semibold text-ink-900">References</h3>
-              <div className="space-y-2">
-                {references.map((reference) => (
-                  <div key={reference.id} className="card flex flex-wrap items-center gap-3 p-4">
-                    <Users className="h-7 w-7 text-brand-600" />
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-ink-900">{reference.referee_name} · {reference.relationship}</p>
-                      <p className="text-xs text-ink-500">For {reference.user?.full_name || 'Unknown'} · {reference.referee_contact}</p>
-                      {reference.note && <p className="mt-1 text-xs text-ink-600">{reference.note}</p>}
-                      {reference.rejection_reason && <p className="mt-1 text-xs text-danger">{reference.rejection_reason}</p>}
-                    </div>
-                    {reference.status === 'pending' ? <><button onClick={() => reviewReference(reference, 'approved')} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Approve</button><button onClick={() => reviewReference(reference, 'rejected')} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button></> : <span className={cn('badge capitalize', reference.status === 'approved' ? 'badge-success' : 'badge-danger')}>{reference.status}</span>}
-                  </div>
-                ))}
-                {references.length === 0 && <p className="text-sm text-ink-400">No references submitted.</p>}
               </div>
             </section>
 
@@ -1443,17 +1408,18 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [joinedConversationIds, setJoinedConversationIds] = useState<Set<string>>(new Set());
+  const [joining, setJoining] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from('conversations')
-      .select(`*, driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
-      .not('admin_id', 'is', null)
-      .eq('admin_id', user.id)
-      .order('last_message_at', { ascending: false, nullsFirst: false });
+    const [{ data }, { data: memberships }] = await Promise.all([
+      supabase.from('conversations').select(`*, driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('last_message_at', { ascending: false, nullsFirst: false }),
+      supabase.from('conversation_admins').select('conversation_id').eq('admin_id', user.id),
+    ]);
     setConversations((data as (Conversation & { driver?: Profile; owner?: Profile })[]) || []);
+    setJoinedConversationIds(new Set((memberships || []).map((membership) => membership.conversation_id)));
     setLoading(false);
   }, [user]);
 
@@ -1477,7 +1443,7 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
 
   const loadMessages = useCallback(async () => {
     if (!activeId) return;
-    const { data } = await supabase.from('messages').select('*').eq('conversation_id', activeId).order('created_at', { ascending: true });
+    const { data } = await supabase.from('messages').select(`*, sender:profiles!messages_sender_id_fkey(${PUBLIC_PROFILE_FIELDS})`).eq('conversation_id', activeId).order('created_at', { ascending: true });
     setMessages((data as Message[]) || []);
     if (user) {
       await supabase.from('messages').update({ read: true }).eq('conversation_id', activeId).neq('sender_id', user.id).eq('read', false);
@@ -1505,6 +1471,7 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
 
   const send = async () => {
     if (!user || !activeId || !text.trim()) return;
+    if (!active || (active.admin_id !== user.id && !joinedConversationIds.has(active.id))) { toast('Join this conversation before sending a message.', 'error'); return; }
     const content = text.trim();
     const { data, error } = await supabase.from('messages').insert({ conversation_id: activeId, sender_id: user.id, content, type: 'text' }).select().maybeSingle();
     if (error) { toast('Could not send message: ' + error.message, 'error'); return; }
@@ -1515,32 +1482,45 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
     loadConversations();
   };
 
+  const joinConversation = async (conversationId: string) => {
+    setJoining(true);
+    const { error } = await supabase.rpc('admin_join_conversation', { p_conversation_id: conversationId });
+    setJoining(false);
+    if (error) { toast('Could not join conversation: ' + error.message, 'error'); return; }
+    setJoinedConversationIds((current) => new Set(current).add(conversationId));
+    toast('You joined the conversation. Both members were notified in chat.');
+    await loadMessages();
+    loadConversations();
+  };
+
   if (loading) return <div className="card h-64 animate-pulse" />;
 
   if (conversations.length === 0) {
     return (
       <div className="card p-8 text-center">
         <MessageSquare className="mx-auto h-10 w-10 text-ink-300" />
-        <p className="mt-3 text-sm text-ink-500">No admin chats yet. Click "Chat" on any driver or owner to start a conversation.</p>
+        <p className="mt-3 text-sm text-ink-500">No conversations yet. Member chats and direct support conversations will appear here.</p>
       </div>
     );
   }
 
   const other = active?.driver || active?.owner;
+  const activeJoined = Boolean(active && (active.admin_id === user?.id || joinedConversationIds.has(active.id)));
 
   return (
     <div className="grid h-[70vh] gap-4 lg:grid-cols-[300px_1fr]">
       <div className={cn('card overflow-y-auto', active && 'hidden lg:block')}>
         {conversations.map((c) => {
           const u = c.driver || c.owner;
+          const joined = c.admin_id === user?.id || joinedConversationIds.has(c.id);
           return (
             <button key={c.id} onClick={() => setActiveId(c.id)} className={cn('flex w-full items-center gap-3 border-b border-ink-50 p-3 text-left hover:bg-ink-50', activeId === c.id && 'bg-brand-50')}>
               <Avatar name={u?.full_name || 'User'} src={u?.avatar_url} size={44} verified={u?.is_verified} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-ink-900">{u?.full_name}</p>
-                <p className="text-xs capitalize text-ink-500">{u?.role}</p>
+                <p className="truncate text-sm font-semibold text-ink-900">{c.driver && c.owner ? `${c.driver.full_name} ↔ ${c.owner.full_name}` : u?.full_name}</p>
+                <p className="text-xs capitalize text-ink-500">{c.driver && c.owner ? 'Member conversation' : `${u?.role || 'member'} support`}</p>
               </div>
-              {c.last_message_at && <span className="text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}
+              <div className="text-right">{joined && <span className="badge badge-success text-[10px]">Joined</span>}{c.last_message_at && <span className="mt-1 block text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}</div>
             </button>
           );
         })}
@@ -1553,16 +1533,18 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
               <button onClick={() => setActiveId(null)} className="lg:hidden"><ArrowLeft className="h-5 w-5 text-ink-500" /></button>
               <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.is_verified} />
               <div>
-                <p className="font-semibold text-ink-900">{other.full_name}</p>
-                <p className="text-xs capitalize text-brand-600">{other.role}</p>
+                <p className="font-semibold text-ink-900">{active.driver && active.owner ? `${active.driver.full_name} ↔ ${active.owner.full_name}` : other.full_name}</p>
+                <p className="text-xs capitalize text-brand-600">{active.closed_at ? 'Ended · preserved history' : active.driver && active.owner ? 'Active member chat' : `${other.role} support`}</p>
               </div>
+              <div className="ml-auto">{!activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}</div>
             </div>
             <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-ink-50/50 p-4">
               {messages.map((m) => {
                 const mine = m.sender_id === user?.id;
                 return (
-                  <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                    <div className={cn('max-w-[75%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
+                  <div key={m.id} className={cn('flex', m.type === 'system' ? 'justify-center' : mine ? 'justify-end' : 'justify-start')}>
+                    <div className={cn('max-w-[75%] rounded-2xl px-3 py-2 text-sm', m.type === 'system' ? 'bg-violet-50 text-center text-xs text-violet-800 ring-1 ring-violet-100' : mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
+                      {!mine && m.type !== 'system' && <p className="mb-1 text-[10px] font-semibold text-brand-700">{m.sender?.full_name || 'Member'}</p>}
                       <p className="whitespace-pre-wrap break-words">{m.content}</p>
                       <div className={cn('mt-0.5 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{timeAgo(m.created_at)}</div>
                     </div>
@@ -1570,10 +1552,10 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
                 );
               })}
             </div>
-            <div className="flex items-center gap-2 border-t border-ink-100 p-3">
+            {activeJoined ? <div className="flex items-center gap-2 border-t border-ink-100 p-3">
               <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Type a message…" className="input flex-1" />
               <button onClick={send} disabled={!text.trim()} aria-label="Send message" className="btn-primary px-3"><Send className="h-4 w-4" /></button>
-            </div>
+            </div> : <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><LockKeyhole className="h-4 w-4" />Review the preserved history, then click Join chat before sending a support message.</div>}
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center text-ink-400">

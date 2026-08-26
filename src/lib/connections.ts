@@ -13,25 +13,17 @@ export async function getConnectionBetween(userId: string, otherId: string): Pro
 }
 
 export async function sendConnectionRequest(
-  requesterId: string,
+  _requesterId: string,
   recipientId: string,
   message?: string,
   vehicleId?: string,
 ): Promise<{ connection: Connection | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from('connections')
-    .insert({
-      requester_id: requesterId,
-      recipient_id: recipientId,
-      message: message || null,
-      vehicle_id: vehicleId || null,
-    })
-    .select()
-    .maybeSingle();
+  const { data, error } = await supabase.rpc('request_connection', {
+    p_recipient_id: recipientId,
+    p_message: message || null,
+    p_vehicle_id: vehicleId || null,
+  });
   if (error) {
-    if (error.code === '23505') {
-      return { connection: null, error: 'You already have a pending connection with this member.' };
-    }
     return { connection: null, error: error.message };
   }
   return { connection: data as Connection, error: null };

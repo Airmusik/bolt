@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, ArrowLeft, BadgeCheck, CalendarDays, UserCheck, Award, Mail } from 'lucide-react';
+import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, ArrowLeft, BadgeCheck, CalendarDays, Award, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useAuth } from '@/lib/useAuth';
@@ -43,6 +43,7 @@ export function DriverProfilePage() {
 
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
   if (!profile) return <div className="container-content py-12"><EmptyState title="Profile not found" /></div>;
+  if (profile.role === 'driver' && !profile.onboarding_completed) return <div className="container-content py-12"><EmptyState title="Profile not public yet" description="This driver is still completing their About You information." /></div>;
 
   const isOwner = profile.role === 'owner';
   return (
@@ -125,7 +126,6 @@ export function DriverProfilePage() {
                 <TrustSignal icon={<Award className="h-4 w-4" />} label="Trust level" value={titleCase(trustPassport?.trust_level || 'new')} />
                 <TrustSignal icon={<CalendarDays className="h-4 w-4" />} label="Member since" value={new Date(trustPassport?.account_created_at || profile.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} />
                 <TrustSignal icon={<BadgeCheck className="h-4 w-4" />} label="Completed matches" value={String(trustPassport?.contracts_completed ?? profile.contracts_completed)} />
-                <TrustSignal icon={<UserCheck className="h-4 w-4" />} label="Approved references" value={String(trustPassport?.approved_references ?? 0)} />
                 <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Approved evidence" value={String(trustPassport?.approved_evidence ?? 0)} />
                 <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Account standing" value={trustPassport?.account_standing === 'restricted' ? 'Restricted' : 'Good standing'} />
               </div>

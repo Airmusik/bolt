@@ -46,6 +46,7 @@ export function HomePage() {
           .from('profiles')
           .select(PUBLIC_PROFILE_FIELDS)
           .eq('role', 'driver')
+          .eq('onboarding_completed', true)
           .eq('is_verified', true)
           .order('rating', { ascending: false })
           .limit(4),
@@ -84,7 +85,7 @@ export function HomePage() {
               <span className="text-ink-950">Find the Right Driver or the Right Car.</span>
             </h1>
             <p className="mt-5 text-lg text-ink-600">
-              {settings.site_name} connects car owners and ride-hailing drivers through approved evidence, references, reviews, and transparent activity.
+              {settings.site_name} connects car owners and ride-hailing drivers through approved platform history, reviews, and transparent activity.
             </p>
           </div>
 
@@ -203,7 +204,7 @@ export function HomePage() {
             color="accent"
             steps={[
               { icon: Users, text: 'Register and build your Trust Passport' },
-              { icon: BadgeCheck, text: 'Add references, history & optional evidence' },
+              { icon: BadgeCheck, text: 'Add recent platform history & optional evidence' },
               { icon: Search, text: 'Browse cars that match your needs' },
               { icon: TrendingUp, text: 'Apply and start earning' },
             ]}
@@ -256,7 +257,7 @@ export function HomePage() {
               Built for trust, end to end
             </h2>
             <p className="mt-3 text-ink-600">
-              Trust is earned through account history, completed matches, two-way reviews, approved references, and optional evidence. Vehicle insurance and known issues are shown upfront. Report or block anyone, anytime.
+              Trust is earned through account history, completed matches, two-way reviews, recent platform activity, and optional evidence. Vehicle insurance and known issues are shown upfront. Report or block anyone, anytime.
             </p>
             <ul className="mt-6 space-y-3">
               {[
@@ -264,7 +265,7 @@ export function HomePage() {
                 'Vehicle photos and trust evidence reviewed by admins',
                 'Insurance type and expiry visible on every listing',
                 'Known vehicle issues disclosed by the owner',
-                'Approved references and work history shown as counts',
+                'Approved platform history and evidence shown as counts',
                 'Real-time chat with read receipts and block / report',
               ].map((t) => (
                 <li key={t} className="flex items-start gap-2 text-sm text-ink-700">
@@ -275,7 +276,7 @@ export function HomePage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             {[
-              { icon: BadgeCheck, title: 'Driver Trust Passports', text: 'Activity, reviews, references & evidence' },
+              { icon: BadgeCheck, title: 'Driver Trust Passports', text: 'Activity, reviews & platform evidence' },
               { icon: ShieldCheck, title: 'Insurance shown', text: 'Third party or comprehensive' },
               { icon: MessageSquare, title: 'Secure chat', text: 'Only after a match is accepted' },
               { icon: Bell, title: 'Stay informed', text: 'Notifications for every action' },

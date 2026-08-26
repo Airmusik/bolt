@@ -34,6 +34,7 @@ export interface Profile {
   rating: number;
   rating_count: number;
   contracts_completed: number;
+  onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -119,21 +120,6 @@ export interface PlatformHistory {
   created_at: string;
 }
 
-export interface TrustReference {
-  id: string;
-  user_id: string;
-  vehicle_id?: string | null;
-  referee_name: string;
-  relationship: string;
-  referee_contact: string;
-  note: string | null;
-  status: 'pending' | 'approved' | 'rejected';
-  rejection_reason: string | null;
-  created_at: string;
-  updated_at: string;
-  user?: Profile;
-}
-
 export interface ContactMessage {
   id: string;
   name: string;
@@ -149,7 +135,6 @@ export interface TrustPassport {
   contracts_completed: number;
   rating: number;
   rating_count: number;
-  approved_references: number;
   approved_evidence: number;
   approved_platform_history: number;
   trust_level: 'new' | 'building' | 'established';
@@ -178,11 +163,15 @@ export interface Conversation {
   owner_id: string | null;
   admin_id: string | null;
   last_message_at: string | null;
+  closed_at: string | null;
+  closed_by: string | null;
   created_at: string;
   vehicle?: Vehicle;
   driver?: Profile;
   owner?: Profile;
   admin?: Profile;
+  connection?: { status: ConnectionStatus } | null;
+  application?: { status: ApplicationStatus } | null;
 }
 
 export interface Message {
@@ -193,6 +182,7 @@ export interface Message {
   type: 'text' | 'image' | 'file' | 'system';
   read: boolean;
   created_at: string;
+  sender?: Profile;
 }
 
 export interface Review {

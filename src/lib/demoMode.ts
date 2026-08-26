@@ -39,6 +39,7 @@ export function createDemoAdminProfile(): Profile {
     rating: 5,
     rating_count: 0,
     contracts_completed: 0,
+    onboarding_completed: true,
     created_at: now,
     updated_at: now,
   };

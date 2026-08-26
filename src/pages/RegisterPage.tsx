@@ -40,10 +40,10 @@ export function RegisterPage() {
       if (result.error) {
         setError(result.error);
       } else if (result.requiresEmailConfirmation) {
-        toast('Account created. Check your email to confirm it before signing in.');
+        toast(role === 'driver' ? 'Account created. Confirm your email, then complete About You. Your driver profile stays private until that is done.' : 'Account created. Check your email to confirm it before signing in.');
         navigate('/login');
       } else {
-        toast(`Account created. Welcome to ${settings.site_name}.`);
+        toast(role === 'driver' ? 'Account created. Complete About You now—your driver profile is not public until you save it.' : `Account created. Welcome to ${settings.site_name}.`);
         navigate(role === 'driver' ? '/onboarding' : '/dashboard');
       }
     } catch {

@@ -50,7 +50,7 @@ export function DashboardPage() {
       const [{ data: v }, { data: apps }, { data: drs }] = await Promise.all([
         supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).eq('owner_id', user.id).order('created_at', { ascending: false }),
         supabase.from('applications').select(`*, driver:profiles(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles(*, photos:vehicle_photos(*))`).eq('owner_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('role', 'driver').order('is_verified', { ascending: false }).order('rating', { ascending: false }).order('created_at', { ascending: false }).limit(24),
+        supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('role', 'driver').eq('onboarding_completed', true).order('is_verified', { ascending: false }).order('rating', { ascending: false }).order('created_at', { ascending: false }).limit(24),
       ]);
       setVehicles((v as VehicleWithRelations[]) || []);
       setApplications((apps as OwnerApplication[]) || []);
@@ -104,7 +104,7 @@ export function DashboardPage() {
   ] : [
     { label: 'Applications', value: myApplications.length, icon: Users, tab: 'applications' as Tab },
     { label: 'Connection requests', value: pendingConnections.length, icon: Link2, tab: 'connections' as Tab },
-    { label: 'Active chats', value: conversations.length, icon: MessageSquare, tab: 'chats' as Tab },
+    { label: 'Chat history', value: conversations.length, icon: MessageSquare, tab: 'chats' as Tab },
     { label: 'Rating', value: profile.rating > 0 ? profile.rating.toFixed(1) : 'New', icon: Star, tab: null },
   ];
 
@@ -406,7 +406,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
   const handleEnd = async (c: Connection) => {
     const { error } = await endConnection(c.id);
     if (error) { toast(error, 'error'); return; }
-    toast('Connection ended. Driver is now available again.');
+    toast('Connection ended. The chat remains available as read-only history.');
     onAction();
   };
 
@@ -513,8 +513,8 @@ function ChatsTab({ conversations, loading }: { conversations: ConversationWithR
         <Link key={c.id} to={`/chat/${c.id}`} className="card card-hover flex items-center gap-3 p-4">
           <Avatar name={(c.driver?.full_name || c.owner?.full_name || 'User')} src={c.driver?.avatar_url || c.owner?.avatar_url} size={44} verified={!!c.driver?.is_verified || !!c.owner?.is_verified} />
           <div className="flex-1">
-            <p className="font-semibold text-ink-900">{c.vehicle?.make} {c.vehicle?.model}</p>
-            <p className="text-xs text-ink-400">{c.last_message_at ? timeAgo(c.last_message_at) : 'No messages yet'}</p>
+            <p className="font-semibold text-ink-900">{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : `${c.driver?.full_name || 'Driver'} ↔ ${c.owner?.full_name || 'Owner'}`}</p>
+            <p className="text-xs text-ink-400">{c.closed_at ? 'Ended · history preserved' : c.last_message_at ? timeAgo(c.last_message_at) : 'No messages yet'}</p>
           </div>
           <MessageSquare className="h-5 w-5 text-ink-400" />
         </Link>

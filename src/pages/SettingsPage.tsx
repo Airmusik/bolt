@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, LogOut, Camera, Loader2, Check, ToggleLeft, ToggleRight, Lock, KeyRound, Palette, Mail } from 'lucide-react';
+import { User, Shield, Bell, LogOut, Camera, Loader2, Check, ToggleLeft, ToggleRight, Lock, KeyRound, Palette, Mail, AlertTriangle, MessageSquare } from 'lucide-react';
 import { supabase, AVATAR_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -10,6 +10,7 @@ import { BackButton } from '@/components/BackButton';
 import { pinToPassword } from '@/lib/phoneAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { Modal } from '@/components/Modal';
 
 export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
@@ -22,6 +23,20 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [activeRelationships, setActiveRelationships] = useState(0);
+  const [showAvailabilityWarning, setShowAvailabilityWarning] = useState(false);
+  const [changingAvailability, setChangingAvailability] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const [{ count: connectionCount }, { count: applicationCount }] = await Promise.all([
+        supabase.from('connections').select('id', { count: 'exact', head: true }).eq('status', 'accepted').or(`requester_id.eq.${user.id},recipient_id.eq.${user.id}`),
+        supabase.from('applications').select('id', { count: 'exact', head: true }).eq('status', 'accepted').or(`driver_id.eq.${user.id},owner_id.eq.${user.id}`),
+      ]);
+      setActiveRelationships((connectionCount || 0) + (applicationCount || 0));
+    })();
+  }, [user]);
 
   const save = async () => {
     if (!user) return;
@@ -88,18 +103,28 @@ export function SettingsPage() {
     toast('Profile photo updated.');
   };
 
-  const toggleAvailability = async () => {
+  const applyAvailability = async (makeAvailable: boolean) => {
     if (!user) return;
-    const newStatus = availability === 'available' ? 'unavailable' : 'available';
-    setAvailability(newStatus);
-    const { error } = await supabase.from('profiles').update({ availability: newStatus }).eq('id', user.id);
+    setChangingAvailability(true);
+    const { data, error } = await supabase.rpc('set_my_availability', { p_available: makeAvailable });
+    setChangingAvailability(false);
     if (error) {
-      setAvailability(availability === 'available' ? 'unavailable' : 'available');
-      toast('Could not update availability.', 'error');
+      toast('Could not update availability: ' + error.message, 'error');
       return;
     }
+    const newStatus = makeAvailable ? 'available' : 'unavailable';
+    setAvailability(newStatus);
+    if (makeAvailable) setActiveRelationships(0);
+    setShowAvailabilityWarning(false);
     await refreshProfile();
-    toast(`You are now ${newStatus}.`);
+    const ended = Number(data || 0);
+    toast(ended > 0 ? `You are available. ${ended} active connection${ended === 1 ? '' : 's'} ended; chat history was preserved.` : `You are now ${newStatus}.`);
+  };
+
+  const toggleAvailability = () => {
+    if (availability === 'available') { applyAvailability(false); return; }
+    if (activeRelationships > 0) { setShowAvailabilityWarning(true); return; }
+    applyAvailability(true);
   };
 
   return (
@@ -153,7 +178,7 @@ export function SettingsPage() {
                 {availability === 'available' ? 'Available' : 'Unavailable'}
               </span>
             </div>
-            <button onClick={toggleAvailability} className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900">
+            <button onClick={toggleAvailability} disabled={changingAvailability} className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 disabled:opacity-50">
               {availability === 'available'
                 ? <ToggleRight className="h-7 w-7 text-green-600" />
                 : <ToggleLeft className="h-7 w-7 text-ink-400" />}
@@ -191,6 +216,18 @@ export function SettingsPage() {
           <button onClick={async () => { await signOut(); navigate('/'); }} className="btn-ghost mt-3 text-danger">Sign out</button>
         </div>
       </div>
+
+      {showAvailabilityWarning && (
+        <Modal title="End active connection and become available?" onClose={() => setShowAvailabilityWarning(false)}>
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+            <AlertTriangle className="h-6 w-6" />
+            <p className="mt-3 text-sm font-semibold">You currently have {activeRelationships} active connection{activeRelationships === 1 ? '' : 's'}.</p>
+            <p className="mt-2 text-sm leading-6">Setting your profile to available will end the active connection immediately. You and the other member will no longer be able to send messages in that chat unless a new connection request is sent and accepted.</p>
+          </div>
+          <p className="mt-3 flex items-start gap-2 text-xs text-ink-500"><MessageSquare className="mt-0.5 h-4 w-4 shrink-0" />The complete conversation will remain stored and readable for history, support, and dispute resolution.</p>
+          <div className="mt-5 flex gap-2"><button type="button" onClick={() => setShowAvailabilityWarning(false)} className="btn-secondary flex-1">Keep connection</button><button type="button" onClick={() => applyAvailability(true)} disabled={changingAvailability} className="btn-primary flex-1">{changingAvailability ? 'Ending…' : 'End & become available'}</button></div>
+        </Modal>
+      )}
     </div>
   );
 }

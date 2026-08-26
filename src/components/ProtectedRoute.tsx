@@ -29,6 +29,9 @@ export function ProtectedRoute({ children, roles }: { children: ReactNode; roles
   if (profile?.is_suspended && !SUSPENDED_ALLOWED.includes(location.pathname)) {
     return <Navigate to="/suspended" replace />;
   }
+  if (profile.role === 'driver' && !profile.onboarding_completed && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" state={{ required: true }} replace />;
+  }
   if (roles && !roles.includes(profile.role)) {
     return <Navigate to={profile.role === 'admin' ? '/admin' : '/dashboard'} replace />;
   }

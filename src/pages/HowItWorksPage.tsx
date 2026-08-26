@@ -20,7 +20,7 @@ export function HowItWorksPage() {
         ]} cta="List your car" />
         <Path title="For drivers" color="accent" steps={[
           { icon: Users, text: 'Register and complete your profile—no identity document is required.' },
-          { icon: BadgeCheck, text: 'Add references, platform history and optional evidence for admin approval.' },
+          { icon: BadgeCheck, text: 'Add your latest platform history and optional evidence for admin approval.' },
           { icon: Search, text: 'Browse cars that match your needs and location.' },
           { icon: TrendingUp, text: 'Apply and start earning.' },
         ]} cta="Find a car" />

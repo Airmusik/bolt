@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront } from 'lucide-react';
+import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -35,7 +35,7 @@ export function ChatPage() {
     if (!user) return;
     const { data } = await supabase
       .from('conversations')
-      .select(`*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), admin:profiles!conversations_admin_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
+      .select(`*, vehicle:vehicles(*, photos:vehicle_photos(*)), connection:connections(status), application:applications(status), driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), admin:profiles!conversations_admin_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
       .or(`driver_id.eq.${user.id},owner_id.eq.${user.id},admin_id.eq.${user.id}`)
       .order('last_message_at', { ascending: false, nullsFirst: false });
     setConversations((data as (Conversation & { vehicle?: VehicleWithRelations; driver?: Profile; owner?: Profile })[]) || []);
@@ -57,7 +57,7 @@ export function ChatPage() {
     if (!active) return;
     const { data } = await supabase
       .from('messages')
-      .select('*')
+      .select(`*, sender:profiles!messages_sender_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
       .eq('conversation_id', active.id)
       .order('created_at', { ascending: true });
     setMessages((data as Message[]) || []);
@@ -103,6 +103,7 @@ export function ChatPage() {
 
   const send = async () => {
     if (!user || !active) return;
+    if (active.closed_at) { toast('This connection has ended. The chat is saved as read-only history.', 'error'); return; }
     const body = text.trim();
     if (!body) return;
     const { data, error } = await supabase.from('messages').insert({
@@ -141,6 +142,7 @@ export function ChatPage() {
   }
 
   const other = active ? (user?.id === active.driver_id ? (active.owner || active.admin) : user?.id === active.owner_id ? (active.driver || active.admin) : active.driver || active.owner) : null;
+  const chatClosed = Boolean(active?.closed_at);
 
   return (
     <div className="container-content py-6">
@@ -180,9 +182,11 @@ export function ChatPage() {
               <div className="flex items-center justify-between border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-violet-50 p-4 dark:from-brand-950/30 dark:via-[#141416] dark:to-violet-950/20">
                 <div className="flex items-center gap-3">
                   <button onClick={() => setActive(null)} className="lg:hidden"><ArrowLeft className="h-5 w-5 text-ink-500" /></button>
-                  <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.is_verified} />
+                  <Link to={`/members/${other.id}`} title={`View ${other.full_name}'s profile`} aria-label={`View ${other.full_name}'s profile`} className="rounded-full transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-400">
+                    <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.is_verified} />
+                  </Link>
                   <div>
-                    <p className="flex items-center gap-1 font-semibold text-ink-900">{other.full_name} <VerifiedBadge verified={other.is_verified} size={12} /></p>
+                    <Link to={`/members/${other.id}`} className="flex items-center gap-1 font-semibold text-ink-900 hover:text-brand-700 hover:underline">{other.full_name} <VerifiedBadge verified={other.is_verified} size={12} /></Link>
                     <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-500">{active.vehicle_id ? <><CarFront className="h-3 w-3" /> Vehicle conversation</> : active.admin_id ? `${settings.site_name} support` : 'Member conversation'}</p>
                   </div>
                 </div>
@@ -202,14 +206,15 @@ export function ChatPage() {
                   return (
                     <div key={m.id}>
                       {showDay && <div className="my-4 flex items-center gap-3"><span className="h-px flex-1 bg-ink-100" /><span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold text-ink-400 shadow-sm ring-1 ring-ink-100 dark:bg-[#1d1d20]">{formatChatDay(m.created_at)}</span><span className="h-px flex-1 bg-ink-100" /></div>}
-                      <div className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                      <div className={cn('max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm sm:max-w-[72%]', mine ? 'rounded-br-md bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-brand-900/10' : 'rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
+                      <div className={cn('flex', m.type === 'system' ? 'justify-center' : mine ? 'justify-end' : 'justify-start')}>
+                      <div className={cn('max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm sm:max-w-[72%]', m.type === 'system' ? 'bg-violet-50 text-center text-xs font-medium text-violet-800 ring-1 ring-violet-100 dark:bg-violet-950/30 dark:text-violet-200' : mine ? 'rounded-br-md bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-brand-900/10' : 'rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
+                        {!mine && m.type !== 'system' && m.sender?.role === 'admin' && <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-violet-600">Admin support</p>}
                         {m.type === 'image' ? (
                           <img src={m.content || ''} alt="" className="max-h-48 rounded-lg" />
                         ) : (
                           <p className="whitespace-pre-wrap break-words">{m.content}</p>
                         )}
-                        <div className={cn('mt-0.5 flex items-center justify-end gap-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>
+                        <div className={cn('mt-0.5 flex items-center justify-end gap-1 text-[10px]', mine && m.type !== 'system' ? 'text-brand-100' : 'text-ink-400')}>
                           {timeAgo(m.created_at)}
                           {mine && (m.read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />)}
                         </div>
@@ -220,8 +225,10 @@ export function ChatPage() {
                 })}
               </div>
 
+              {chatClosed && <div className="flex items-start gap-3 border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-sm font-semibold">Connection ended — chat history preserved</p><p className="text-xs">This conversation is read-only. Send and accept a new connection request to start a new chat.</p></div></div>}
+
               {/* Emoji picker */}
-              {showEmoji && (
+              {!chatClosed && showEmoji && (
                 <div className="flex flex-wrap gap-1 border-t border-ink-100 bg-white/95 p-2 shadow-[0_-6px_20px_rgba(0,0,0,0.03)] dark:bg-[#141416]">
                   {EMOJIS.map((e) => (
                     <button key={e} onClick={() => { setText((t) => t + e); }} className="rounded-lg p-1.5 text-lg hover:bg-ink-100">{e}</button>
@@ -230,7 +237,7 @@ export function ChatPage() {
               )}
 
               {/* Input */}
-              <div className="flex items-center gap-2 border-t border-ink-100 bg-white p-3 dark:bg-[#141416]">
+              {!chatClosed && <div className="flex items-center gap-2 border-t border-ink-100 bg-white p-3 dark:bg-[#141416]">
                 <button onClick={() => setShowEmoji((v) => !v)} aria-label="Choose emoji" className="rounded-full p-2 text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
                 <div className="relative flex-1"><input
                   ref={inputRef}
@@ -243,7 +250,7 @@ export function ChatPage() {
                   autoFocus
                 /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-ink-300">{text.length}/1000</span></div>
                 <button onClick={() => send()} disabled={!text.trim()} className="btn-primary h-10 w-10 rounded-full p-0 shadow-lg shadow-brand-600/20" aria-label="Send message"><Send className="h-4 w-4" /></button>
-              </div>
+              </div>}
             </>
           ) : (
             <div className="flex flex-1 flex-col items-center justify-center bg-gradient-to-br from-brand-50/70 via-white to-violet-50/70 text-center dark:from-brand-950/20 dark:via-[#141416] dark:to-violet-950/20">
