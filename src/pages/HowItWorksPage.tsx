@@ -11,7 +11,7 @@ export function HowItWorksPage() {
 
       <div className="mt-10 grid gap-8 lg:grid-cols-2">
         <Path title="For car owners" color="brand" steps={[
-          { icon: Users, text: 'Register and build a transparent Trust Passport.' },
+          { icon: Users, text: 'Register and create your owner profile.' },
           { icon: Car, text: 'Add your vehicle; admins approve its photos before they are public.' },
           { icon: Bell, text: 'Compare applications using reviews, activity and approved trust signals.' },
           { icon: CheckCircle2, text: 'Choose your driver and start earning.' },

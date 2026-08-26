@@ -181,7 +181,7 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
   return (
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
-        <div className="card p-5">
+        {!isOwner && <div className="card p-5">
           <h3 className="font-semibold text-ink-900">Trust Passport</h3>
           <div className="mt-3 flex items-center gap-2">
             {profile.is_verified ? (
@@ -193,7 +193,7 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
           {!profile.is_verified && (
             <Link to="/onboarding" className="btn-secondary mt-4">Build your Trust Passport</Link>
           )}
-        </div>
+        </div>}
         <div className="card p-5">
           <h3 className="font-semibold text-ink-900">Recent activity</h3>
           <div className="mt-3 space-y-2 text-sm">

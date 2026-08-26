@@ -18,7 +18,7 @@ const SUSPEND_REASONS = [
   'Repeated no-shows or cancellations',
   'Violation of community guidelines',
 ];
-const TRUST_EVIDENCE_TYPES = ['work_history', 'vehicle_inspection', 'vehicle_ownership', 'reference_letter', 'other_trust_evidence'];
+const TRUST_EVIDENCE_TYPES = ['work_history', 'reference_letter', 'other_trust_evidence'];
 import { useToast } from '@/components/useToast';
 import { useAuth } from '@/lib/useAuth';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -108,7 +108,7 @@ export function AdminPage() {
 
   const drivers = users.filter((u) => u.role === 'driver');
   const owners = users.filter((u) => u.role === 'owner');
-  const pendingVerifications = users.filter((u) => u.verification_status === 'pending');
+  const pendingVerifications = users.filter((u) => u.role === 'driver' && u.verification_status === 'pending');
   const pendingDocs = documents.filter((d) => !d.verified && !d.rejected);
   const pendingAvatars = users.filter((u) => u.avatar_upload_status === 'pending' && u.avatar_pending_url);
   const pendingVehiclePhotos = vehicles.flatMap((v) => (v.photos || []).filter((photo) => !photo.approved && !photo.rejected).map((photo) => ({ ...photo, vehicle: v })));
@@ -443,19 +443,15 @@ export function AdminPage() {
           <div className="space-y-2">
             {filteredOwners.map((u) => (
               <div key={u.id} className="card flex items-center gap-3 p-4">
-                <Avatar name={u.full_name} src={u.avatar_url} size={40} verified={u.is_verified} />
+                <Avatar name={u.full_name} src={u.avatar_url} size={40} />
                 <div className="flex-1">
-                  <p className="flex items-center gap-1 font-medium text-ink-900">{u.full_name} <VerifiedBadge verified={u.is_verified} size={12} /></p>
+                  <p className="font-medium text-ink-900">{u.full_name}</p>
                   <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'} · {timeAgo(u.created_at)}</p>
                   <p className="text-xs text-ink-400">{vehicles.filter((v) => v.owner_id === u.id).length} car(s) listed</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {u.is_suspended && <span className="badge badge-danger"><Ban className="inline h-3 w-3" /> Suspended</span>}
-                  {!u.is_suspended && u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>}
-                  {!u.is_suspended && u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> Rejected</span>}
                   <button onClick={() => setViewingUser(u)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
-                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setViewingUser(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
-                  {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
                   <button onClick={() => setEditingUser(u)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
                   <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
@@ -1008,7 +1004,7 @@ function EditUserModal({ user, onClose, onDone, toast }: { user: Profile; onClos
         <Field label="Phone"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" /></Field>
         <Field label="Location"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input" /></Field>
         <Field label="Availability"><select value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} className="input"><option value="available">Available</option><option value="busy">Busy</option><option value="unavailable">Unavailable</option></select></Field>
-        <Field label="Trust Passport status"><select value={form.verification_status} onChange={(e) => setForm({ ...form, verification_status: e.target.value as VerificationStatus, is_verified: e.target.value === 'approved' })} className="input"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>
+        {user.role === 'driver' && <Field label="Trust Passport status"><select value={form.verification_status} onChange={(e) => setForm({ ...form, verification_status: e.target.value as VerificationStatus, is_verified: e.target.value === 'approved' })} className="input"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>}
       </div>
       <button onClick={save} disabled={saving} className="btn-primary mt-4 w-full">{saving ? 'Saving…' : 'Save changes'}</button>
     </Modal>
@@ -1040,12 +1036,17 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
   const [loadingDocs, setLoadingDocs] = useState(true);
 
   useEffect(() => {
+    if (user.role !== 'driver') {
+      setDocs([]);
+      setLoadingDocs(false);
+      return;
+    }
     (async () => {
       const { data } = await supabase.from('documents').select('*').eq('user_id', user.id).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false });
       setDocs((data as DocumentRow[]) || []);
       setLoadingDocs(false);
     })();
-  }, [user.id]);
+  }, [user.id, user.role]);
 
   return (
     <Modal title={`${user.full_name} — Profile`} onClose={onClose}>
@@ -1061,18 +1062,17 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
         </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
-          <InfoRow label="Trust Passport" value={<span className="capitalize">{user.verification_status}</span>} />
+          {user.role === 'driver' && <InfoRow label="Trust Passport" value={<span className="capitalize">{user.verification_status}</span>} />}
           <InfoRow label="Suspended" value={user.is_suspended ? 'Yes' : 'No'} />
           <InfoRow label="Rating" value={user.rating > 0 ? `${user.rating.toFixed(1)} (${user.rating_count})` : 'No ratings'} />
           <InfoRow label="Contracts" value={String(user.contracts_completed)} />
           <InfoRow label="Availability" value={<span className="capitalize">{user.availability}</span>} />
           <InfoRow label="Location" value={user.location || 'Not set'} />
-          <InfoRow label="Age" value={user.age ? String(user.age) : 'Not set'} />
-          <InfoRow label="Experience" value={`${user.driving_experience_years} yrs`} />
-          <InfoRow label="Licence #" value={user.licence_number || 'Not set'} />
-          <InfoRow label="ID #" value={user.id_number || 'Not set'} />
-          <InfoRow label="Languages" value={user.languages.join(', ') || 'None'} />
-          <InfoRow label="Platforms" value={user.platforms_worked.join(', ') || 'None'} />
+          {user.role === 'driver' && <InfoRow label="Age" value={user.age ? String(user.age) : 'Not set'} />}
+          {user.role === 'driver' && <InfoRow label="Experience" value={`${user.driving_experience_years} yrs`} />}
+          {user.role === 'driver' && <InfoRow label="Licence #" value={user.licence_number || 'Not set'} />}
+          {user.role === 'driver' && <InfoRow label="Languages" value={user.languages.join(', ') || 'None'} />}
+          {user.role === 'driver' && <InfoRow label="Platforms" value={user.platforms_worked.join(', ') || 'None'} />}
         </div>
 
         {user.bio && (
@@ -1082,8 +1082,7 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
           </div>
         )}
 
-        {/* Trust evidence */}
-        <div>
+        {user.role === 'driver' && <div>
           <p className="label">Trust evidence</p>
           {loadingDocs ? (
             <div className="h-20 animate-pulse rounded-lg bg-ink-100" />
@@ -1108,17 +1107,17 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
               ))}
             </div>
           )}
-        </div>
+        </div>}
       </div>
 
       {/* Actions */}
       <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-ink-100 pt-4">
         <button onClick={onClose} className="btn-secondary">Close</button>
         <button onClick={onMessage} className="btn-secondary"><MessageSquare className="h-4 w-4" /> Message</button>
-        {!user.is_suspended && user.verification_status !== 'approved' && (
+        {user.role === 'driver' && !user.is_suspended && user.verification_status !== 'approved' && (
           <button onClick={onApprove} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
         )}
-        {!user.is_suspended && user.verification_status !== 'rejected' && (
+        {user.role === 'driver' && !user.is_suspended && user.verification_status !== 'rejected' && (
           <button onClick={onReject} className="btn-secondary"><X className="h-4 w-4" /> Reject</button>
         )}
         <button onClick={onChangePin} className="btn-secondary"><KeyRound className="h-4 w-4" /> Change password</button>

@@ -72,7 +72,7 @@ export function HomePage() {
         <div className="container-content py-16 md:py-24">
           <div className="mx-auto max-w-3xl text-center animate-slide-up">
             <span className="badge-brand mx-auto mb-5">
-              <ShieldCheck className="h-3.5 w-3.5" /> Transparent Trust Passports across Kenya
+              <ShieldCheck className="h-3.5 w-3.5" /> Transparent driver Trust Passports across Kenya
             </span>
             <h1 className="font-display text-4xl font-extrabold leading-[1.1] text-ink-950 sm:text-5xl md:text-6xl">
               <span className="text-brand-600">GariLink</span>
@@ -117,7 +117,7 @@ export function HomePage() {
           </form>
 
           <div className="mx-auto mt-5 flex max-w-3xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-ink-500">
-            <span className="inline-flex items-center gap-1.5"><BadgeCheck className="h-4 w-4 text-brand-600" /> Trust Passports</span>
+            <span className="inline-flex items-center gap-1.5"><BadgeCheck className="h-4 w-4 text-brand-600" /> Driver Trust Passports</span>
             <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-brand-600" /> Insurance visible</span>
             <span className="inline-flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-brand-600" /> Real-time chat</span>
             <span className="inline-flex items-center gap-1.5"><Star className="h-4 w-4 text-brand-600" /> Two-way reviews</span>
@@ -197,7 +197,7 @@ export function HomePage() {
             title="For car owners"
             color="brand"
             steps={[
-              { icon: Users, text: 'Register and build your Trust Passport' },
+              { icon: Users, text: 'Register and create your owner profile' },
               { icon: Car, text: 'Add your vehicle; photos are admin-approved' },
               { icon: Bell, text: 'Receive applications from drivers' },
               { icon: CheckCircle2, text: 'Choose your driver and start earning' },
@@ -266,7 +266,7 @@ export function HomePage() {
             </p>
             <ul className="mt-6 space-y-3">
               {[
-                'Transparent Trust Passport and account standing',
+                'Transparent driver Trust Passport and account standing',
                 'All user-uploaded photos and proofs reviewed by admins',
                 'Insurance type and expiry visible on every listing',
                 'Known vehicle issues disclosed by the owner',
@@ -281,7 +281,7 @@ export function HomePage() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             {[
-              { icon: BadgeCheck, title: 'Trust Passports', text: 'Activity, reviews, references & evidence' },
+              { icon: BadgeCheck, title: 'Driver Trust Passports', text: 'Activity, reviews, references & evidence' },
               { icon: ShieldCheck, title: 'Insurance shown', text: 'Third party or comprehensive' },
               { icon: MessageSquare, title: 'Secure chat', text: 'Only after a match is accepted' },
               { icon: Bell, title: 'Stay informed', text: 'Notifications for every action' },

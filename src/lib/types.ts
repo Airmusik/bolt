@@ -49,6 +49,7 @@ export interface Vehicle {
   monthly_target: number | null;
   deposit: number;
   driver_experience: string | null;
+  minimum_driver_experience_years: number;
   requirements: string | null;
   availability: string;
   insurance_type: 'third_party' | 'comprehensive' | 'none';

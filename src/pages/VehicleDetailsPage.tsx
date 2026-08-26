@@ -207,9 +207,9 @@ export function VehicleDetailsPage() {
           </Section>
 
           {/* Requirements */}
-          {(vehicle.driver_experience || vehicle.requirements) && (
+          {(vehicle.minimum_driver_experience_years > 0 || vehicle.driver_experience || vehicle.requirements) && (
             <Section title="Driver requirements">
-              {vehicle.driver_experience && <p className="text-sm text-ink-700"><span className="font-medium">Experience:</span> {vehicle.driver_experience}</p>}
+              {(vehicle.minimum_driver_experience_years > 0 || vehicle.driver_experience) && <p className="text-sm text-ink-700"><span className="font-medium">Minimum experience:</span> {vehicle.minimum_driver_experience_years > 0 ? `${vehicle.minimum_driver_experience_years}+ ${vehicle.minimum_driver_experience_years === 1 ? 'year' : 'years'}` : vehicle.driver_experience}</p>}
               {vehicle.requirements && <p className="mt-1 text-sm text-ink-700">{vehicle.requirements}</p>}
             </Section>
           )}

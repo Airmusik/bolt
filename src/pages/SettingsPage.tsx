@@ -173,16 +173,13 @@ export function SettingsPage() {
           </div>
         </div>
 
-        {/* Trust Passport */}
-        <div className="card p-5">
+        {profile?.role === 'driver' && <div className="card p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink-900"><Shield className="h-5 w-5" /> Trust Passport</h2>
           <p className="mt-2 text-sm text-ink-600">
             Review status: <span className="capitalize font-medium">{profile?.verification_status}</span>
           </p>
-          {profile?.role === 'driver' && (
-            <button onClick={() => navigate('/onboarding')} className="btn-secondary mt-3">Manage Trust Passport</button>
-          )}
-        </div>
+          <button onClick={() => navigate('/onboarding')} className="btn-secondary mt-3">Manage Trust Passport</button>
+        </div>}
 
         {/* Change password */}
         <div className="card p-5">

@@ -117,18 +117,19 @@ export function DriverProfilePage() {
             </Section>
           )}
 
-          {/* Trust Passport */}
-          <Section title="Trust Passport" icon={<ShieldCheck className="h-5 w-5" />}>
-            <p className="mb-3 text-sm text-ink-500">Trust is based on transparent activity and admin-approved evidence—not identity documents.</p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <TrustSignal icon={<Award className="h-4 w-4" />} label="Trust level" value={titleCase(trustPassport?.trust_level || 'new')} />
-              <TrustSignal icon={<CalendarDays className="h-4 w-4" />} label="Member since" value={new Date(trustPassport?.account_created_at || profile.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} />
-              <TrustSignal icon={<BadgeCheck className="h-4 w-4" />} label="Completed matches" value={String(trustPassport?.contracts_completed ?? profile.contracts_completed)} />
-              <TrustSignal icon={<UserCheck className="h-4 w-4" />} label="Approved references" value={String(trustPassport?.approved_references ?? 0)} />
-              <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Approved evidence" value={String(trustPassport?.approved_evidence ?? 0)} />
-              <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Account standing" value={trustPassport?.account_standing === 'restricted' ? 'Restricted' : 'Good standing'} />
-            </div>
-          </Section>
+          {!isOwner && (
+            <Section title="Trust Passport" icon={<ShieldCheck className="h-5 w-5" />}>
+              <p className="mb-3 text-sm text-ink-500">Trust is based on transparent activity and admin-approved evidence—not identity documents.</p>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                <TrustSignal icon={<Award className="h-4 w-4" />} label="Trust level" value={titleCase(trustPassport?.trust_level || 'new')} />
+                <TrustSignal icon={<CalendarDays className="h-4 w-4" />} label="Member since" value={new Date(trustPassport?.account_created_at || profile.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} />
+                <TrustSignal icon={<BadgeCheck className="h-4 w-4" />} label="Completed matches" value={String(trustPassport?.contracts_completed ?? profile.contracts_completed)} />
+                <TrustSignal icon={<UserCheck className="h-4 w-4" />} label="Approved references" value={String(trustPassport?.approved_references ?? 0)} />
+                <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Approved evidence" value={String(trustPassport?.approved_evidence ?? 0)} />
+                <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Account standing" value={trustPassport?.account_standing === 'restricted' ? 'Restricted' : 'Good standing'} />
+              </div>
+            </Section>
+          )}
 
           {/* Reviews */}
           <Section title={`Reviews (${reviews.length})`} icon={<Star className="h-5 w-5" />}>
