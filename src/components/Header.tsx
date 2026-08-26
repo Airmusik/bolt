@@ -72,7 +72,7 @@ export function Header() {
       <div className="container-content flex h-16 items-center justify-between gap-4">
         <Link to="/" className="flex items-center gap-2">
           <SiteLogo />
-          <span className="font-display text-lg font-extrabold tracking-tight text-ink-900">
+          <span className="site-wordmark font-display text-lg font-extrabold tracking-tight">
             {settings.site_name}
           </span>
         </Link>

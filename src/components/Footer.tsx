@@ -15,7 +15,7 @@ export function Footer() {
         <div className="flex w-full items-center justify-between md:hidden">
           <Link to="/" className="flex items-center gap-2">
             <SiteLogo />
-            <span className="font-display text-lg font-extrabold tracking-tight">
+            <span className="site-wordmark font-display text-lg font-extrabold tracking-tight">
               {settings.site_name}
             </span>
           </Link>
@@ -27,13 +27,12 @@ export function Footer() {
           <div>
             <Link to="/" className="hidden items-center gap-2 md:flex">
               <SiteLogo />
-              <span className="font-display text-lg font-extrabold tracking-tight">
+              <span className="site-wordmark font-display text-lg font-extrabold tracking-tight">
                 {settings.site_name}
               </span>
             </Link>
-            <p className="mt-3 text-sm text-ink-500">
-              Connecting trusted car owners and ride-hailing drivers across Kenya — safely and simply.
-            </p>
+            <p className="mt-3 text-sm font-medium leading-6 text-ink-600">{settings.site_tagline}</p>
+            <p className="mt-1 text-xs leading-5 text-ink-400">Connecting car owners and ride-hailing drivers across Kenya.</p>
             {(settings.facebook_url || settings.instagram_url || settings.linkedin_url) && <div className="mt-4 flex gap-3">
               {settings.facebook_url && <SocialLink href={settings.facebook_url} label="Facebook" icon={<Facebook className="h-4 w-4" />} />}
               {settings.instagram_url && <SocialLink href={settings.instagram_url} label="Instagram" icon={<Instagram className="h-4 w-4" />} />}

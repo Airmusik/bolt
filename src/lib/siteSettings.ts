@@ -3,6 +3,7 @@ import { supabase } from './supabase';
 
 export const DEFAULT_SITE_SETTINGS = {
   site_name: 'GariLink',
+  site_tagline: 'The right driver. The right car. A trusted connection.',
   site_logo_url: '',
   maintenance_mode: 'false',
   max_vehicles_per_owner: '10',
@@ -79,8 +80,8 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.title = `${settings.site_name} — Find the Right Driver or the Right Car`;
     const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-    if (description) description.content = `${settings.site_name} connects car owners with trusted ride-hailing drivers across Kenya.`;
-  }, [settings.site_name]);
+    if (description) description.content = `${settings.site_name} — ${settings.site_tagline}`;
+  }, [settings.site_name, settings.site_tagline]);
 
   useEffect(() => {
     let favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');

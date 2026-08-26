@@ -1041,6 +1041,8 @@ function AdminSettings() {
   const save = async () => {
     const siteName = settings.site_name.trim();
     if (siteName.length < 2 || siteName.length > 40) { toast('Site name must be between 2 and 40 characters.', 'error'); return; }
+    const siteTagline = settings.site_tagline.trim();
+    if (siteTagline.length < 10 || siteTagline.length > 100) { toast('Tagline must be between 10 and 100 characters.', 'error'); return; }
     if (Number(settings.max_vehicles_per_owner) < 1 || Number(settings.max_vehicles_per_owner) > 100) { toast('Vehicle limit must be between 1 and 100.', 'error'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.admin_contact_email.trim())) { toast('Enter a valid admin contact email.', 'error'); return; }
     if (settings.admin_contact_phone.trim().length < 7) { toast('Enter a valid admin contact phone number.', 'error'); return; }
@@ -1054,6 +1056,7 @@ function AdminSettings() {
     const nextSettings = {
       ...settings,
       site_name: siteName,
+      site_tagline: siteTagline,
       admin_contact_email: settings.admin_contact_email.trim().toLowerCase(),
       admin_contact_phone: settings.admin_contact_phone.trim(),
       facebook_url: settings.facebook_url.trim(),
@@ -1110,6 +1113,11 @@ function AdminSettings() {
           <div>
             <label htmlFor="admin-site-name" className="label">Site name</label>
             <input id="admin-site-name" value={settings['site_name'] || ''} onChange={(e) => setSettings({ ...settings, site_name: e.target.value })} className="input" />
+          </div>
+          <div>
+            <label htmlFor="admin-site-tagline" className="label">Site tagline</label>
+            <input id="admin-site-tagline" maxLength={100} value={settings.site_tagline} onChange={(e) => setSettings({ ...settings, site_tagline: e.target.value })} className="input" placeholder="A short promise to your members" />
+            <p className="mt-1 text-xs text-ink-400">Shown prominently on the homepage and in the footer.</p>
           </div>
           <div>
             <label className="label">Site image / logo</label>

@@ -80,11 +80,12 @@ export function HomePage() {
               <ShieldCheck className="h-3.5 w-3.5" /> Transparent driver Trust Passports across Kenya
             </span>
             <h1 className="font-display text-4xl font-extrabold leading-[1.1] text-ink-950 sm:text-5xl md:text-6xl">
-              <span className="text-brand-600">{settings.site_name}</span>
+              <span className="site-wordmark">{settings.site_name}</span>
               <br />
               <span className="text-ink-950">Find the Right Driver or the Right Car.</span>
             </h1>
-            <p className="mt-5 text-lg text-ink-600">
+            <p className="mt-5 font-display text-xl font-bold tracking-tight text-ink-800 sm:text-2xl">{settings.site_tagline}</p>
+            <p className="mt-3 text-base text-ink-600">
               {settings.site_name} connects car owners and ride-hailing drivers through approved platform history, reviews, and transparent activity.
             </p>
           </div>
