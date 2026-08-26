@@ -48,7 +48,7 @@ export function DashboardPage() {
     setLoading(true);
     if (profile.role === 'owner') {
       const [{ data: v }, { data: apps }, { data: drs }] = await Promise.all([
-        supabase.from('vehicles').select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).eq('owner_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).eq('owner_id', user.id).order('created_at', { ascending: false }),
         supabase.from('applications').select(`*, driver:profiles(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles(*, photos:vehicle_photos(*))`).eq('owner_id', user.id).order('created_at', { ascending: false }),
         supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('role', 'driver').order('is_verified', { ascending: false }).order('rating', { ascending: false }).order('created_at', { ascending: false }).limit(24),
       ]);
@@ -58,14 +58,15 @@ export function DashboardPage() {
     } else if (profile.role === 'driver') {
       const { data: apps } = await supabase
         .from('applications')
-        .select(`*, vehicle:vehicles(*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*))`)
+        .select(`*, vehicle:vehicles(*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*))`)
         .eq('driver_id', user.id)
         .order('created_at', { ascending: false });
       setMyApplications((apps as DriverApplication[]) || []);
       const { data: cars } = await supabase
         .from('vehicles')
-        .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
+        .select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .eq('status', 'active')
+        .eq('approval_status', 'approved')
         .order('created_at', { ascending: false })
         .limit(24);
       setAvailableCars((cars as VehicleWithRelations[]) || []);
@@ -96,10 +97,10 @@ export function DashboardPage() {
   const pendingConnections = incomingConnections.filter((c) => c.status === 'pending');
 
   const stats = isOwner ? [
-    { label: 'Active listings', value: vehicles.filter(v => v.status === 'active').length, icon: Car, tab: 'vehicles' as Tab },
+    { label: 'Live listings', value: vehicles.filter(v => v.status === 'active' && v.approval_status === 'approved').length, icon: Car, tab: 'vehicles' as Tab },
+    { label: 'Pending approval', value: vehicles.filter(v => v.approval_status === 'pending').length, icon: Clock, tab: 'vehicles' as Tab },
     { label: 'Applications', value: applications.filter(a => a.status === 'pending').length, icon: Users, tab: 'applications' as Tab },
     { label: 'Connection requests', value: pendingConnections.length, icon: Link2, tab: 'connections' as Tab },
-    { label: 'Active chats', value: conversations.length, icon: MessageSquare, tab: 'chats' as Tab },
   ] : [
     { label: 'Applications', value: myApplications.length, icon: Users, tab: 'applications' as Tab },
     { label: 'Connection requests', value: pendingConnections.length, icon: Link2, tab: 'connections' as Tab },
@@ -306,7 +307,7 @@ function AvailableCarsTab({ vehicles, loading }: { vehicles: VehicleWithRelation
 function VehiclesTab({ vehicles, loading }: { vehicles: VehicleWithRelations[]; loading: boolean }) {
   if (loading) return <div className="card h-48 animate-pulse" />;
   if (vehicles.length === 0) return <EmptyState title="No vehicles yet" description="Add your first vehicle to start receiving applications." action={<Link to="/vehicles/new" className="btn-primary">Add vehicle</Link>} />;
-  return <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <VehicleCard key={v.id} vehicle={v} showOwner={false} />)}</div>;
+  return <div><div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">New and materially edited listings stay private until an admin reviews all vehicle details and photos.</div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <VehicleCard key={v.id} vehicle={v} showOwner={false} showApprovalStatus />)}</div></div>;
 }
 
 function OwnerApplicationsTab({ applications, onAction, toast }: { applications: OwnerApplication[]; onAction: () => void; toast: ToastFn }) {

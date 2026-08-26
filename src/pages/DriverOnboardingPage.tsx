@@ -7,6 +7,7 @@ import { useToast } from '@/components/useToast';
 import type { DocumentRow, PlatformHistory, TrustReference } from '@/lib/types';
 import { cn, titleCase } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
+import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 const EVIDENCE_TYPES = [
@@ -172,7 +173,7 @@ export function DriverOnboardingPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Full name"><input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="input" /></Field>
             <Field label="Age"><input type="number" value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="input" /></Field>
-            <Field label="Location"><input value={profileForm.location} onChange={(e) => setProfileForm({ ...profileForm, location: e.target.value })} className="input" placeholder="Nairobi" /></Field>
+            <Field label="Location"><PlaceAutocomplete value={profileForm.location} onChange={(location) => setProfileForm({ ...profileForm, location })} placeholder="e.g. Ongata Rongai" required /></Field>
             <Field label="Driving experience (years)"><input type="number" value={profileForm.driving_experience_years} onChange={(e) => setProfileForm({ ...profileForm, driving_experience_years: e.target.value })} className="input" /></Field>
             <Field label="Languages spoken"><input value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="input" placeholder="English, Swahili" /></Field>
             <Field label="Preferred work locations"><input value={profileForm.preferred_locations} onChange={(e) => setProfileForm({ ...profileForm, preferred_locations: e.target.value })} className="input" placeholder="Nairobi, Mombasa" /></Field>

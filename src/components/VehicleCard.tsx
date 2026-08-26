@@ -4,13 +4,15 @@ import type { VehicleWithRelations } from '@/lib/types';
 import { formatKES, formatDate, expiryStatus, titleCase, cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
 import { Rating } from './Rating';
+import { ModeratedImage } from './ModeratedImage';
 
 interface Props {
   vehicle: VehicleWithRelations;
   showOwner?: boolean;
+  showApprovalStatus?: boolean;
 }
 
-export function VehicleCard({ vehicle, showOwner = true }: Props) {
+export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = false }: Props) {
   const photo = vehicle.photos?.[0]?.photo_url;
   const insStatus = expiryStatus(vehicle.insurance_expiry);
   const issuesCount = vehicle.issues?.length ?? 0;
@@ -22,7 +24,7 @@ export function VehicleCard({ vehicle, showOwner = true }: Props) {
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-ink-100">
         {photo ? (
-          <img
+          <ModeratedImage
             src={photo}
             alt={`${vehicle.make} ${vehicle.model}`}
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -34,6 +36,9 @@ export function VehicleCard({ vehicle, showOwner = true }: Props) {
           </div>
         )}
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+          {showApprovalStatus && vehicle.approval_status === 'pending' && <span className="badge-warning">Pending admin approval</span>}
+          {showApprovalStatus && vehicle.approval_status === 'approved' && <span className="badge-success">Approved</span>}
+          {showApprovalStatus && vehicle.approval_status === 'rejected' && <span className="badge-danger">Changes required</span>}
           {vehicle.featured && <span className="badge-accent">Featured</span>}
           {vehicle.availability === 'available' && <span className="badge-brand">Available</span>}
           {vehicle.availability !== 'available' && <span className="badge-neutral">Taken</span>}
@@ -45,7 +50,10 @@ export function VehicleCard({ vehicle, showOwner = true }: Props) {
         )}
       </div>
 
-      <div className="p-4">
+        <div className="p-4">
+        {showApprovalStatus && vehicle.approval_status === 'rejected' && vehicle.approval_note && (
+          <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">Admin note: {vehicle.approval_note}</div>
+        )}
         <div className="flex items-start justify-between gap-2">
           <div>
             <h3 className="font-display text-base font-bold text-ink-900">

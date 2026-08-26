@@ -11,10 +11,10 @@ import { VehicleCard } from '@/components/VehicleCard';
 import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
-import { ALL_LOCATIONS } from '@/lib/locations';
 import { titleCase } from '@/lib/utils';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -37,8 +37,9 @@ export function HomePage() {
       const [{ data: v }, { data: d }] = await Promise.all([
         supabase
           .from('vehicles')
-          .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
+          .select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
           .eq('status', 'active')
+          .eq('approval_status', 'approved')
           .order('created_at', { ascending: false })
           .limit(6),
         supabase
@@ -102,17 +103,7 @@ export function HomePage() {
                   className="w-full rounded-xl border-0 bg-ink-50 pl-10 pr-4 py-3 text-sm ring-1 ring-transparent focus:ring-brand-500 focus:outline-none"
                 />
               </div>
-              <div className="relative sm:w-56">
-                <MapPin className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-                <select
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  className="w-full appearance-none rounded-xl border-0 bg-ink-50 pl-10 pr-4 py-3 text-sm ring-1 ring-transparent focus:ring-brand-500 focus:outline-none"
-                >
-                  <option value="">All locations</option>
-                  {ALL_LOCATIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-                </select>
-              </div>
+              <div className="sm:w-64"><PlaceAutocomplete value={location} onChange={setLocation} placeholder="Any location" /></div>
               <button type="submit" className="btn-primary sm:px-7">
                 <Search className="h-4 w-4" /> Search
               </button>

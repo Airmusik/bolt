@@ -5,11 +5,12 @@ import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import type { Vehicle, VehicleIssue, VehiclePhoto } from '@/lib/types';
-import { ALL_LOCATIONS, VEHICLE_MAKES } from '@/lib/locations';
+import { VEHICLE_MAKES } from '@/lib/locations';
 import { cn } from '@/lib/utils';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { PlatePrivacyEditor } from '@/components/PlatePrivacyEditor';
+import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
 interface IssueDraft { id?: string; description: string; severity: 'minor' | 'moderate' | 'major' }
 
@@ -163,8 +164,8 @@ export function VehicleFormPage() {
       }
     }
     setSaving(false);
-    toast('Vehicle saved. New photos will appear publicly after admin approval.');
-    navigate(`/vehicles/${vehicleId}`);
+    toast(isEdit ? 'Changes saved and sent for admin approval.' : 'Vehicle submitted. It will go live after admin approval.');
+    navigate('/dashboard');
   };
 
   return (
@@ -173,7 +174,7 @@ export function VehicleFormPage() {
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">{isEdit ? 'Edit vehicle' : 'Add a vehicle'}</h1>
-      <p className="mt-1 text-sm text-ink-500">Be transparent about issues and insurance — drivers trust honest listings.</p>
+      <p className="mt-1 text-sm text-ink-500">Be transparent about issues and insurance. Your listing stays private until an admin approves it.</p>
 
       <div className="mt-6 space-y-6">
         {/* Photos */}
@@ -215,10 +216,7 @@ export function VehicleFormPage() {
             <Field label="Model"><input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="input" placeholder="e.g. Axio, Fielder, Note" /></Field>
             <Field label="Year"><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} className="input" /></Field>
             <Field label="Location">
-              <select value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input">
-                <option value="">Select location…</option>
-                {ALL_LOCATIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-              </select>
+              <PlaceAutocomplete value={form.location} onChange={(location) => setForm({ ...form, location })} required />
             </Field>
             <Field label="Transmission">
               <select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value as Vehicle['transmission'] })} className="input">
@@ -300,7 +298,7 @@ export function VehicleFormPage() {
 
         <div className="flex justify-end gap-3">
           <button onClick={() => navigate(-1)} className="btn-secondary">Cancel</button>
-          <button onClick={save} disabled={saving} className="btn-primary">{saving ? 'Saving…' : (isEdit ? 'Save changes' : 'Publish vehicle')}</button>
+          <button onClick={save} disabled={saving} className="btn-primary">{saving ? 'Saving…' : (isEdit ? 'Submit changes' : 'Submit for approval')}</button>
         </div>
       </div>
       {photoForPrivacyReview && (

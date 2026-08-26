@@ -1,6 +1,7 @@
 export type Role = 'owner' | 'driver' | 'admin';
 
 export type VerificationStatus = 'unverified' | 'pending' | 'approved' | 'rejected';
+export type ListingApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Profile {
   id: string;
@@ -55,6 +56,10 @@ export interface Vehicle {
   insurance_type: 'third_party' | 'comprehensive' | 'none';
   insurance_expiry: string | null;
   status: 'active' | 'closed';
+  approval_status: ListingApprovalStatus;
+  approval_note: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
   featured: boolean;
   available_from: string | null;
   created_at: string;

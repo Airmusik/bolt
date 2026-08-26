@@ -38,7 +38,7 @@ export function VehicleDetailsPage() {
       setLoading(true);
       const { data } = await supabase
         .from('vehicles')
-        .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
+        .select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .eq('id', id)
         .maybeSingle();
       setVehicle(data as VehicleWithRelations);

@@ -1,12 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Car, Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail, MapPin } from 'lucide-react';
+import { Car, Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import type { Role } from '@/lib/types';
-import { ALL_LOCATIONS } from '@/lib/locations';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
 export function RegisterPage() {
   const { signUp, user } = useAuth();
@@ -113,11 +113,7 @@ export function RegisterPage() {
           </div>
           <div className="mt-4">
             <label className="label">Town or neighbourhood</label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input value={location} onChange={(event) => setLocation(event.target.value)} list="kenyan-registration-locations" autoComplete="address-level2" placeholder="e.g. Ongata Rongai" className="input pl-10" required />
-              <datalist id="kenyan-registration-locations">{ALL_LOCATIONS.map((place) => <option key={place} value={place} />)}</datalist>
-            </div>
+            <PlaceAutocomplete value={location} onChange={setLocation} placeholder="e.g. Ongata Rongai" required />
             <p className="mt-1.5 text-xs text-ink-400">Shown publicly so nearby drivers and owners can find you. {settings.site_name} operates in Kenya only.</p>
           </div>
 

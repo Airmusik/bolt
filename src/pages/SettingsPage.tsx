@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, LogOut, Camera, Loader2, Check, MapPin, ToggleLeft, ToggleRight, Lock, KeyRound, Palette } from 'lucide-react';
+import { User, Shield, Bell, LogOut, Camera, Loader2, Check, ToggleLeft, ToggleRight, Lock, KeyRound, Palette } from 'lucide-react';
 import { supabase, AVATAR_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -9,15 +9,7 @@ import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { BackButton } from '@/components/BackButton';
 import { pinToPassword } from '@/lib/phoneAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
-
-const KENYA_LOCATIONS = [
-  'Nairobi CBD', 'Westlands, Nairobi', 'Kilimani, Nairobi', 'Karen, Nairobi',
-  'Embakasi, Nairobi', 'Kasarani, Nairobi', 'Roysambu, Nairobi', 'Rongai, Nakuru',
-  'Mombasa CBD', 'Nyali, Mombasa', 'Kisauni, Mombasa', 'Thika', 'Nakuru Town',
-  'Eldoret Town', 'Kisumu Town', 'Nyeri Town', 'Machakos Town', 'Kitale',
-  'Malindi', 'Lamu', 'Naivasha', 'Limuru', 'Kiambu Town', 'Ruiru',
-  'Juja', 'Athi River', 'Syokimau', 'Kitengela', 'Ongata Rongai', 'Kikuyu Town',
-];
+import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
 export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
@@ -26,7 +18,6 @@ export function SettingsPage() {
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [bio, setBio] = useState(profile?.bio || '');
   const [location, setLocation] = useState(profile?.location || '');
-  const [showLocations, setShowLocations] = useState(false);
   const [availability, setAvailability] = useState(profile?.availability || 'available');
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -138,39 +129,10 @@ export function SettingsPage() {
 
           <div className="mt-4 space-y-4">
             <div><label className="label">Full name</label><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" /></div>
-            <div className="relative">
+            <div>
               <label className="label">Location</label>
-              <div className="relative">
-                <MapPin className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" />
-                <input
-                  value={location}
-                  onChange={(e) => { setLocation(e.target.value); setShowLocations(true); }}
-                  onFocus={() => setShowLocations(true)}
-                  onBlur={() => setTimeout(() => setShowLocations(false), 200)}
-                  placeholder="Start typing your area…"
-                  className="input pl-9"
-                />
-              </div>
-              {showLocations && location && (
-                <div className="absolute z-10 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-ink-100 bg-white shadow-lg dark:bg-[#141416]">
-                  {KENYA_LOCATIONS
-                    .filter((l) => l.toLowerCase().includes(location.toLowerCase()))
-                    .slice(0, 8)
-                    .map((l) => (
-                      <button
-                        key={l}
-                        type="button"
-                        onMouseDown={(e) => { e.preventDefault(); setLocation(l); setShowLocations(false); }}
-                        className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-ink-700 hover:bg-brand-50"
-                      >
-                        <MapPin className="h-3.5 w-3.5 text-ink-400" /> {l}
-                      </button>
-                    ))}
-                  {KENYA_LOCATIONS.filter((l) => l.toLowerCase().includes(location.toLowerCase())).length === 0 && (
-                    <p className="px-3 py-2 text-xs text-ink-500">No suggestions. Type your location manually.</p>
-                  )}
-                </div>
-              )}
+              <PlaceAutocomplete value={location} onChange={setLocation} />
+              <p className="mt-1 text-xs text-ink-400">Type any town, estate, neighbourhood, or landmark in Kenya.</p>
             </div>
             <div><label className="label">Bio</label><textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="input" /></div>
           </div>

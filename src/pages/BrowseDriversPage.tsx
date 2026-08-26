@@ -10,10 +10,10 @@ import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { EmptyState } from '@/components/EmptyState';
 import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { ConnectionButton } from '@/components/ConnectionButton';
-import { ALL_LOCATIONS } from '@/lib/locations';
 import { titleCase } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 import { useToast } from '@/components/useToast';
+import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras'];
 
@@ -42,7 +42,7 @@ export function BrowseDriversPage() {
 
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
-      if (location && d.location !== location) return false;
+      if (location && !(d.location || '').toLowerCase().includes(location.toLowerCase()) && !location.toLowerCase().includes((d.location || '').toLowerCase())) return false;
       if (platform && !(d.platforms_worked || []).includes(platform)) return false;
       if (verifiedOnly && !d.is_verified) return false;
       return true;
@@ -56,10 +56,7 @@ export function BrowseDriversPage() {
       <p className="mt-1 text-sm text-ink-500">{filtered.length} driver{filtered.length !== 1 ? 's' : ''}</p>
 
       <div className="mt-6 flex flex-wrap gap-3">
-        <select value={location} onChange={(e) => setLocation(e.target.value)} className="input w-auto py-2">
-          <option value="">All locations</option>
-          {ALL_LOCATIONS.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+        <div className="w-full sm:w-72"><PlaceAutocomplete value={location} onChange={setLocation} placeholder="All locations" className="py-2" /></div>
         <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="input w-auto py-2">
           <option value="">All platforms</option>
           {PLATFORMS.map((p) => <option key={p} value={p}>{titleCase(p)}</option>)}

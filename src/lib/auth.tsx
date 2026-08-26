@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, ReactNode } from 'react';
+import { useEffect, useState, useCallback, useRef, ReactNode } from 'react';
 import { supabase } from './supabase';
 import { normalizePhone, isValidEmail, isValidPin, isValidPhone, pinToPassword } from './phoneAuth';
 import { getAuthErrorMessage } from './authErrors';
@@ -10,6 +10,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthContextValue['user']>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const activeUserId = useRef<string | null>(null);
 
   const loadProfile = useCallback(async (uid: string) => {
     const { data, error } = await supabase.rpc('get_my_profile');
@@ -19,7 +20,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     const current = Array.isArray(data) ? data[0] : data;
     if (current) {
-      setProfile(current as Profile);
+      if (activeUserId.current === uid) setProfile(current as Profile);
+      return;
     } else {
       // profile row missing — create a minimal one
       const { error: createError } = await supabase
@@ -28,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!createError) {
         const { data: created } = await supabase.rpc('get_my_profile');
         const createdProfile = Array.isArray(created) ? created[0] : created;
-        if (createdProfile) setProfile(createdProfile as Profile);
+        if (createdProfile && activeUserId.current === uid) setProfile(createdProfile as Profile);
       }
     }
   }, []);
@@ -40,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let mounted = true;
     if (DEMO_MODE && localStorage.getItem(DEMO_ADMIN_SESSION_KEY) === 'active') {
+      activeUserId.current = DEMO_ADMIN_ID;
       setUser({ id: DEMO_ADMIN_ID, email: DEMO_ADMIN_EMAIL });
       setProfile(createDemoAdminProfile());
       setLoading(false);
@@ -48,9 +51,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       const u = data.session?.user ?? null;
+      activeUserId.current = u?.id ?? null;
+      setProfile(null);
       setUser(u ? { id: u.id, email: u.email ?? '' } : null);
       if (u) {
-        loadProfile(u.id).finally(() => setLoading(false));
+        loadProfile(u.id).finally(() => {
+          if (mounted && activeUserId.current === u.id) setLoading(false);
+        });
       } else {
         setLoading(false);
       }
@@ -59,13 +66,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
       (async () => {
         const u = session?.user ?? null;
+        const uid = u?.id ?? null;
+        activeUserId.current = uid;
+        setLoading(true);
+        setProfile(null);
         setUser(u ? { id: u.id, email: u.email ?? '' } : null);
         if (u && event !== 'SIGNED_OUT') {
           await loadProfile(u.id);
-        } else {
-          setProfile(null);
         }
-        setLoading(false);
+        if (mounted && activeUserId.current === uid) setLoading(false);
       })();
     });
 
@@ -141,15 +150,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
+    setLoading(true);
+    activeUserId.current = null;
+    setUser(null);
+    setProfile(null);
     if (DEMO_MODE) {
       localStorage.removeItem(DEMO_ADMIN_SESSION_KEY);
-      setUser(null);
-      setProfile(null);
+      setLoading(false);
       return;
     }
     await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
+    setLoading(false);
   }, []);
 
   const resetPin = useCallback<AuthContextValue['resetPin']>(async (email) => {

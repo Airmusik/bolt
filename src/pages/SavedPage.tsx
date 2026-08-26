@@ -21,7 +21,7 @@ export function SavedPage() {
       if (ids.length === 0) { setVehicles([]); setLoading(false); return; }
       const { data: v } = await supabase
         .from('vehicles')
-        .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
+        .select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .in('id', ids)
         .order('created_at', { ascending: false });
       setVehicles((v as VehicleWithRelations[]) || []);

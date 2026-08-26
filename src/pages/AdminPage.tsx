@@ -28,8 +28,9 @@ import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import type { LucideIcon } from 'lucide-react';
 import type { ToastType } from '@/components/toastContext';
 import { ModeratedImage } from '@/components/ModeratedImage';
+import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
-type AdminVehicle = Vehicle & { owner?: Profile; photos?: VehiclePhoto[]; description?: string };
+type AdminVehicle = Vehicle & { owner?: Profile; photos?: VehiclePhoto[]; issues?: VehicleIssue[]; description?: string };
 type AdminDocument = DocumentRow & { user?: Profile; vehicle?: Pick<Vehicle, 'id' | 'make' | 'model' | 'year'> };
 type AdminHistory = PlatformHistory & { driver?: Profile };
 type AdminReference = TrustReference & { user?: Profile };
@@ -88,12 +89,14 @@ export function AdminPage() {
   const [history, setHistory] = useState<AdminHistory[]>([]);
   const [changingPinUser, setChangingPinUser] = useState<Profile | null>(null);
   const [deletingUser, setDeletingUser] = useState<Profile | null>(null);
+  const [reviewingVehicle, setReviewingVehicle] = useState<AdminVehicle | null>(null);
+  const [listingActionLoading, setListingActionLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     const [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, referencesResult, contactsResult] = await Promise.all([
       supabase.rpc('admin_list_profiles'),
-      supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*)`).order('created_at', { ascending: false }),
+      supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).order('created_at', { ascending: false }),
       supabase.from('reports').select('*').order('created_at', { ascending: false }),
       supabase.from('documents').select(`*, user:profiles!documents_user_id_fkey(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles!documents_vehicle_id_fkey(id,make,model,year)`).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false }),
       supabase.from('driver_platform_history').select(`*, driver:profiles!driver_platform_history_driver_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
@@ -125,6 +128,7 @@ export function AdminPage() {
   const pendingVerifications = users.filter((u) => u.role === 'driver' && u.verification_status === 'pending');
   const pendingDocs = documents.filter((d) => !d.verified && !d.rejected);
   const pendingVehiclePhotos = vehicles.flatMap((v) => (v.photos || []).filter((photo) => !photo.approved && !photo.rejected).map((photo) => ({ ...photo, vehicle: v })));
+  const pendingListings = vehicles.filter((vehicle) => vehicle.approval_status === 'pending');
   const pendingReferences = references.filter((reference) => reference.status === 'pending');
   const newContactMessages = contactMessages.filter((message) => message.status === 'new');
 
@@ -227,6 +231,43 @@ export function AdminPage() {
     load();
   };
 
+  const approveListing = async (vehicle: AdminVehicle) => {
+    if (!user) return;
+    const photos = vehicle.photos || [];
+    if (photos.length === 0) { toast('A listing needs at least one vehicle image before approval.', 'error'); return; }
+    if (photos.some((photo) => photo.rejected)) { toast('This listing has a rejected image. The owner must replace it before approval.', 'error'); return; }
+    setListingActionLoading(true);
+    try {
+      for (const photo of photos.filter((item) => !item.approved)) {
+        const publicUrl = await publishApprovedImage(photo.photo_url, vehicle.owner_id, `vehicle-${photo.position + 1}`);
+        const { error: photoError } = await supabase.from('vehicle_photos').update({ photo_url: publicUrl, approved: true, rejected: false, rejection_reason: null }).eq('id', photo.id);
+        if (photoError) throw photoError;
+      }
+      const { error } = await supabase.from('vehicles').update({ approval_status: 'approved', approval_note: null, approved_at: new Date().toISOString(), approved_by: user.id }).eq('id', vehicle.id);
+      if (error) throw error;
+      await notifyUser(vehicle.owner_id, 'listing', 'Vehicle listing approved', `Your ${vehicle.year} ${vehicle.make} ${vehicle.model} is now live.`, { vehicle_id: vehicle.id });
+      toast('Listing approved and published.');
+      setReviewingVehicle(null);
+      await load();
+    } catch (error) {
+      toast('Could not approve listing: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
+    } finally {
+      setListingActionLoading(false);
+    }
+  };
+
+  const rejectListing = async (vehicle: AdminVehicle, reason: string) => {
+    if (!reason.trim()) { toast('Give the owner a reason so they know what to correct.', 'error'); return; }
+    setListingActionLoading(true);
+    const { error } = await supabase.from('vehicles').update({ approval_status: 'rejected', approval_note: reason.trim(), approved_at: null, approved_by: null }).eq('id', vehicle.id);
+    if (error) { toast('Could not reject listing: ' + error.message, 'error'); setListingActionLoading(false); return; }
+    await notifyUser(vehicle.owner_id, 'listing', 'Vehicle listing needs changes', `${reason.trim()} Edit the listing and submit it again.`, { vehicle_id: vehicle.id });
+    toast('Listing returned to the owner with your note.');
+    setReviewingVehicle(null);
+    setListingActionLoading(false);
+    load();
+  };
+
   const reviewReference = async (reference: AdminReference, status: 'approved' | 'rejected') => {
     const reason = status === 'rejected' ? window.prompt('Why is this reference being rejected?') : null;
     if (status === 'rejected' && !reason?.trim()) return;
@@ -305,7 +346,8 @@ export function AdminPage() {
     { label: 'Total users', value: users.length, icon: Users },
     { label: 'Drivers', value: drivers.length, icon: Users },
     { label: 'Car owners', value: owners.length, icon: ShieldCheck },
-    { label: 'Active listings', value: vehicles.filter((v) => v.status === 'active').length, icon: Car },
+    { label: 'Live listings', value: vehicles.filter((v) => v.status === 'active' && v.approval_status === 'approved').length, icon: Car },
+    { label: 'Pending listings', value: pendingListings.length, icon: Car },
     { label: 'Pending Trust Passports', value: pendingVerifications.length, icon: TrendingUp },
     { label: 'Pending uploads', value: pendingDocs.length + pendingVehiclePhotos.length, icon: FileText },
     { label: 'Open reports', value: reports.filter((r) => r.status === 'open').length, icon: Flag },
@@ -317,7 +359,7 @@ export function AdminPage() {
     { key: 'overview', label: 'Overview', icon: TrendingUp },
     { key: 'drivers', label: 'Drivers', icon: Users, badge: drivers.length },
     { key: 'owners', label: 'Car Owners', icon: ShieldCheck, badge: owners.length },
-    { key: 'cars', label: 'Cars', icon: Car, badge: vehicles.length },
+    { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length + pendingReferences.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
     { key: 'contact', label: 'Contact inbox', icon: Mail, badge: newContactMessages.length },
@@ -381,6 +423,18 @@ export function AdminPage() {
         {/* ---------- Overview ---------- */}
         {tab === 'overview' && !loading && (
           <div className="grid gap-6 lg:grid-cols-2">
+            <div className="card p-5 lg:col-span-2">
+              <div className="flex items-center justify-between gap-3"><div><h3 className="font-semibold text-ink-900">Listings awaiting approval</h3><p className="mt-1 text-xs text-ink-500">Open a listing to inspect every image and all owner-provided details before it can go live.</p></div>{pendingListings.length > 0 && <span className="badge-warning">{pendingListings.length} pending</span>}</div>
+              <div className="mt-3 grid gap-2 md:grid-cols-2">
+                {pendingListings.slice(0, 6).map((vehicle) => (
+                  <div key={vehicle.id} className="flex items-center justify-between gap-3 rounded-xl border border-ink-100 p-3">
+                    <div className="min-w-0"><p className="truncate text-sm font-medium text-ink-800">{vehicle.year} {vehicle.make} {vehicle.model}</p><p className="truncate text-xs text-ink-500">{vehicle.owner?.full_name || 'Unknown owner'} · {vehicle.photos?.length || 0} image(s)</p></div>
+                    <button onClick={() => setReviewingVehicle(vehicle)} className="btn-primary shrink-0 px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> Review</button>
+                  </div>
+                ))}
+                {pendingListings.length === 0 && <p className="text-sm text-ink-400">No listings are waiting for review.</p>}
+              </div>
+            </div>
             <div className="card p-5">
               <h3 className="font-semibold text-ink-900">Pending Trust Passports</h3>
               <div className="mt-3 space-y-2">
@@ -486,7 +540,7 @@ export function AdminPage() {
               <div key={v.id} className="card flex items-center gap-3 p-4">
                 <div className="h-16 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-ink-100">
                   {v.photos && v.photos[0] ? (
-                    <img src={v.photos[0].photo_url} alt="" className="h-full w-full object-cover" />
+                    <ModeratedImage src={v.photos[0].photo_url} alt={`${v.make} ${v.model}`} className="h-full w-full object-cover" />
                   ) : (
                     <div className="flex h-full items-center justify-center"><Car className="h-6 w-6 text-ink-300" /></div>
                   )}
@@ -495,8 +549,11 @@ export function AdminPage() {
                   <p className="font-medium text-ink-900">{v.make} {v.model} ({v.year})</p>
                   <p className="text-xs text-ink-500">{v.location} · {v.transmission} · {v.fuel_type} · KES {v.weekly_target || 0}/week</p>
                   <p className="text-xs text-ink-400">Owner: {v.owner?.full_name || 'Unknown'} · {v.status} · {timeAgo(v.created_at)}</p>
+                  <span className={cn('mt-1 inline-flex badge capitalize', v.approval_status === 'approved' ? 'badge-success' : v.approval_status === 'rejected' ? 'badge-danger' : 'badge-warning')}>{v.approval_status}</span>
+                  {v.approval_note && <p className="mt-1 text-xs text-danger">Admin note: {v.approval_note}</p>}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setReviewingVehicle(v)} className="btn-primary px-3 py-2 text-sm"><Eye className="h-4 w-4" /> View all images</button>
                   <button onClick={() => setEditingVehicle(v)} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /> Edit</button>
                   <button onClick={() => setConfirmAction({ message: `${v.status === 'active' ? 'Remove' : 'Restore'} "${v.make} ${v.model}"?`, label: v.status === 'active' ? 'Remove' : 'Restore', onConfirm: () => toggleVehicle(v) })} className={cn('text-sm', v.status === 'active' ? 'btn-secondary' : 'btn-primary')}>
                     {v.status === 'active' ? 'Remove' : 'Restore'}
@@ -790,6 +847,16 @@ export function AdminPage() {
         <EditUserModal user={editingUser} onClose={() => setEditingUser(null)} onDone={() => { setEditingUser(null); load(); }} toast={toast} />
       )}
 
+      {reviewingVehicle && (
+        <ReviewVehicleModal
+          vehicle={reviewingVehicle}
+          loading={listingActionLoading}
+          onClose={() => setReviewingVehicle(null)}
+          onApprove={() => approveListing(reviewingVehicle)}
+          onReject={(reason) => rejectListing(reviewingVehicle, reason)}
+        />
+      )}
+
       {/* Change password modal */}
       {changingPinUser && (
         <AdminChangePinModal user={changingPinUser} onClose={() => setChangingPinUser(null)} onConfirm={(pin) => adminChangePin(changingPinUser, pin)} />
@@ -807,6 +874,55 @@ export function AdminPage() {
         />
       )}
     </div>
+  );
+}
+
+function ReviewVehicleModal({ vehicle, loading, onClose, onApprove, onReject }: {
+  vehicle: AdminVehicle;
+  loading: boolean;
+  onClose: () => void;
+  onApprove: () => void;
+  onReject: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState(vehicle.approval_note || '');
+  const photos = [...(vehicle.photos || [])].sort((a, b) => a.position - b.position);
+  return (
+    <Modal title={`Review listing: ${vehicle.make} ${vehicle.model}`} onClose={onClose} size="xl">
+      <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={cn('badge capitalize', vehicle.approval_status === 'approved' ? 'badge-success' : vehicle.approval_status === 'rejected' ? 'badge-danger' : 'badge-warning')}>{vehicle.approval_status}</span>
+          <span className="text-sm text-ink-500">Owner: {vehicle.owner?.full_name || 'Unknown'} · {vehicle.location}</span>
+        </div>
+        <section>
+          <div className="flex items-center justify-between"><h4 className="font-semibold text-ink-900">All vehicle images</h4><span className="text-xs text-ink-500">{photos.length} total</span></div>
+          {photos.length > 0 ? <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{photos.map((photo, index) => (
+            <figure key={photo.id} className="overflow-hidden rounded-xl border border-ink-100 bg-ink-50">
+              <ModeratedImage src={photo.photo_url} alt={`${vehicle.make} ${vehicle.model}, image ${index + 1}`} className="aspect-[4/3] w-full object-contain" />
+              <figcaption className="flex items-center justify-between px-3 py-2 text-xs text-ink-500"><span>Image {index + 1}</span><span className={cn('badge', photo.approved ? 'badge-success' : photo.rejected ? 'badge-danger' : 'badge-warning')}>{photo.approved ? 'Approved' : photo.rejected ? 'Rejected' : 'Pending'}</span></figcaption>
+            </figure>
+          ))}</div> : <div className="mt-3 rounded-xl bg-red-50 p-4 text-sm text-red-700">No images uploaded. This listing cannot be approved.</div>}
+        </section>
+        <section className="grid gap-3 rounded-xl bg-ink-50 p-4 text-sm sm:grid-cols-2 lg:grid-cols-3">
+          <InfoRow label="Vehicle" value={`${vehicle.year} ${vehicle.make} ${vehicle.model}`} />
+          <InfoRow label="Location" value={vehicle.location} />
+          <InfoRow label="Transmission" value={vehicle.transmission} />
+          <InfoRow label="Fuel" value={vehicle.fuel_type} />
+          <InfoRow label="Minimum experience" value={`${vehicle.minimum_driver_experience_years || 0}+ years`} />
+          <InfoRow label="Insurance" value={vehicle.insurance_type} />
+          <InfoRow label="Weekly target" value={`KES ${vehicle.weekly_target || 0}`} />
+          <InfoRow label="Deposit" value={`KES ${vehicle.deposit || 0}`} />
+          <InfoRow label="Availability" value={vehicle.availability} />
+        </section>
+        {vehicle.requirements && <div><p className="label">Driver requirements</p><p className="text-sm text-ink-600">{vehicle.requirements}</p></div>}
+        {(vehicle.issues || []).length > 0 && <div><p className="label">Known issues</p><ul className="space-y-1">{vehicle.issues!.map((issue) => <li key={issue.id} className="text-sm text-ink-600">• {issue.description} <span className="capitalize text-ink-400">({issue.severity})</span></li>)}</ul></div>}
+        <div><label className="label">Reason if changes are required</label><textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} className="input" placeholder="Explain exactly what the owner must correct…" /></div>
+        <div className="flex flex-wrap justify-end gap-2 border-t border-ink-100 pt-4">
+          <button onClick={onClose} disabled={loading} className="btn-ghost">Close</button>
+          <button onClick={() => onReject(reason)} disabled={loading || !reason.trim()} className="btn-secondary text-danger"><X className="h-4 w-4" /> Require changes</button>
+          <button onClick={onApprove} disabled={loading || photos.length === 0 || photos.some((photo) => photo.rejected)} className="btn-primary"><Check className="h-4 w-4" /> {loading ? 'Working…' : 'Approve and publish'}</button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -976,7 +1092,7 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminV
         <Field label="Make"><input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} className="input" /></Field>
         <Field label="Model"><input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="input" /></Field>
         <Field label="Year"><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: +e.target.value })} className="input" /></Field>
-        <Field label="Location"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input" /></Field>
+        <Field label="Location"><PlaceAutocomplete value={form.location} onChange={(location) => setForm({ ...form, location })} /></Field>
         <Field label="Transmission"><select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value as Vehicle['transmission'] })} className="input"><option value="manual">Manual</option><option value="automatic">Automatic</option></select></Field>
         <Field label="Fuel type"><select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value as Vehicle['fuel_type'] })} className="input"><option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="hybrid">Hybrid</option><option value="electric">Electric</option></select></Field>
         <Field label="Weekly target (KES)"><input type="number" value={form.weekly_target} onChange={(e) => setForm({ ...form, weekly_target: +e.target.value })} className="input" /></Field>
@@ -1037,7 +1153,7 @@ function EditUserModal({ user, onClose, onDone, toast }: { user: Profile; onClos
       <div className="space-y-3">
         <Field label="Full name"><input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} className="input" /></Field>
         <Field label="Phone"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" /></Field>
-        <Field label="Location"><input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} className="input" /></Field>
+        <Field label="Location"><PlaceAutocomplete value={form.location} onChange={(location) => setForm({ ...form, location })} /></Field>
         <Field label="Availability"><select value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} className="input"><option value="available">Available</option><option value="busy">Busy</option><option value="unavailable">Unavailable</option></select></Field>
         {user.role === 'driver' && <Field label="Trust Passport status"><select value={form.verification_status} onChange={(e) => setForm({ ...form, verification_status: e.target.value as VerificationStatus, is_verified: e.target.value === 'approved' })} className="input"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>}
       </div>

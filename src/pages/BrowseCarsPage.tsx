@@ -6,9 +6,10 @@ import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import type { VehicleWithRelations } from '@/lib/types';
 import { VehicleCard } from '@/components/VehicleCard';
 import { EmptyState } from '@/components/EmptyState';
-import { ALL_LOCATIONS, VEHICLE_MAKES } from '@/lib/locations';
+import { VEHICLE_MAKES } from '@/lib/locations';
 import { BackButton } from '@/components/BackButton';
 import { useToast } from '@/components/useToast';
+import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
 const FUELS = ['petrol', 'diesel', 'hybrid', 'electric'];
 const TRANSMISSIONS = ['automatic', 'manual'];
@@ -47,8 +48,9 @@ export function BrowseCarsPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('vehicles')
-        .select(`*, owner:profiles(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
+        .select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .eq('status', 'active')
+        .eq('approval_status', 'approved')
         .order('created_at', { ascending: false });
       if (error) toast('Could not load vehicles: ' + error.message, 'error');
       setVehicles((data as VehicleWithRelations[]) || []);
@@ -63,7 +65,7 @@ export function BrowseCarsPage() {
         const hay = `${v.make} ${v.model} ${v.location}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (filters.location && v.location !== filters.location) return false;
+      if (filters.location && !v.location.toLowerCase().includes(filters.location.toLowerCase()) && !filters.location.toLowerCase().includes(v.location.toLowerCase())) return false;
       if (filters.make && v.make !== filters.make) return false;
       if (filters.transmission && v.transmission !== filters.transmission) return false;
       if (filters.fuel && v.fuel_type !== filters.fuel) return false;
@@ -116,7 +118,7 @@ export function BrowseCarsPage() {
                   <input value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} placeholder="Make, model…" className="input pl-9 py-2" />
                 </div>
               </div>
-              <Select label="Location" value={filters.location} onChange={(v) => setFilters({ ...filters, location: v })} options={ALL_LOCATIONS} placeholder="All locations" icon />
+              <div><label className="label">Location</label><PlaceAutocomplete value={filters.location} onChange={(location) => setFilters({ ...filters, location })} placeholder="All locations" className="py-2" /></div>
               <Select label="Make" value={filters.make} onChange={(v) => setFilters({ ...filters, make: v })} options={VEHICLE_MAKES} placeholder="All makes" />
               <Select label="Transmission" value={filters.transmission} onChange={(v) => setFilters({ ...filters, transmission: v })} options={TRANSMISSIONS} placeholder="Any" />
               <Select label="Fuel" value={filters.fuel} onChange={(v) => setFilters({ ...filters, fuel: v })} options={FUELS} placeholder="Any" />

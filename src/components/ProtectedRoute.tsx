@@ -19,10 +19,17 @@ export function ProtectedRoute({ children, roles }: { children: ReactNode; roles
   if (!user) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
+  if (!profile) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
+      </div>
+    );
+  }
   if (profile?.is_suspended && !SUSPENDED_ALLOWED.includes(location.pathname)) {
     return <Navigate to="/suspended" replace />;
   }
-  if (roles && profile && !roles.includes(profile.role)) {
+  if (roles && !roles.includes(profile.role)) {
     return <Navigate to={profile.role === 'admin' ? '/admin' : '/dashboard'} replace />;
   }
   return <>{children}</>;
