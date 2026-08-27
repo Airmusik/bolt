@@ -392,6 +392,7 @@ export function ChatPage() {
   const chatClosed = !activeGroup?.items.some((conversation) => !conversation.closed_at);
   const chatBlocked = blockStatus.i_blocked_other || blockStatus.blocked_by_other;
   const supportSessionActive = Boolean(activeGroup?.items.some((conversation) => conversation.support_reopened_at && !conversation.support_resolved_at && !conversation.closed_at));
+  const adminClosedChat = Boolean(activeGroup?.items.some((conversation) => conversation.closed_at && conversation.admin_closed_at));
   const memberConnectionChat = Boolean(active?.driver_id && active?.owner_id);
 
   return (
@@ -516,7 +517,7 @@ export function ChatPage() {
                 })}
               </div>
 
-              {chatClosed && <div className="flex flex-wrap items-start justify-between gap-3 border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100"><div className="flex items-start gap-3"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-sm font-semibold">Connection ended — chat history preserved</p><p className="text-xs">This chat is read-only. Start a new connection, or contact support if help is needed with this conversation.</p></div></div>{memberConnectionChat && <button type="button" onClick={() => setShowSupportRequest(true)} className="btn-secondary shrink-0 px-3 py-1.5 text-xs"><Headphones className="h-3.5 w-3.5" /> Contact support</button>}</div>}
+              {chatClosed && <div className="flex flex-wrap items-start justify-between gap-3 border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100"><div className="flex items-start gap-3"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-sm font-semibold">{adminClosedChat ? 'Chat closed by support' : 'Connection ended — chat history preserved'}</p><p className="text-xs">{adminClosedChat ? 'Members cannot send new messages. The complete history remains saved and readable.' : 'This chat is read-only. Start a new connection, or contact support if help is needed with this conversation.'}</p></div></div>{memberConnectionChat && <button type="button" onClick={() => setShowSupportRequest(true)} className="btn-secondary shrink-0 px-3 py-1.5 text-xs"><Headphones className="h-3.5 w-3.5" /> Contact support</button>}</div>}
 
               {/* Emoji picker */}
               {!chatClosed && !chatBlocked && showEmoji && (

@@ -169,6 +169,9 @@ export interface Conversation {
   support_reopened_at: string | null;
   support_reopened_by: string | null;
   support_resolved_at: string | null;
+  admin_closed_at: string | null;
+  admin_closed_by: string | null;
+  support_reopened_from_member_end: boolean;
   created_at: string;
   vehicle?: Vehicle;
   driver?: Profile;

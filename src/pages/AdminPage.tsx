@@ -1485,7 +1485,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
   const [loading, setLoading] = useState(true);
   const [joinedConversationIds, setJoinedConversationIds] = useState<Set<string>>(new Set());
   const [joining, setJoining] = useState(false);
-  const [confirmEndSupport, setConfirmEndSupport] = useState(false);
+  const [confirmCloseChat, setConfirmCloseChat] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(async () => {
@@ -1568,11 +1568,13 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
     loadConversations();
   };
 
-  const endSupportSession = async () => {
+  const closeMemberChat = async () => {
     if (!active) return;
-    const { error } = await supabase.rpc('admin_resolve_conversation_support', { p_conversation_id: active.id });
-    if (error) { toast('Could not end the support session: ' + error.message, 'error'); return; }
-    toast('Support session resolved. The chat is read-only again and its history remains saved.');
+    const { data, error } = await supabase.rpc('admin_close_conversation_chat', { p_conversation_id: active.id });
+    if (error) { toast('Could not close the chat: ' + error.message, 'error'); return; }
+    toast(data === 'support_resolved'
+      ? 'Support session resolved. The chat is read-only again and its history remains saved.'
+      : 'Chat closed by admin. Members can no longer send messages.');
     await loadMessages();
     await loadConversations();
     await onDataChange();
@@ -1623,7 +1625,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
                 <p className="font-semibold text-ink-900">{active.driver && active.owner ? `${active.driver.full_name} ↔ ${active.owner.full_name}` : other.full_name}</p>
                 <p className="text-xs capitalize text-brand-600">{active.closed_at ? 'Ended · preserved history' : supportSessionActive ? 'Reopened support session · members can chat' : active.driver && active.owner ? 'Active member chat' : `${other.role} support`}</p>
               </div>
-              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{active.closed_at ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><Headphones className="h-4 w-4" /> {joining ? 'Reopening…' : 'Reopen with support'}</button> : !activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}{supportSessionActive && <button onClick={() => setConfirmEndSupport(true)} className="btn-secondary text-xs"><LockKeyhole className="h-4 w-4" /> End support chat</button>}</div>
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{active.closed_at ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><Headphones className="h-4 w-4" /> {joining ? 'Reopening…' : 'Reopen with support'}</button> : !activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}{active.driver && active.owner && !active.closed_at && <button onClick={() => setConfirmCloseChat(true)} className="btn-secondary text-xs"><LockKeyhole className="h-4 w-4" /> {supportSessionActive ? 'End support chat' : 'Close chat'}</button>}</div>
             </div>
             <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-ink-50/50 p-4">
               {messages.map((m) => {
@@ -1651,7 +1653,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
           </div>
         )}
       </div>
-      {confirmEndSupport && <ConfirmDialog title="End this support session?" message="Both members will lose the ability to send new messages in this ended connection chat. The complete history will remain saved and readable." confirmLabel="End support chat" onConfirm={endSupportSession} onClose={() => setConfirmEndSupport(false)} />}
+      {confirmCloseChat && <ConfirmDialog title={supportSessionActive ? 'End this support session?' : 'Close this member chat?'} message={supportSessionActive ? 'Both members will lose the ability to send new messages again. The complete history will remain saved and readable.' : 'Both members will immediately lose the ability to send new messages in this chat. This does not delete the history.'} confirmLabel={supportSessionActive ? 'End support chat' : 'Close chat'} danger={!supportSessionActive} onConfirm={closeMemberChat} onClose={() => setConfirmCloseChat(false)} />}
     </div>
   );
 }
