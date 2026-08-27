@@ -8,7 +8,7 @@ const getFaqs = (siteName: string) => [
   { q: 'How does the Trust Passport work?', a: 'No identity document is required. Your passport combines account age, reviews, recent admin-approved platform history, optional evidence and account standing.' },
   { q: 'Are uploads reviewed?', a: 'Vehicle photos, work-history proofs and other trust evidence remain pending until an admin approves them. Profile photos appear immediately. Private proof files are not shown to other members.' },
   { q: 'Can I see a vehicle\'s insurance status?', a: 'Yes. Every listing shows the insurance type (third party or comprehensive) and its expiry date, along with any known issues the owner has disclosed.' },
-  { q: 'How does the chat work?', a: 'A chat opens after a connection is accepted. Ending the connection makes that chat read-only but keeps its history for support and dispute resolution. An administrator can join when support is needed. File uploads are disabled so they cannot bypass moderation.' },
+  { q: 'How does the chat work?', a: 'A chat opens after a connection is accepted. Ending the connection makes messaging read-only, but both members keep access to the complete history for safety and dispute resolution. Reconnecting with the same member continues in the same organized history. An administrator can join when support is needed. File uploads are disabled so they cannot bypass moderation.' },
   { q: 'How do ratings and reports work?', a: 'Every member starts at 5.0 stars. Reviews from completed matches form the base rating, and each report upheld by an admin subtracts 0.1 star—so 10 upheld reports reduce a 5.0 rating to 4.0. Open or dismissed reports do not affect a rating.' },
 ];
 

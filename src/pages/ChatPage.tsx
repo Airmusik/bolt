@@ -406,7 +406,7 @@ export function ChatPage() {
                 })}
               </div>
 
-              {chatClosed && <div className="flex items-start gap-3 border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-sm font-semibold">Connection ended — chat history preserved</p><p className="text-xs">This conversation is read-only. Send and accept a new connection request to start a new chat.</p></div></div>}
+              {chatClosed && <div className="flex items-start gap-3 border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-sm font-semibold">Connection ended — chat history preserved</p><p className="text-xs">Both members can still view this read-only history for safety and dispute resolution. Send and accept a new connection request to resume messaging.</p></div></div>}
 
               {/* Emoji picker */}
               {!chatClosed && !chatBlocked && showEmoji && (

@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, BadgeCheck, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole, Upload, ImageIcon, Loader2 } from 'lucide-react';
+import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole, Upload, ImageIcon, Loader2 } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
@@ -92,9 +92,9 @@ export function AdminPage() {
   const [listingActionLoading, setListingActionLoading] = useState(false);
   const [viewingReport, setViewingReport] = useState<AdminReport | null>(null);
   const [carStatusFilter, setCarStatusFilter] = useState<'all' | 'live' | 'pending'>('all');
+  const [memberRoleFilter, setMemberRoleFilter] = useState<'all' | 'driver' | 'owner'>('all');
 
   const load = useCallback(async () => {
-    setLoading(true);
     const [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, contactsResult] = await Promise.all([
       supabase.rpc('admin_list_profiles'),
       supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).order('created_at', { ascending: false }),
@@ -347,24 +347,16 @@ export function AdminPage() {
     if (conv?.id) window.setTimeout(() => window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: { conversationId: conv.id, prefill } })), 50);
   };
 
-  const stats: { label: string; value: number; icon: LucideIcon; tab: Tab; carFilter?: 'live' | 'pending' }[] = [
-    { label: 'Total users', value: users.length, icon: Users, tab: 'members' },
-    { label: 'Drivers', value: drivers.length, icon: Users, tab: 'drivers' },
-    { label: 'Car owners', value: owners.length, icon: ShieldCheck, tab: 'owners' },
-    { label: 'Live listings', value: vehicles.filter((v) => v.status === 'active' && v.approval_status === 'approved').length, icon: Car, tab: 'cars', carFilter: 'live' },
-    { label: 'Pending listings', value: pendingListings.length, icon: Car, tab: 'cars', carFilter: 'pending' },
-    { label: 'Pending Trust Passports', value: pendingVerifications.length, icon: TrendingUp, tab: 'drivers' },
-    { label: 'Pending uploads', value: pendingDocs.length + pendingVehiclePhotos.length, icon: FileText, tab: 'documents' },
-    { label: 'Open reports', value: reports.filter((r) => r.status === 'open').length, icon: Flag, tab: 'reports' },
-    { label: 'New contacts', value: newContactMessages.length, icon: Mail, tab: 'contact' },
-    { label: 'Trusted drivers', value: drivers.filter((u) => u.is_verified).length, icon: BadgeCheck, tab: 'drivers' },
+  const stats: { label: string; value: number; icon: LucideIcon }[] = [
+    { label: 'Members', value: users.length, icon: Users },
+    { label: 'Live listings', value: vehicles.filter((v) => v.status === 'active' && v.approval_status === 'approved').length, icon: Car },
+    { label: 'Pending reviews', value: pendingListings.length + pendingVerifications.length + pendingDocs.length + pendingVehiclePhotos.length, icon: FileText },
+    { label: 'Open reports', value: reports.filter((r) => r.status === 'open').length, icon: Flag },
   ];
 
   const tabs: { key: Tab; label: string; icon: LucideIcon; badge?: number }[] = [
     { key: 'overview', label: 'Overview', icon: TrendingUp },
-    { key: 'members', label: 'All Users', icon: Users, badge: users.length },
-    { key: 'drivers', label: 'Drivers', icon: Users, badge: drivers.length },
-    { key: 'owners', label: 'Car Owners', icon: ShieldCheck, badge: owners.length },
+    { key: 'members', label: 'Members', icon: Users, badge: users.length },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
@@ -376,7 +368,10 @@ export function AdminPage() {
 
   const filteredDrivers = drivers.filter((d) => `${d.full_name} ${d.email || ''} ${d.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
   const filteredOwners = owners.filter((o) => `${o.full_name} ${o.email || ''} ${o.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
-  const filteredUsers = users.filter((member) => `${member.full_name} ${member.email || ''} ${member.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
+  const filteredUsers = users.filter((member) => {
+    const matchesRole = memberRoleFilter === 'all' || member.role === memberRoleFilter;
+    return matchesRole && `${member.full_name} ${member.email || ''} ${member.phone || ''}`.toLowerCase().includes(search.toLowerCase());
+  });
   const filteredVehicles = vehicles.filter((v) => {
     const matchesSearch = `${v.make} ${v.model} ${v.location}`.toLowerCase().includes(search.toLowerCase());
     if (!matchesSearch) return false;
@@ -395,11 +390,11 @@ export function AdminPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <button key={s.label} onClick={() => { setSearch(''); setCarStatusFilter(s.carFilter || 'all'); setTab(s.tab); }} className="card p-4 text-left hover:-translate-y-0.5 hover:shadow-card-hover focus:outline-none focus:ring-2 focus:ring-brand-500" aria-label={`View ${s.label.toLowerCase()}`}>
+          <div key={s.label} className="card p-4">
             <s.icon className="h-5 w-5 text-brand-600" />
-            <p className="mt-2 font-display text-xl font-bold text-ink-900">{s.value}</p>
+            <p className="mt-2 font-display text-xl font-bold text-ink-900">{loading ? '—' : s.value}</p>
             <p className="text-xs text-ink-500">{s.label}</p>
-          </button>
+          </div>
         ))}
       </div>
 
@@ -413,7 +408,7 @@ export function AdminPage() {
       </div>
 
       <div className="mt-6">
-        {(tab === 'members' || tab === 'drivers' || tab === 'owners' || tab === 'cars') && (
+        {(tab === 'members' || tab === 'cars') && (
           <div className="mb-4 flex items-center gap-2">
             <Search className="h-4 w-4 text-ink-400" />
             <input
@@ -454,10 +449,7 @@ export function AdminPage() {
                 {pendingVerifications.slice(0, 5).map((p) => (
                   <div key={p.id} className="flex items-center justify-between">
                     <span className="text-sm text-ink-700">{p.full_name} <span className="capitalize text-ink-400">({p.role})</span></span>
-                    <div className="flex gap-1">
-                      <button onClick={() => setViewingUser(p)} className="btn-ghost px-3 py-1 text-xs"><Eye className="h-3 w-3" /> View</button>
-                      <button onClick={() => setViewingUser(p)} className="btn-primary px-3 py-1 text-xs">Approve</button>
-                    </div>
+                    <button onClick={() => setViewingUser(p)} className="btn-primary px-3 py-1 text-xs"><Eye className="h-3 w-3" /> Review</button>
                   </div>
                 ))}
                 {pendingVerifications.length === 0 && <p className="text-sm text-ink-400">No pending Trust Passports.</p>}
@@ -485,12 +477,19 @@ export function AdminPage() {
         {/* ---------- All members ---------- */}
         {tab === 'members' && !loading && (
           <div className="space-y-2">
+            <div className="mb-3 flex flex-wrap gap-2">
+              {(['all', 'driver', 'owner'] as const).map((role) => (
+                <button key={role} onClick={() => setMemberRoleFilter(role)} className={cn('rounded-full px-3 py-1.5 text-xs font-medium capitalize ring-1', memberRoleFilter === role ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-600 ring-ink-200')}>
+                  {role === 'all' ? `All members (${users.length})` : `${role === 'driver' ? 'Drivers' : 'Owners'} (${role === 'driver' ? drivers.length : owners.length})`}
+                </button>
+              ))}
+            </div>
             {filteredUsers.map((member) => (
               <div key={member.id} className="card flex flex-wrap items-center gap-3 p-4">
                 <Avatar name={member.full_name} src={member.avatar_url} size={42} verified={member.is_verified} />
                 <div className="min-w-0 flex-1"><p className="font-medium text-ink-900">{member.full_name || 'Unnamed member'}</p><p className="truncate text-xs text-ink-500">{member.email || 'No email'} · {member.phone || 'No phone'} · <span className="capitalize">{member.role}</span></p></div>
                 {member.is_suspended && <span className="badge-danger"><Ban className="h-3 w-3" /> Suspended</span>}
-                <button onClick={() => setViewingUser(member)} className="btn-primary px-3 py-2 text-sm"><Eye className="h-4 w-4" /> View profile</button>
+                <button onClick={() => setViewingUser(member)} className="btn-primary px-3 py-2 text-sm"><Eye className="h-4 w-4" /> Manage profile</button>
               </div>
             ))}
             {filteredUsers.length === 0 && <p className="text-sm text-ink-500">No users found.</p>}
@@ -701,10 +700,7 @@ export function AdminPage() {
                 {h.approved ? (
                   <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>
                 ) : (
-                  <div className="flex gap-1">
-                    <button onClick={() => setViewingHistory(h)} className="btn-ghost px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View</button>
-                    <button onClick={() => setViewingHistory(h)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Approve</button>
-                  </div>
+                  <button onClick={() => setViewingHistory(h)} className="btn-primary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> Review</button>
                 )}
               </div>
             ))}
@@ -804,6 +800,7 @@ export function AdminPage() {
           onChangePin={() => { setChangingPinUser(viewingUser); setViewingUser(null); }}
           onDelete={() => { setDeletingUser(viewingUser); setViewingUser(null); }}
           onMessage={() => { adminStartChat(viewingUser); setViewingUser(null); }}
+          onEdit={() => { setEditingUser(viewingUser); setViewingUser(null); }}
         />
       )}
 
@@ -1322,7 +1319,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 // ---------- View User Modal ----------
-function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDoc, onChangePin, onDelete, onMessage }: {
+function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDoc, onChangePin, onDelete, onMessage, onEdit }: {
   user: Profile;
   onClose: () => void;
   onApprove: () => void;
@@ -1332,6 +1329,7 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
   onChangePin: () => void;
   onDelete: () => void;
   onMessage: () => void;
+  onEdit: () => void;
 }) {
   const [docs, setDocs] = useState<DocumentRow[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
@@ -1435,6 +1433,7 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
       <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-ink-100 pt-4">
         <button onClick={onClose} className="btn-secondary">Close</button>
         <button onClick={onMessage} className="btn-secondary"><MessageSquare className="h-4 w-4" /> Message</button>
+        <button onClick={onEdit} className="btn-secondary"><Pencil className="h-4 w-4" /> Edit profile</button>
         {user.role === 'driver' && !user.is_suspended && user.verification_status !== 'approved' && (
           <button onClick={onApprove} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
         )}

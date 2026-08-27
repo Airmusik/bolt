@@ -51,7 +51,6 @@ export function DashboardPage() {
 
   const load = useCallback(async () => {
     if (!user || !profile) return;
-    setLoading(true);
     if (profile.role === 'owner') {
       const [{ data: v }, { data: apps }, { data: drs }] = await Promise.all([
         supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).eq('owner_id', user.id).order('created_at', { ascending: false }),
@@ -114,14 +113,14 @@ export function DashboardPage() {
     { label: 'Rating', value: profile.rating > 0 ? profile.rating.toFixed(1) : 'New', icon: Star, tab: null },
   ];
 
-  const tabs: { id: Tab; label: string }[] = [
+  const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'overview', label: 'Overview' },
     ...(isOwner
       ? [{ id: 'drivers' as Tab, label: 'Available drivers' }]
       : [{ id: 'cars' as Tab, label: 'Available cars' }]),
     ...(isOwner ? [{ id: 'vehicles' as Tab, label: 'My vehicles' }] : []),
     { id: 'applications', label: isOwner ? 'Applications' : 'My applications' },
-    { id: 'connections', label: `Connections${pendingConnections.length > 0 ? ` (${pendingConnections.length})` : ''}` },
+    { id: 'connections', label: 'Connections', badge: pendingConnections.length },
     { id: 'chats', label: 'Chats' },
   ];
 
@@ -159,8 +158,8 @@ export function DashboardPage() {
       {/* Tabs */}
       <div className="mt-8 flex gap-1 overflow-x-auto border-b border-ink-100">
         {tabs.map((t) => (
-          <button key={t.id} onClick={() => setTab(t.id)} className={cn('whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition', tab === t.id ? 'border-ink-900 text-ink-900' : 'border-transparent text-ink-500 hover:text-ink-800')}>
-            {t.label}
+          <button key={t.id} onClick={() => { if (tab !== t.id) setTab(t.id); }} className={cn('flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors', tab === t.id ? 'border-ink-900 text-ink-900' : 'border-transparent text-ink-500 hover:text-ink-800')}>
+            {t.label}{!loading && t.badge !== undefined && t.badge > 0 && <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{t.badge}</span>}
           </button>
         ))}
       </div>
@@ -173,7 +172,7 @@ export function DashboardPage() {
         {tab === 'applications' && isOwner && <OwnerApplicationsTab applications={applications} onAction={load} toast={toast} />}
         {tab === 'applications' && isDriver && <DriverApplicationsTab applications={myApplications} />}
         {tab === 'connections' && <ConnectionsTab incoming={incomingConnections} outgoing={outgoingConnections} onAction={async () => { await load(); await refreshProfile(); }} toast={toast} />}
-        {tab === 'chats' && <ChatsTab conversations={conversations} loading={loading} />}
+        {tab === 'chats' && <ChatsTab conversations={conversations} loading={loading} currentUserId={user?.id || ''} />}
       </div>
     </div>
   );
@@ -351,7 +350,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
             {a.message && <p className="mt-1 text-sm text-ink-600">"{a.message}"</p>}
           </div>
           <div className="flex items-center gap-2">
-            <span className={cn('badge capitalize', a.status === 'pending' && 'badge-warning status-live', a.status === 'accepted' && 'badge-brand', a.status === 'rejected' && 'badge-danger', a.status === 'completed' && 'badge-neutral')}>{a.status}</span>
+            <span className={cn('badge capitalize', a.status === 'pending' && 'badge-warning', a.status === 'accepted' && 'badge-brand', a.status === 'rejected' && 'badge-danger', a.status === 'completed' && 'badge-neutral')}>{a.status}</span>
             {a.status === 'pending' && (
               <>
                 <button onClick={() => setAccepting(a)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
@@ -396,7 +395,7 @@ function DriverApplicationsTab({ applications }: { applications: DriverApplicati
       {applications.map((a) => (
         <div key={a.id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           {a.vehicle && <div className="flex-1"><Link to={`/vehicles/${a.vehicle_id}`} className="font-semibold text-ink-900 hover:text-ink-700">{a.vehicle.make} {a.vehicle.model}</Link><p className="text-xs text-ink-400">{a.vehicle.location} · {timeAgo(a.created_at)}</p></div>}
-          <span className={cn('badge capitalize', a.status === 'pending' && 'badge-warning status-live', a.status === 'accepted' && 'badge-brand', a.status === 'rejected' && 'badge-danger', a.status === 'completed' && 'badge-neutral')}>{a.status}</span>
+          <span className={cn('badge capitalize', a.status === 'pending' && 'badge-warning', a.status === 'accepted' && 'badge-brand', a.status === 'rejected' && 'badge-danger', a.status === 'completed' && 'badge-neutral')}>{a.status}</span>
           {a.status === 'accepted' && <Link to="/chat" className="btn-secondary px-3 py-1.5 text-xs"><MessageSquare className="h-3.5 w-3.5" /> Chat</Link>}
         </div>
       ))}
@@ -550,17 +549,27 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
   );
 }
 
-function ChatsTab({ conversations, loading }: { conversations: ConversationWithRelations[]; loading: boolean }) {
+function ChatsTab({ conversations, loading, currentUserId }: { conversations: ConversationWithRelations[]; loading: boolean; currentUserId: string }) {
   if (loading) return <div className="card h-48 animate-pulse" />;
   if (conversations.length === 0) return <EmptyState title="No conversations yet" description="Chats open once a connection is accepted." action={<Link to="/browse-cars" className="btn-primary">Browse cars</Link>} />;
+  const grouped = new Map<string, ConversationWithRelations[]>();
+  conversations.forEach((conversation) => {
+    const partnerId = conversation.driver_id === currentUserId ? conversation.owner_id : conversation.driver_id;
+    const key = partnerId || conversation.id;
+    grouped.set(key, [...(grouped.get(key) || []), conversation]);
+  });
+  const threads = [...grouped.values()].map((items) => {
+    const ordered = [...items].sort((a, b) => new Date(b.last_message_at || b.created_at).getTime() - new Date(a.last_message_at || a.created_at).getTime());
+    return { latest: ordered[0], count: ordered.length };
+  }).sort((a, b) => new Date(b.latest.last_message_at || b.latest.created_at).getTime() - new Date(a.latest.last_message_at || a.latest.created_at).getTime());
   return (
     <div className="space-y-3">
-      {conversations.map((c) => (
+      {threads.map(({ latest: c, count }) => (
         <Link key={c.id} to={`/chat/${c.id}`} className="card card-hover flex items-center gap-3 p-4">
           <Avatar name={(c.driver?.full_name || c.owner?.full_name || 'User')} src={c.driver?.avatar_url || c.owner?.avatar_url} size={44} verified={!!c.driver?.is_verified || !!c.owner?.is_verified} />
           <div className="flex-1">
             <p className="font-semibold text-ink-900">{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : `${c.driver?.full_name || 'Driver'} ↔ ${c.owner?.full_name || 'Owner'}`}</p>
-            <p className="text-xs text-ink-400">{c.closed_at ? 'Ended · history preserved' : c.last_message_at ? timeAgo(c.last_message_at) : 'No messages yet'}</p>
+            <p className="text-xs text-ink-400">{count > 1 ? `${count} connections · complete history preserved` : c.closed_at ? 'Ended · history preserved' : c.last_message_at ? timeAgo(c.last_message_at) : 'No messages yet'}</p>
           </div>
           <MessageSquare className="h-5 w-5 text-ink-400" />
         </Link>
