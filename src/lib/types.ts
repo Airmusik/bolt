@@ -35,6 +35,7 @@ export interface Profile {
   rating_count: number;
   contracts_completed: number;
   onboarding_completed: boolean;
+  last_seen_at: string | null;
   created_at: string;
   updated_at: string;
 }

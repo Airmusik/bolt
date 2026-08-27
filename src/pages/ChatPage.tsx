@@ -14,6 +14,18 @@ import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useSiteSettings } from '@/lib/siteSettings';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
+const ONLINE_WINDOW_MS = 2 * 60 * 1000;
+
+function isProfileOnline(member?: Profile | null) {
+  if (!member?.last_seen_at) return false;
+  return Date.now() - new Date(member.last_seen_at).getTime() < ONLINE_WINDOW_MS;
+}
+
+function lastSeenText(member?: Profile | null) {
+  if (!member?.last_seen_at) return 'Last seen unavailable';
+  if (isProfileOnline(member)) return 'Online';
+  return `Last seen ${timeAgo(member.last_seen_at)}`;
+}
 
 export function ChatPage() {
   const { conversationId } = useParams();
@@ -70,6 +82,27 @@ export function ChatPage() {
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
+
+  const activeId = active?.id;
+  useEffect(() => {
+    if (!activeId) return;
+    const refreshed = conversations.find((conversation) => conversation.id === activeId);
+    if (refreshed) setActive(refreshed);
+  }, [activeId, conversations]);
+
+  useEffect(() => {
+    const refresh = () => {
+      if (document.visibilityState !== 'visible') return;
+      loadConversations();
+      if (activeId) loadMessages();
+    };
+    const interval = window.setInterval(refresh, 30_000);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [activeId, loadConversations, loadMessages]);
 
   // realtime subscriptions
   useEffect(() => {
@@ -158,6 +191,7 @@ export function ChatPage() {
           </div>
           {conversations.map((c) => {
             const otherUser = user?.id === c.driver_id ? (c.owner || c.admin) : user?.id === c.owner_id ? (c.driver || c.admin) : (c.driver || c.owner);
+            const online = isProfileOnline(otherUser);
             return (
               <button key={c.id} onClick={() => setActive(c)} className={cn('group relative flex w-full items-center gap-3 border-b border-ink-50 p-3 text-left transition hover:bg-brand-50/60', active?.id === c.id && 'bg-brand-50 shadow-[inset_3px_0_0_0_theme(colors.brand.500)] dark:bg-brand-950/25')}>
                 <Avatar name={otherUser?.full_name || 'User'} src={otherUser?.avatar_url} size={44} verified={!!otherUser?.is_verified} />
@@ -166,6 +200,7 @@ export function ChatPage() {
                     {otherUser?.full_name} <VerifiedBadge verified={otherUser?.is_verified} size={11} />
                   </p>
                   <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-500">{c.vehicle?.make && <CarFront className="h-3 w-3 shrink-0" />}{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : c.admin_id ? `${settings.site_name} Admin` : 'Conversation'} </p>
+                  <p className={cn('mt-0.5 flex items-center gap-1 text-[10px]', online ? 'font-semibold text-emerald-600' : 'text-ink-400')}><span className={cn('h-1.5 w-1.5 rounded-full', online ? 'bg-emerald-500' : 'bg-ink-300')} />{lastSeenText(otherUser)}</p>
                 </div>
                 {c.last_message_at && <span className="text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}
               </button>
@@ -186,13 +221,18 @@ export function ChatPage() {
                   </Link>
                   <div>
                     <Link to={`/members/${other.id}`} className="flex items-center gap-1 font-semibold text-ink-900 hover:text-brand-700 hover:underline">{other.full_name} <VerifiedBadge verified={other.is_verified} size={12} /></Link>
-                    <p className="mt-0.5 flex items-center gap-1 text-xs text-ink-500">{active.vehicle_id ? <><CarFront className="h-3 w-3" /> Vehicle conversation</> : active.admin_id ? `${settings.site_name} support` : 'Member conversation'}</p>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-500">{active.vehicle_id ? <><CarFront className="h-3 w-3" /> Vehicle conversation</> : active.admin_id ? `${settings.site_name} support` : 'Member conversation'}<span aria-hidden="true">·</span><span className={cn('inline-flex items-center gap-1', isProfileOnline(other) ? 'font-semibold text-emerald-600' : 'text-ink-400')}><span className={cn('h-1.5 w-1.5 rounded-full', isProfileOnline(other) ? 'bg-emerald-500' : 'bg-ink-300')} />{lastSeenText(other)}</span></p>
                   </div>
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => setShowReport(true)} aria-label="Report conversation" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><Flag className="h-4 w-4" /></button>
                   <button onClick={blockUser} aria-label="Block user" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-danger"><Ban className="h-4 w-4" /></button>
                 </div>
+              </div>
+
+              <div className="flex items-start gap-2 border-b border-violet-100 bg-violet-50/80 px-4 py-2.5 text-violet-900 dark:bg-violet-950/20 dark:text-violet-100">
+                <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
+                <p className="text-xs leading-5"><strong>Dispute support:</strong> An authorised administrator may review and join this chat if a report, safety concern, or dispute needs help resolving.</p>
               </div>
 
               {/* Messages */}
@@ -216,7 +256,7 @@ export function ChatPage() {
                         )}
                         <div className={cn('mt-0.5 flex items-center justify-end gap-1 text-[10px]', mine && m.type !== 'system' ? 'text-brand-100' : 'text-ink-400')}>
                           {formatMessageTimestamp(m.created_at)}
-                          {mine && (m.read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />)}
+                          {mine && <><span className="ml-1 font-semibold">{m.read ? 'Read' : 'Sent'}</span>{m.read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />}</>}
                         </div>
                       </div>
                       </div>

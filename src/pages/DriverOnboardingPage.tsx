@@ -13,6 +13,21 @@ const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 const EVIDENCE_TYPES = [
   { type: 'work_history', label: 'Latest platform history proof', help: 'Upload your latest Uber, Bolt, Faras, Little Cab, or other ride-hailing platform activity history.' },
 ] as const;
+const MAX_TRUST_FILE_BYTES = 8 * 1024 * 1024;
+const TRUST_FILE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
+const TRUST_FILE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+
+function validateTrustFile(file: File): string | null {
+  const extension = file.name.split('.').pop()?.toLowerCase() || '';
+  if (['heic', 'heif'].includes(extension) || file.type.includes('heic') || file.type.includes('heif')) {
+    return 'HEIC photos are not supported yet. Choose a JPG, PNG, WebP, PDF, or upload a screenshot.';
+  }
+  if (!TRUST_FILE_TYPES.includes(file.type) && !TRUST_FILE_EXTENSIONS.includes(extension)) {
+    return 'Choose a JPG, PNG, WebP, or PDF file.';
+  }
+  if (file.size > MAX_TRUST_FILE_BYTES) return 'The file must be smaller than 8 MB. Try a screenshot or a lower-resolution image.';
+  return null;
+}
 
 interface DriverAboutForm {
   full_name: string;
@@ -42,13 +57,20 @@ export function DriverOnboardingPage() {
 
   const loadTrustData = async () => {
     if (!user) return;
-    const [{ data: docs }, { data: platformHistory }] = await Promise.all([
-      supabase.from('documents').select('*').eq('user_id', user.id).in('type', EVIDENCE_TYPES.map((item) => item.type)),
-      supabase.from('driver_platform_history').select('*').eq('driver_id', user.id),
-    ]);
-    setEvidence((docs as DocumentRow[]) || []);
-    setHistory((platformHistory as PlatformHistory[]) || []);
-    setTrustLoaded(true);
+    try {
+      const [{ data: docs, error: documentError }, { data: platformHistory, error: historyError }] = await Promise.all([
+        supabase.from('documents').select('*').eq('user_id', user.id).in('type', EVIDENCE_TYPES.map((item) => item.type)),
+        supabase.from('driver_platform_history').select('*').eq('driver_id', user.id),
+      ]);
+      if (documentError || historyError) throw documentError || historyError;
+      setEvidence((docs as DocumentRow[]) || []);
+      setHistory((platformHistory as PlatformHistory[]) || []);
+    } catch (error) {
+      toast('Could not load platform history. Please refresh and try again.', 'error');
+      console.error('platform history load failed', error);
+    } finally {
+      setTrustLoaded(true);
+    }
   };
 
   useEffect(() => {
@@ -66,56 +88,89 @@ export function DriverOnboardingPage() {
 
   const uploadEvidence = async (file: File, type: string, label: string) => {
     if (!user) return;
+    const validationError = validateTrustFile(file);
+    if (validationError) { toast(validationError, 'error'); return; }
     setUploadingType(type);
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
-    const path = `${user.id}/trust-${type}-${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
-    if (uploadError) { toast('Upload failed: ' + uploadError.message, 'error'); setUploadingType(null); return; }
-    const { data: publicUrl } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
-    const existing = evidence.find((item) => item.type === type);
-    const query = existing
-      ? supabase.from('documents').update({ file_url: publicUrl.publicUrl, label, verified: false, rejected: false, rejection_reason: null }).eq('id', existing.id)
-      : supabase.from('documents').insert({ user_id: user.id, type, file_url: publicUrl.publicUrl, label });
-    const { error } = await query;
-    setUploadingType(null);
-    if (error) { toast('Could not save evidence: ' + error.message, 'error'); return; }
-    await loadTrustData();
-    toast('Evidence uploaded and sent for admin approval.');
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${user.id}/trust-${type}-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, { contentType: file.type || undefined });
+      if (uploadError) throw uploadError;
+      const { data: publicUrl } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
+      const existing = evidence.find((item) => item.type === type);
+      const query = existing
+        ? supabase.from('documents').update({ file_url: publicUrl.publicUrl, label, verified: false, rejected: false, rejection_reason: null }).eq('id', existing.id)
+        : supabase.from('documents').insert({ user_id: user.id, type, file_url: publicUrl.publicUrl, label });
+      const { error } = await query;
+      if (error) throw error;
+      await loadTrustData();
+      toast('Evidence uploaded and sent for admin approval.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The upload could not be completed.';
+      toast('Upload failed: ' + message, 'error');
+      console.error('trust evidence upload failed', error);
+    } finally {
+      setUploadingType(null);
+    }
   };
 
   const addHistory = async () => {
     if (!user) return;
-    const { data, error } = await supabase.from('driver_platform_history').insert({ driver_id: user.id, platform: 'uber', months_active: 0, trips: 0 }).select().maybeSingle();
-    if (error) { toast('Could not add platform history.', 'error'); return; }
-    if (data) setHistory((items) => [...items, data as PlatformHistory]);
+    try {
+      const { data, error } = await supabase.from('driver_platform_history').insert({ driver_id: user.id, platform: 'uber', months_active: 0, trips: 0 }).select().maybeSingle();
+      if (error) throw error;
+      if (data) setHistory((items) => [...items, data as PlatformHistory]);
+    } catch (error) {
+      toast('Could not add platform history. Please try again.', 'error');
+      console.error('platform history insert failed', error);
+    }
   };
 
   const uploadHistoryProof = async (item: PlatformHistory, file: File) => {
     if (!user) return;
+    const validationError = validateTrustFile(file);
+    if (validationError) { toast(validationError, 'error'); return; }
     setUploadingType(`history-${item.id}`);
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
-    const path = `${user.id}/history-${item.id}-${Date.now()}.${ext}`;
-    const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
-    if (uploadError) { toast('Upload failed: ' + uploadError.message, 'error'); setUploadingType(null); return; }
-    const { data: publicUrl } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
-    const { error } = await supabase.from('driver_platform_history').update({ proof_url: publicUrl.publicUrl, approved: false }).eq('id', item.id);
-    setUploadingType(null);
-    if (error) { toast('Could not submit proof.', 'error'); return; }
-    await loadTrustData();
-    toast('Platform proof submitted for admin approval.');
+    try {
+      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const path = `${user.id}/history-${item.id}-${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, { contentType: file.type || undefined });
+      if (uploadError) throw uploadError;
+      const { data: publicUrl } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
+      const { error } = await supabase.from('driver_platform_history').update({ proof_url: publicUrl.publicUrl, approved: false }).eq('id', item.id);
+      if (error) throw error;
+      await loadTrustData();
+      toast('Platform proof submitted for admin approval.');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The upload could not be completed.';
+      toast('Could not submit platform proof: ' + message, 'error');
+      console.error('platform proof upload failed', error);
+    } finally {
+      setUploadingType(null);
+    }
   };
 
   const updateHistory = async (item: PlatformHistory, field: keyof PlatformHistory, value: unknown) => {
     setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, [field]: value } : entry));
-    const { error } = await supabase.from('driver_platform_history').update({ [field]: value }).eq('id', item.id);
-    if (error) toast('Could not update platform history.', 'error');
+    try {
+      const { error } = await supabase.from('driver_platform_history').update({ [field]: value, approved: false }).eq('id', item.id);
+      if (error) throw error;
+    } catch (error) {
+      toast('Could not update platform history. Your page is still open; please try again.', 'error');
+      console.error('platform history update failed', error);
+    }
   };
 
   const removeHistory = async (item: PlatformHistory) => {
-    const { error } = await supabase.from('driver_platform_history').delete().eq('id', item.id);
-    if (error) { toast('Could not remove platform history.', 'error'); return; }
-    setHistory((items) => items.filter((entry) => entry.id !== item.id));
-    toast('Platform history removed.');
+    try {
+      const { error } = await supabase.from('driver_platform_history').delete().eq('id', item.id);
+      if (error) throw error;
+      setHistory((items) => items.filter((entry) => entry.id !== item.id));
+      toast('Platform history removed.');
+    } catch (error) {
+      toast('Could not remove platform history.', 'error');
+      console.error('platform history delete failed', error);
+    }
   };
 
   const saveProfile = async () => {
@@ -236,15 +291,15 @@ export function DriverOnboardingPage() {
             const item = evidence.find((entry) => entry.type === definition.type);
             return <div key={definition.type} className={cn('rounded-xl border p-4', item?.rejected ? 'border-danger/30 bg-red-50/30' : 'border-ink-100')}>
               <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium text-ink-900">{definition.label}</p><p className="text-xs text-ink-500">{definition.help}</p>{item && <UploadStatus item={item} />}</div>
-                <label className="btn-secondary cursor-pointer text-xs"><input type="file" accept="image/*,.pdf" className="hidden" disabled={uploadingType === definition.type} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadEvidence(file, definition.type, definition.label); e.target.value = ''; }} />{uploadingType === definition.type ? <><Upload className="h-3.5 w-3.5" /> Uploading…</> : item ? <><RefreshCw className="h-3.5 w-3.5" /> Replace</> : <><Upload className="h-3.5 w-3.5" /> Upload</>}</label>
+                <label className="btn-secondary cursor-pointer text-xs"><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" className="hidden" disabled={uploadingType === definition.type} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadEvidence(file, definition.type, definition.label); e.target.value = ''; }} />{uploadingType === definition.type ? <><Upload className="h-3.5 w-3.5" /> Uploading…</> : item ? <><RefreshCw className="h-3.5 w-3.5" /> Replace</> : <><Upload className="h-3.5 w-3.5" /> Upload</>}</label>
               </div>{item?.rejected && item.rejection_reason && <p className="mt-2 rounded-lg bg-red-100 px-3 py-2 text-xs text-danger"><AlertCircle className="mr-1 inline h-3 w-3" /> {item.rejection_reason}</p>}</div>;
           })}</div>
         </Section>
 
         <Section title="Platform history (required)" desc="Add at least one platform, enter your months active, and upload proof. Only admin-approved entries appear publicly.">
           <div className="space-y-3">{history.map((item) => <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select><input type="number" value={item.months_active} onChange={(e) => updateHistory(item, 'months_active', Number(e.target.value))} className="input py-2" placeholder="Months active" /><input type="number" value={item.trips} onChange={(e) => updateHistory(item, 'trips', Number(e.target.value))} className="input py-2" placeholder="Trips" /><button type="button" onClick={() => removeHistory(item)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button></div>
-            <div className="flex items-center gap-2"><label className="btn-secondary cursor-pointer text-xs"><input type="file" accept="image/*,.pdf" className="hidden" disabled={uploadingType === `history-${item.id}`} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadHistoryProof(item, file); e.target.value = ''; }} /><Upload className="h-3.5 w-3.5" /> {uploadingType === `history-${item.id}` ? 'Uploading…' : item.proof_url ? 'Replace proof' : 'Upload proof'}</label>{item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}</div>
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select><input type="number" min={0} value={item.months_active} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, months_active: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'months_active', Number(e.target.value))} className="input py-2" placeholder="Months active" /><input type="number" min={0} value={item.trips} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, trips: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'trips', Number(e.target.value))} className="input py-2" placeholder="Trips" /><button type="button" onClick={() => removeHistory(item)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button></div>
+            <div className="flex flex-wrap items-center gap-2"><label className="btn-secondary cursor-pointer text-xs"><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" className="hidden" disabled={uploadingType === `history-${item.id}`} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadHistoryProof(item, file); e.target.value = ''; }} /><Upload className="h-3.5 w-3.5" /> {uploadingType === `history-${item.id}` ? 'Uploading…' : item.proof_url ? 'Replace proof' : 'Upload proof'}</label>{item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}<span className="basis-full text-[11px] text-ink-400">JPG, PNG, WebP, or PDF · maximum 8 MB</span></div>
           </div>)}<button type="button" onClick={addHistory} className="btn-secondary"><Plus className="h-4 w-4" /> Add platform</button></div>
         </Section>
 

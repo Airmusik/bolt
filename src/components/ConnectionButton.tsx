@@ -9,6 +9,7 @@ import { getConnectionBetween, sendConnectionRequest, updateConnectionStatus } f
 import type { Connection, Profile } from '@/lib/types';
 import { Modal } from './Modal';
 import { cn } from '@/lib/utils';
+import { ConfirmDialog } from './ConfirmDialog';
 
 interface Props {
   otherUserId: string;
@@ -28,6 +29,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [showAcceptWarning, setShowAcceptWarning] = useState(false);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -68,7 +70,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
     if (error) { toast(error, 'error'); return; }
     setConnection({ ...connection, status: 'accepted' });
     if (conversationId) setConversationId(conversationId);
-    toast('Connection accepted. You can now chat.');
+    toast('Connection accepted. Both profiles are now shown as currently on a connection.');
   };
 
   const handleReject = async () => {
@@ -93,10 +95,10 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   if (loading) return <div className={cn('h-9 w-24 animate-pulse rounded-lg bg-ink-100', className)} />;
 
   // If the other user is unavailable, don't show the connect button
-  if (otherProfile && otherProfile.availability === 'unavailable' && (!connection || connection.status === 'rejected' || connection.status === 'withdrawn' || connection.status === 'ended')) {
+  if (otherProfile && otherProfile.availability !== 'available' && (!connection || connection.status === 'rejected' || connection.status === 'withdrawn' || connection.status === 'ended')) {
     return (
       <span className={cn('inline-flex items-center gap-1.5 rounded-lg bg-ink-100 px-3 py-1.5 text-xs font-medium text-ink-500', btnSize, className)}>
-        <Clock className="h-3.5 w-3.5" /> Unavailable
+        <Clock className="h-3.5 w-3.5" /> {otherProfile.availability === 'busy' ? 'Currently on a connection' : 'Unavailable'}
       </span>
     );
   }
@@ -138,10 +140,19 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   // Pending — received by me
   if (connection.status === 'pending' && connection.recipient_id === user.id) {
     return (
-      <div className={cn('flex gap-2', className)}>
-        <button onClick={handleAccept} className={cn('btn-primary', btnSize)}><Check className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> Accept</button>
-        <button onClick={handleReject} className={cn('btn-secondary', btnSize)}><X className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> Reject</button>
-      </div>
+      <>
+        <div className={cn('flex gap-2', className)}>
+          <button onClick={() => setShowAcceptWarning(true)} className={cn('btn-primary', btnSize)}><Check className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> Accept</button>
+          <button onClick={handleReject} className={cn('btn-secondary', btnSize)}><X className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> Reject</button>
+        </div>
+        {showAcceptWarning && <ConfirmDialog
+          title="Accept this connection?"
+          message="After you accept, both profiles will show “Currently on a connection.” Neither member can accept another connection until this one is ended."
+          confirmLabel="Accept connection"
+          onConfirm={handleAccept}
+          onClose={() => setShowAcceptWarning(false)}
+        />}
+      </>
     );
   }
 

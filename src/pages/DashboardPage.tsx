@@ -18,6 +18,7 @@ import { BackButton } from '@/components/BackButton';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import type { ToastType } from '@/components/toastContext';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 type Tab = 'overview' | 'drivers' | 'vehicles' | 'cars' | 'applications' | 'connections' | 'chats';
 type OwnerApplication = Application & { driver?: Profile; vehicle?: VehicleWithRelations };
@@ -31,7 +32,12 @@ export function DashboardPage() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const { settings } = useSiteSettings();
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab');
+    return requested && ['overview', 'drivers', 'vehicles', 'cars', 'applications', 'connections', 'chats'].includes(requested)
+      ? requested as Tab
+      : 'overview';
+  });
 
   const [vehicles, setVehicles] = useState<VehicleWithRelations[]>([]);
   const [applications, setApplications] = useState<OwnerApplication[]>([]);
@@ -307,12 +313,13 @@ function AvailableCarsTab({ vehicles, loading }: { vehicles: VehicleWithRelation
 function VehiclesTab({ vehicles, loading }: { vehicles: VehicleWithRelations[]; loading: boolean }) {
   if (loading) return <div className="card h-48 animate-pulse" />;
   if (vehicles.length === 0) return <EmptyState title="No vehicles yet" description="Add your first vehicle to start receiving applications." action={<Link to="/vehicles/new" className="btn-primary">Add vehicle</Link>} />;
-  return <div><div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">New and materially edited listings stay private until an admin reviews all vehicle details and photos.</div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <VehicleCard key={v.id} vehicle={v} showOwner={false} showApprovalStatus />)}</div></div>;
+  return <div><div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">New listings require admin approval. Later text changes stay live, while every new or replaced photo remains pending until an admin approves that photo.</div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <VehicleCard key={v.id} vehicle={v} showOwner={false} showApprovalStatus />)}</div></div>;
 }
 
 function OwnerApplicationsTab({ applications, onAction, toast }: { applications: OwnerApplication[]; onAction: () => void; toast: ToastFn }) {
   const [reviewing, setReviewing] = useState<Application | null>(null);
   const [showReview, setShowReview] = useState(false);
+  const [accepting, setAccepting] = useState<Application | null>(null);
 
   const act = async (app: Application, status: 'accepted' | 'rejected' | 'completed') => {
     const { error } = await supabase.rpc('transition_application', {
@@ -320,13 +327,14 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
       p_status: status,
     });
     if (error) { toast(error.message, 'error'); return; }
-    toast(`Application ${status}.`);
+    toast(status === 'accepted' ? 'Application accepted. Both profiles are now shown as currently on a connection.' : `Application ${status}.`);
     onAction();
   };
 
   if (applications.length === 0) return <EmptyState title="No applications yet" description="When drivers connect with you, they'll appear here." />;
   return (
     <div className="space-y-3">
+      {applications.some((application) => application.status === 'pending') && <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:text-amber-100">Accepting an application sets both members to <strong>Currently on a connection</strong>. Neither member can accept another connection until the active one is ended.</div>}
       {applications.map((a) => (
         <div key={a.id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <Link to={`/drivers/${a.driver_id}`} className="flex items-center gap-3">
@@ -345,7 +353,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
             <span className={cn('badge capitalize', a.status === 'pending' && 'badge-warning status-live', a.status === 'accepted' && 'badge-brand', a.status === 'rejected' && 'badge-danger', a.status === 'completed' && 'badge-neutral')}>{a.status}</span>
             {a.status === 'pending' && (
               <>
-                <button onClick={() => act(a, 'accepted')} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
+                <button onClick={() => setAccepting(a)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
                 <button onClick={() => act(a, 'rejected')} className="btn-secondary px-3 py-1.5 text-xs"><X className="h-3.5 w-3.5" /> Reject</button>
               </>
             )}
@@ -361,6 +369,13 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
       {showReview && reviewing && (
         <ReviewModal application={reviewing} revieweeId={reviewing.driver_id} onClose={() => setShowReview(false)} onDone={() => { setShowReview(false); toast('Review submitted.'); onAction(); }} />
       )}
+      {accepting && <ConfirmDialog
+        title="Accept this application?"
+        message="Both profiles will show “Currently on a connection,” and neither member can accept another connection until this arrangement is ended."
+        confirmLabel="Accept application"
+        onConfirm={() => act(accepting, 'accepted')}
+        onClose={() => setAccepting(null)}
+      />}
     </div>
   );
 }
@@ -386,6 +401,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
   const acceptedOut = outgoing.filter((c) => c.status === 'accepted');
   const expiredOut = outgoing.filter((c) => c.status === 'expired');
   const expiredIn = incoming.filter((c) => c.status === 'expired');
+  const [accepting, setAccepting] = useState<Connection | null>(null);
 
   useEffect(() => {
     supabase.rpc('expire_old_connections').then(() => onAction());
@@ -394,7 +410,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
   const handleAccept = async (c: Connection) => {
     const { error } = await updateConnectionStatus(c.id, 'accepted');
     if (error) { toast(error, 'error'); return; }
-    toast('Connection accepted. You can now chat.');
+    toast('Connection accepted. Both profiles are now shown as currently on a connection.');
     onAction();
   };
   const handleReject = async (c: Connection) => {
@@ -416,6 +432,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
       {pendingIn.length > 0 && (
         <div>
           <h3 className="font-display text-lg font-bold text-ink-900">Pending requests ({pendingIn.length})</h3>
+          <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:text-amber-100">Accepting a request sets both members to <strong>Currently on a connection</strong>. Neither member can accept another connection until this one is ended.</div>
           <div className="mt-3 space-y-3">
             {pendingIn.map((c) => (
               <div key={c.id} className="card flex items-center gap-3 p-4">
@@ -425,7 +442,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
                   {c.message && <p className="text-sm text-ink-600">"{c.message}"</p>}
                   <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
                 </div>
-                <button onClick={() => handleAccept(c)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
+                <button onClick={() => setAccepting(c)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
                 <button onClick={() => handleReject(c)} className="btn-secondary px-3 py-1.5 text-xs"><X className="h-3.5 w-3.5" /> Reject</button>
               </div>
             ))}
@@ -500,6 +517,13 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
           </div>
         </div>
       )}
+      {accepting && <ConfirmDialog
+        title="Accept this connection?"
+        message="Both profiles will show “Currently on a connection,” and neither member can accept another connection until this one is ended."
+        confirmLabel="Accept connection"
+        onConfirm={() => handleAccept(accepting)}
+        onClose={() => setAccepting(null)}
+      />}
     </div>
   );
 }

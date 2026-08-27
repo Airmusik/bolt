@@ -173,16 +173,16 @@ export function SettingsPage() {
           <p className="mt-2 text-sm text-ink-600">Control whether other users can see you as available for connections.</p>
           <div className="mt-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${availability === 'available' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${availability === 'available' ? 'bg-green-500' : 'bg-red-500'}`} />
-                {availability === 'available' ? 'Available' : 'Unavailable'}
+              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${availability === 'available' ? 'bg-green-100 text-green-700' : availability === 'busy' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${availability === 'available' ? 'bg-green-500' : availability === 'busy' ? 'bg-amber-500' : 'bg-red-500'}`} />
+                {availability === 'available' ? 'Available' : availability === 'busy' ? 'Currently on a connection' : 'Unavailable'}
               </span>
             </div>
             <button onClick={toggleAvailability} disabled={changingAvailability} className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 disabled:opacity-50">
               {availability === 'available'
                 ? <ToggleRight className="h-7 w-7 text-green-600" />
                 : <ToggleLeft className="h-7 w-7 text-ink-400" />}
-              {availability === 'available' ? 'Available' : 'Unavailable'}
+              {availability === 'available' ? 'Set unavailable' : availability === 'busy' ? 'End connection & become available' : 'Set available'}
             </button>
           </div>
         </div>

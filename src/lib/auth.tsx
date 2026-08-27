@@ -84,6 +84,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadProfile]);
 
+  useEffect(() => {
+    if (!user || DEMO_MODE) return;
+    let active = true;
+    const heartbeat = () => {
+      if (!active || document.visibilityState !== 'visible') return;
+      supabase.rpc('touch_my_last_seen').then(({ error }) => {
+        if (error) console.error('presence heartbeat failed', error);
+      });
+    };
+    heartbeat();
+    const interval = window.setInterval(heartbeat, 60_000);
+    const onVisible = () => { if (document.visibilityState === 'visible') heartbeat(); };
+    window.addEventListener('focus', heartbeat);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      window.removeEventListener('focus', heartbeat);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [user]);
+
   const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail, userLocation) => {
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number (e.g. 0712 345 678).' };
     if (!isValidPin(pin)) return { error: 'Password must be at least 10 characters and include uppercase, lowercase, and a number.' };

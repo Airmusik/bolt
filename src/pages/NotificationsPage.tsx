@@ -9,10 +9,31 @@ import { BackButton } from '@/components/BackButton';
 import { useToast } from '@/components/useToast';
 import { Modal } from '@/components/Modal';
 import { notifyUnreadCountChanged } from '@/lib/notificationEvents';
+import { useNavigate } from 'react-router-dom';
+
+function notificationDestination(notification: Notification): string | null {
+  const data = notification.data || {};
+  const explicitPath = typeof data.path === 'string' ? data.path : typeof data.url === 'string' ? data.url : null;
+  if (explicitPath?.startsWith('/') && !explicitPath.startsWith('//')) return explicitPath;
+
+  const conversationId = typeof data.conversation_id === 'string' ? data.conversation_id : null;
+  if (conversationId) return `/chat/${conversationId}`;
+  if (notification.type === 'message') return '/chat';
+  if (notification.type.startsWith('connection_')) return '/dashboard?tab=connections';
+  if (notification.type.startsWith('application_')) return '/dashboard?tab=applications';
+  if (notification.type.includes('verification') || notification.type.includes('trust')) return '/onboarding';
+  if (notification.type.includes('vehicle') || notification.type.includes('listing')) {
+    const vehicleId = typeof data.vehicle_id === 'string' ? data.vehicle_id : null;
+    return vehicleId ? `/vehicles/${vehicleId}` : '/dashboard?tab=vehicles';
+  }
+  if (notification.type === 'warning' || notification.type.includes('report')) return '/settings';
+  return null;
+}
 
 export function NotificationsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Notification | null>(null);
@@ -31,14 +52,30 @@ export function NotificationsPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  const openNotification = async (notification: Notification) => {
-    setSelected(notification);
-    if (notification.read) return;
+  const markRead = async (notification: Notification) => {
+    if (notification.read) return notification;
     const { error } = await supabase.from('notifications').update({ read: true }).eq('id', notification.id);
-    if (error) { toast('Could not mark this notification as read.', 'error'); return; }
-    setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, read: true } : item));
-    setSelected({ ...notification, read: true });
+    if (error) { toast('Could not mark this notification as read.', 'error'); return null; }
+    const updated = { ...notification, read: true };
+    setNotifications((items) => items.map((item) => item.id === notification.id ? updated : item));
     notifyUnreadCountChanged();
+    return updated;
+  };
+
+  const openNotification = async (notification: Notification) => {
+    const updated = await markRead(notification);
+    if (!updated) return;
+    const destination = notificationDestination(updated);
+    if (destination) {
+      navigate(destination);
+      return;
+    }
+    setSelected(updated);
+  };
+
+  const readFullMessage = async (notification: Notification) => {
+    const updated = await markRead(notification);
+    if (updated) setSelected(updated);
   };
 
   const markAllRead = async () => {
@@ -79,8 +116,9 @@ export function NotificationsPage() {
                   {!n.read && <span className="h-2 w-2 shrink-0 rounded-full bg-brand-500" />}
                 </div>
                 {n.body && <p className="mt-0.5 line-clamp-2 text-sm text-ink-600">{n.body}</p>}
-                <p className="mt-1 flex items-center gap-1 text-xs text-ink-400"><Eye className="h-3 w-3" /> Open full message · {timeAgo(n.created_at)}</p>
+                <p className="mt-1 flex items-center gap-1 text-xs text-ink-400"><Eye className="h-3 w-3" /> {notificationDestination(n) ? 'Open related page' : 'Open full message'} · {timeAgo(n.created_at)}</p>
               </button>
+              <button onClick={() => readFullMessage(n)} className="rounded-full p-2 text-ink-400 hover:bg-brand-50 hover:text-brand-700" aria-label={`Read full notification: ${n.title}`} title="Read full message"><Eye className="h-4 w-4" /></button>
               <button onClick={() => remove(n.id)} className="rounded-full p-2 text-ink-300 hover:bg-red-50 hover:text-danger" aria-label="Delete notification"><Trash2 className="h-4 w-4" /></button>
             </div>
           ))
@@ -102,7 +140,10 @@ export function NotificationsPage() {
               </div>
             )}
           </div>
-          <button type="button" onClick={() => setSelected(null)} className="btn-primary mt-5 w-full">Done</button>
+          <div className="mt-5 flex gap-2">
+            <button type="button" onClick={() => setSelected(null)} className="btn-secondary flex-1">Done</button>
+            {notificationDestination(selected) && <button type="button" onClick={() => { const destination = notificationDestination(selected); setSelected(null); if (destination) navigate(destination); }} className="btn-primary flex-1">Open related page</button>}
+          </div>
         </Modal>
       )}
     </div>

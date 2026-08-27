@@ -24,7 +24,7 @@ const RIDE_HAILING_PLATFORMS: { value: Vehicle['registered_platforms'][number]; 
 export function VehicleFormPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const isEdit = Boolean(id);
   const { settings } = useSiteSettings();
@@ -65,6 +65,11 @@ export function VehicleFormPage() {
       setPhotos((ph as VehiclePhoto[]) || []);
     })();
   }, [id]);
+
+  useEffect(() => {
+    if (id || !profile?.location) return;
+    setForm((current) => current.location ? current : { ...current, location: profile.location || '' });
+  }, [id, profile?.location]);
 
   const uploadPhoto = async (file: File) => {
     if (!user) return;
@@ -127,7 +132,7 @@ export function VehicleFormPage() {
     const payload = {
       owner_id: user.id,
       make: form.make, model: form.model, year: Number(form.year),
-      transmission: form.transmission, fuel_type: form.fuel_type, location: form.location,
+      transmission: form.transmission, fuel_type: form.fuel_type, location: form.location.trim(),
       weekly_target: form.weekly_target ? Number(form.weekly_target) : null,
       monthly_target: form.monthly_target ? Number(form.monthly_target) : null,
       deposit: form.deposit ? Number(form.deposit) : 0,
@@ -173,8 +178,17 @@ export function VehicleFormPage() {
         }
       }
     }
+    if (profile?.location !== form.location.trim()) {
+      const { error: locationError } = await supabase.from('profiles').update({ location: form.location.trim() }).eq('id', user.id);
+      if (locationError) {
+        toast('Vehicle saved, but your profile location could not be synchronized: ' + locationError.message, 'error');
+        setSaving(false);
+        return;
+      }
+      await refreshProfile();
+    }
     setSaving(false);
-    toast(isEdit ? 'Changes saved and sent for admin approval.' : 'Vehicle submitted. It will go live after admin approval.');
+    toast(isEdit ? 'Changes saved. Text updates stay live; only new photos wait for admin approval.' : 'Vehicle submitted. It will go live after admin approval.');
     navigate('/dashboard');
   };
 
@@ -184,7 +198,7 @@ export function VehicleFormPage() {
         <ArrowLeft className="h-4 w-4" /> Back
       </button>
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">{isEdit ? 'Edit vehicle' : 'Add a vehicle'}</h1>
-      <p className="mt-1 text-sm text-ink-500">Be transparent about issues and insurance. Your listing stays private until an admin approves it.</p>
+      <p className="mt-1 text-sm text-ink-500">New listings stay private until approval. Later text updates stay live; every new photo still requires admin review.</p>
 
       <div className="mt-6 space-y-6">
         {/* Photos */}
@@ -227,6 +241,7 @@ export function VehicleFormPage() {
             <Field label="Year"><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} className="input" /></Field>
             <Field label="Location">
               <PlaceAutocomplete value={form.location} onChange={(location) => setForm({ ...form, location })} required />
+              <p className="mt-1 text-xs text-ink-400">This is also your owner profile location, so members see one consistent area.</p>
             </Field>
             <Field label="Transmission">
               <select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value as Vehicle['transmission'] })} className="input">
