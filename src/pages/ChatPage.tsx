@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole } from 'lucide-react';
+import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole, Headphones } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -462,15 +462,16 @@ export function ChatPage() {
                 {messages.length === 0 && <div className="flex h-full flex-col items-center justify-center text-center"><span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm ring-1 ring-brand-100 dark:bg-[#1d1d20]"><Sparkles className="h-6 w-6" /></span><p className="mt-3 text-sm font-semibold text-ink-800">Start the conversation</p><p className="mt-1 max-w-xs text-xs text-ink-500">Keep arrangements in chat so both members have a clear record.</p></div>}
                 {messages.map((m, index) => {
                   const mine = m.sender_id === user?.id;
-                  const senderName = m.type === 'system' ? `${settings.site_name} system` : mine ? (profile?.full_name || 'You') : (m.sender?.full_name || other.full_name || 'Member');
+                  const fromSupport = m.sender?.role === 'admin' && m.type !== 'system';
+                  const senderName = m.type === 'system' ? `${settings.site_name} system` : fromSupport ? `Official ${settings.site_name} Support` : mine ? (profile?.full_name || 'You') : (m.sender?.full_name || other.full_name || 'Member');
                   const previous = messages[index - 1];
                   const showDay = !previous || new Date(previous.created_at).toDateString() !== new Date(m.created_at).toDateString();
                   return (
                     <div key={m.id}>
                       {showDay && <div className="my-4 flex items-center gap-3"><span className="h-px flex-1 bg-ink-100" /><span className="rounded-full bg-white/90 px-3 py-1 text-[10px] font-semibold text-ink-400 shadow-sm ring-1 ring-ink-100 dark:bg-[#1d1d20]">{formatChatDay(m.created_at)}</span><span className="h-px flex-1 bg-ink-100" /></div>}
                       <div className={cn('flex', m.type === 'system' ? 'justify-center' : mine ? 'justify-end' : 'justify-start')}>
-                      <div className={cn('max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm sm:max-w-[72%]', m.type === 'system' ? 'bg-violet-50 text-center text-xs font-medium text-violet-800 ring-1 ring-violet-100 dark:bg-violet-950/30 dark:text-violet-200' : mine ? 'rounded-br-md bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-brand-900/10' : 'rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
-                        <p className={cn('mb-1 text-[10px] font-bold', mine && m.type !== 'system' ? 'text-brand-100' : m.sender?.role === 'admin' || m.type === 'system' ? 'text-violet-600 dark:text-violet-300' : 'text-brand-700')}>{senderName}{m.sender?.role === 'admin' && m.type !== 'system' ? ' · Admin support' : ''}</p>
+                      <div className={cn('max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm sm:max-w-[72%]', m.type === 'system' ? 'bg-violet-50 text-center text-xs font-medium text-violet-800 ring-1 ring-violet-100 dark:bg-violet-950/30 dark:text-violet-200' : fromSupport ? 'rounded-bl-md border border-violet-200 bg-gradient-to-br from-violet-50 to-white text-violet-950 ring-1 ring-violet-100 dark:from-violet-950/40 dark:to-[#1d1d20] dark:text-violet-50' : mine ? 'rounded-br-md bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-brand-900/10' : 'rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
+                        <p className={cn('mb-1 flex items-center gap-1 text-[10px] font-bold', mine && m.type !== 'system' ? 'text-brand-100' : fromSupport || m.type === 'system' ? 'text-violet-700 dark:text-violet-300' : 'text-brand-700')}>{fromSupport && <Headphones className="h-3 w-3" />}{senderName}{fromSupport && <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-violet-700 dark:bg-violet-900/50 dark:text-violet-200">Support</span>}</p>
                         {m.type === 'image' ? (
                           <img src={m.content || ''} alt="" className="max-h-48 rounded-lg" />
                         ) : (

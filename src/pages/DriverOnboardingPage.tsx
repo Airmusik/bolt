@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Upload, Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, RefreshCw, ShieldCheck, Pencil, Clock3, History } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
@@ -8,26 +8,14 @@ import type { DocumentRow, PlatformHistory } from '@/lib/types';
 import { cn, titleCase } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { ModeratedImage } from '@/components/ModeratedImage';
+import { isPreviewableTrustImage, prepareTrustUpload } from '@/lib/trustUpload';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 const EVIDENCE_TYPES = [
   { type: 'work_history', label: 'Latest platform history proof', help: 'Upload your latest Uber, Bolt, Faras, Little Cab, or other ride-hailing platform activity history.' },
 ] as const;
-const MAX_TRUST_FILE_BYTES = 8 * 1024 * 1024;
-const TRUST_FILE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'pdf'];
-const TRUST_FILE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
-
-function validateTrustFile(file: File): string | null {
-  const extension = file.name.split('.').pop()?.toLowerCase() || '';
-  if (['heic', 'heif'].includes(extension) || file.type.includes('heic') || file.type.includes('heif')) {
-    return 'HEIC photos are not supported yet. Choose a JPG, PNG, WebP, PDF, or upload a screenshot.';
-  }
-  if (!TRUST_FILE_TYPES.includes(file.type) && !TRUST_FILE_EXTENSIONS.includes(extension)) {
-    return 'Choose a JPG, PNG, WebP, or PDF file.';
-  }
-  if (file.size > MAX_TRUST_FILE_BYTES) return 'The file must be smaller than 8 MB. Try a screenshot or a lower-resolution image.';
-  return null;
-}
+const TRUST_FILE_ACCEPT = 'image/*,application/pdf,.pdf,.heic,.heif';
 
 interface DriverAboutForm {
   full_name: string;
@@ -54,6 +42,21 @@ export function DriverOnboardingPage() {
   const [history, setHistory] = useState<PlatformHistory[]>([]);
   const [trustLoaded, setTrustLoaded] = useState(false);
   const [editingPassport, setEditingPassport] = useState(false);
+  const [loadingSavedProfile, setLoadingSavedProfile] = useState(false);
+
+  const hydrateProfileForm = useCallback((savedProfile: typeof profile) => {
+    if (!savedProfile) return;
+    setProfileForm({
+      full_name: savedProfile.full_name || '',
+      bio: savedProfile.bio || '',
+      location: savedProfile.location || '',
+      age: savedProfile.age?.toString() || '',
+      driving_experience_years: savedProfile.driving_experience_years?.toString() || '',
+      languages: (savedProfile.languages || []).join(', '),
+      preferred_locations: (savedProfile.preferred_locations || []).join(', '),
+      platforms_worked: savedProfile.platforms_worked || [],
+    });
+  }, []);
 
   const loadTrustData = async () => {
     if (!user) return;
@@ -74,27 +77,36 @@ export function DriverOnboardingPage() {
   };
 
   useEffect(() => {
-    if (profile) {
-      setProfileForm({
-        full_name: profile.full_name || '', bio: profile.bio || '', location: profile.location || '',
-        age: profile.age?.toString() || '', driving_experience_years: profile.driving_experience_years?.toString() || '',
-        languages: (profile.languages || []).join(', '), preferred_locations: (profile.preferred_locations || []).join(', '),
-        platforms_worked: profile.platforms_worked || [],
-      });
-    }
+    hydrateProfileForm(profile);
     loadTrustData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, profile]);
+  }, [user, profile, hydrateProfileForm]);
+
+  const startEditingPassport = async () => {
+    setLoadingSavedProfile(true);
+    try {
+      const { data, error } = await supabase.rpc('get_my_profile');
+      if (error) throw error;
+      const savedProfile = Array.isArray(data) ? data[0] : data;
+      hydrateProfileForm(savedProfile || profile);
+      await loadTrustData();
+      setEditingPassport(true);
+    } catch (error) {
+      console.error('saved profile load failed', error);
+      toast('Could not load your saved details. Please try again.', 'error');
+    } finally {
+      setLoadingSavedProfile(false);
+    }
+  };
 
   const uploadEvidence = async (file: File, type: string, label: string) => {
     if (!user) return;
-    const validationError = validateTrustFile(file);
-    if (validationError) { toast(validationError, 'error'); return; }
     setUploadingType(type);
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const preparedFile = await prepareTrustUpload(file);
+      const ext = preparedFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       const path = `${user.id}/trust-${type}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, { contentType: file.type || undefined });
+      const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, preparedFile, { contentType: preparedFile.type || undefined });
       if (uploadError) throw uploadError;
       const { data: publicUrl } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
       const existing = evidence.find((item) => item.type === type);
@@ -128,13 +140,12 @@ export function DriverOnboardingPage() {
 
   const uploadHistoryProof = async (item: PlatformHistory, file: File) => {
     if (!user) return;
-    const validationError = validateTrustFile(file);
-    if (validationError) { toast(validationError, 'error'); return; }
     setUploadingType(`history-${item.id}`);
     try {
-      const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const preparedFile = await prepareTrustUpload(file);
+      const ext = preparedFile.name.split('.').pop()?.toLowerCase() || 'jpg';
       const path = `${user.id}/history-${item.id}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, { contentType: file.type || undefined });
+      const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, preparedFile, { contentType: preparedFile.type || undefined });
       if (uploadError) throw uploadError;
       const { data: publicUrl } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
       const { error } = await supabase.from('driver_platform_history').update({ proof_url: publicUrl.publicUrl, approved: false }).eq('id', item.id);
@@ -260,7 +271,7 @@ export function DriverOnboardingPage() {
             <CompletionRow label="Platform history" detail="Done" approved={approved} />
             <CompletionRow label="Latest platform evidence" detail="Done" approved={approved} />
             <div className="border-t border-ink-100 pt-5">
-              <button type="button" onClick={() => setEditingPassport(true)} className="btn-secondary w-full sm:w-auto"><Pencil className="h-4 w-4" /> Edit Trust Passport</button>
+              <button type="button" onClick={startEditingPassport} disabled={loadingSavedProfile} className="btn-secondary w-full sm:w-auto"><Pencil className="h-4 w-4" /> {loadingSavedProfile ? 'Loading saved details…' : 'Edit Trust Passport'}</button>
               <p className="mt-2 text-xs text-ink-500">Editing reviewed information may send the updated sections back to admin for approval.</p>
             </div>
           </div>
@@ -291,15 +302,16 @@ export function DriverOnboardingPage() {
             const item = evidence.find((entry) => entry.type === definition.type);
             return <div key={definition.type} className={cn('rounded-xl border p-4', item?.rejected ? 'border-danger/30 bg-red-50/30' : 'border-ink-100')}>
               <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium text-ink-900">{definition.label}</p><p className="text-xs text-ink-500">{definition.help}</p>{item && <UploadStatus item={item} />}</div>
-                <label className="btn-secondary cursor-pointer text-xs"><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" className="hidden" disabled={uploadingType === definition.type} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadEvidence(file, definition.type, definition.label); e.target.value = ''; }} />{uploadingType === definition.type ? <><Upload className="h-3.5 w-3.5" /> Uploading…</> : item ? <><RefreshCw className="h-3.5 w-3.5" /> Replace</> : <><Upload className="h-3.5 w-3.5" /> Upload</>}</label>
-              </div>{item?.rejected && item.rejection_reason && <p className="mt-2 rounded-lg bg-red-100 px-3 py-2 text-xs text-danger"><AlertCircle className="mr-1 inline h-3 w-3" /> {item.rejection_reason}</p>}</div>;
+                <label className="btn-secondary cursor-pointer text-xs"><input type="file" accept={TRUST_FILE_ACCEPT} className="hidden" disabled={uploadingType === definition.type} onChange={(e) => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (file) void uploadEvidence(file, definition.type, definition.label); }} />{uploadingType === definition.type ? <><Upload className="h-3.5 w-3.5" /> Preparing & uploading…</> : item ? <><RefreshCw className="h-3.5 w-3.5" /> Replace</> : <><Upload className="h-3.5 w-3.5" /> Upload</>}</label>
+              </div>{item?.file_url && isPreviewableTrustImage(item.file_url) && <UploadPreview url={item.file_url} label={definition.label} />}{item?.rejected && item.rejection_reason && <p className="mt-2 rounded-lg bg-red-100 px-3 py-2 text-xs text-danger"><AlertCircle className="mr-1 inline h-3 w-3" /> {item.rejection_reason}</p>}</div>;
           })}</div>
         </Section>
 
         <Section title="Platform history (required)" desc="Add at least one platform, enter your months active, and upload proof. Only admin-approved entries appear publicly.">
           <div className="space-y-3">{history.map((item) => <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select><input type="number" min={0} value={item.months_active} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, months_active: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'months_active', Number(e.target.value))} className="input py-2" placeholder="Months active" /><input type="number" min={0} value={item.trips} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, trips: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'trips', Number(e.target.value))} className="input py-2" placeholder="Trips" /><button type="button" onClick={() => removeHistory(item)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button></div>
-            <div className="flex flex-wrap items-center gap-2"><label className="btn-secondary cursor-pointer text-xs"><input type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" className="hidden" disabled={uploadingType === `history-${item.id}`} onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadHistoryProof(item, file); e.target.value = ''; }} /><Upload className="h-3.5 w-3.5" /> {uploadingType === `history-${item.id}` ? 'Uploading…' : item.proof_url ? 'Replace proof' : 'Upload proof'}</label>{item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}<span className="basis-full text-[11px] text-ink-400">JPG, PNG, WebP, or PDF · maximum 8 MB</span></div>
+            <div className="flex flex-wrap items-center gap-2"><label className="btn-secondary cursor-pointer text-xs"><input type="file" accept={TRUST_FILE_ACCEPT} className="hidden" disabled={uploadingType === `history-${item.id}`} onChange={(e) => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (file) void uploadHistoryProof(item, file); }} /><Upload className="h-3.5 w-3.5" /> {uploadingType === `history-${item.id}` ? 'Preparing & uploading…' : item.proof_url ? 'Replace proof' : 'Upload proof'}</label>{item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}<span className="basis-full text-[11px] text-ink-400">Phone photos, HEIC, JPG, PNG, WebP, or PDF · prepared automatically · maximum 8 MB</span></div>
+            {item.proof_url && isPreviewableTrustImage(item.proof_url) && <UploadPreview url={item.proof_url} label={`${titleCase(item.platform)} platform proof`} />}
           </div>)}<button type="button" onClick={addHistory} className="btn-secondary"><Plus className="h-4 w-4" /> Add platform</button></div>
         </Section>
 
@@ -330,6 +342,13 @@ function UploadStatus({ item }: { item: DocumentRow }) {
   if (item.verified) return <p className="mt-1 text-xs text-success"><CheckCircle2 className="mr-1 inline h-3 w-3" /> Approved</p>;
   if (item.rejected) return <p className="mt-1 text-xs text-danger">Rejected</p>;
   return <p className="mt-1 text-xs text-amber-600">Pending admin approval</p>;
+}
+
+function UploadPreview({ url, label }: { url: string; label: string }) {
+  return <div className="mt-3 overflow-hidden rounded-xl border border-ink-100 bg-ink-50 p-2">
+    <p className="mb-2 text-[11px] font-semibold text-ink-500">Uploaded preview · private to you and admins</p>
+    <ModeratedImage src={url} alt={label} className="max-h-52 w-full rounded-lg bg-white object-contain" />
+  </div>;
 }
 
 function CompletionRow({ label, detail, approved }: { label: string; detail: string; approved: boolean }) {
