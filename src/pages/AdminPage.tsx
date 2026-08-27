@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole, Upload, ImageIcon, Loader2, Headphones } from 'lucide-react';
-import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET } from '@/lib/supabase';
+import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones } from 'lucide-react';
+import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
 import { Avatar } from '@/components/Avatar';
@@ -29,6 +29,8 @@ import type { LucideIcon } from 'lucide-react';
 import type { ToastType } from '@/components/toastContext';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { ChatMediaImage } from '@/components/ChatMediaImage';
+import { prepareChatImageUpload } from '@/lib/trustUpload';
 
 type AdminVehicle = Vehicle & { owner?: Profile; photos?: VehiclePhoto[]; issues?: VehicleIssue[]; description?: string };
 type AdminDocument = DocumentRow & { user?: Profile; vehicle?: Pick<Vehicle, 'id' | 'make' | 'model' | 'year'> };
@@ -387,9 +389,12 @@ export function AdminPage() {
 
   return (
     <div className="container-content py-8">
-      <div className="flex items-center gap-2">
-        <ShieldCheck className="h-7 w-7 text-brand-600" />
-        <h1 className="font-display text-2xl font-bold text-ink-900">Admin Portal</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-7 w-7 text-brand-600" />
+          <h1 className="font-display text-2xl font-bold text-ink-900">Admin Portal</h1>
+        </div>
+        <button type="button" onClick={() => setTab('overview')} className="btn-secondary px-3 py-2 text-xs"><TrendingUp className="h-4 w-4" /> Dashboard</button>
       </div>
       <p className="mt-1 text-sm text-ink-500">Manage Trust Passports, upload approvals, listings, reports and member support.</p>
 
@@ -1486,7 +1491,9 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
   const [joinedConversationIds, setJoinedConversationIds] = useState<Set<string>>(new Set());
   const [joining, setJoining] = useState(false);
   const [confirmCloseChat, setConfirmCloseChat] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
@@ -1556,6 +1563,36 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
     loadConversations();
   };
 
+  const uploadChatImage = async (file: File) => {
+    if (!user || !activeId || !active) return;
+    if (active.closed_at) { toast('This chat is read-only. Reopen it before sending an image.', 'error'); return; }
+    if (active.admin_id !== user.id && !joinedConversationIds.has(active.id)) { toast('Join this conversation before sending an image.', 'error'); return; }
+    setUploadingImage(true);
+    let path: string | null = null;
+    try {
+      const prepared = await prepareChatImageUpload(file);
+      path = `${active.id}/${user.id}/chat-${Date.now()}-${crypto.randomUUID()}.jpg`;
+      const { error: uploadError } = await supabase.storage.from(CHAT_MEDIA_BUCKET).upload(path, prepared, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600',
+        upsert: false,
+      });
+      if (uploadError) throw uploadError;
+      const { error: messageError } = await supabase.rpc('send_chat_image', {
+        p_conversation_id: active.id,
+        p_path: path,
+      });
+      if (messageError) throw messageError;
+      await Promise.all([loadMessages(), loadConversations()]);
+    } catch (error) {
+      if (path) await supabase.storage.from(CHAT_MEDIA_BUCKET).remove([path]);
+      toast(`Could not send image: ${error instanceof Error ? error.message : 'Please try again.'}`, 'error');
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
   const joinConversation = async (conversationId: string) => {
     const wasClosed = conversations.find((conversation) => conversation.id === conversationId)?.closed_at != null;
     setJoining(true);
@@ -1619,7 +1656,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
         {active && other ? (
           <>
             <div className="flex items-center gap-3 border-b border-ink-100 p-4">
-              <button onClick={() => setActiveId(null)} className="lg:hidden"><ArrowLeft className="h-5 w-5 text-ink-500" /></button>
+              <button onClick={() => setActiveId(null)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-100"><ArrowLeft className="h-4 w-4" /> Back</button>
               <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.is_verified} />
               <div>
                 <p className="font-semibold text-ink-900">{active.driver && active.owner ? `${active.driver.full_name} ↔ ${active.owner.full_name}` : other.full_name}</p>
@@ -1635,7 +1672,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
                   <div key={m.id} className={cn('flex', m.type === 'system' ? 'justify-center' : mine ? 'justify-end' : 'justify-start')}>
                     <div className={cn('max-w-[75%] rounded-2xl px-3 py-2 text-sm', m.type === 'system' ? 'bg-violet-50 text-center text-xs text-violet-800 ring-1 ring-violet-100' : mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
                       <p className={cn('mb-1 text-[10px] font-bold', mine && m.type !== 'system' ? 'text-brand-100' : m.sender?.role === 'admin' || m.type === 'system' ? 'text-violet-600' : 'text-brand-700')}>{senderName}{m.sender?.role === 'admin' && m.type !== 'system' ? ' · Admin' : ''}</p>
-                      <p className="whitespace-pre-wrap break-words">{m.content}</p>
+                      {m.type === 'image' ? <ChatMediaImage src={m.content || ''} alt={`Image from ${senderName}`} /> : <p className="whitespace-pre-wrap break-words">{m.content}</p>}
                       <div className={cn('mt-0.5 text-[10px]', mine && m.type !== 'system' ? 'text-brand-100' : 'text-ink-400')}>{formatMessageTimestamp(m.created_at)}</div>
                     </div>
                   </div>
@@ -1643,6 +1680,8 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
               })}
             </div>
             {activeJoined && !active.closed_at ? <div className="flex items-center gap-2 border-t border-ink-100 p-3">
+              <input ref={imageInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadChatImage(file); }} />
+              <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Send an image" title="Send an image" className="rounded-full p-2 text-ink-500 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
               <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Type a message…" className="input flex-1" />
               <button onClick={send} disabled={!text.trim()} aria-label="Send message" className="btn-primary px-3"><Send className="h-4 w-4" /></button>
             </div> : <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><LockKeyhole className="h-4 w-4" />This history is read-only. Click Reopen with support to let both members and support message again.</div>}

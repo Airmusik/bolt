@@ -20,3 +20,4 @@ export const VEHICLE_BUCKET = 'vehicle-photos';
 export const DOCUMENT_BUCKET = 'documents';
 export const AVATAR_BUCKET = 'avatars';
 export const SITE_ASSETS_BUCKET = 'site-assets';
+export const CHAT_MEDIA_BUCKET = 'chat-media';

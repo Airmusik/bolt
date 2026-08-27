@@ -16,7 +16,7 @@ export function PrivacyPage() {
         <h2 className="font-display text-lg font-bold text-ink-900">Evidence visibility</h2>
         <p>Evidence files are private to you and our admin team. Public profiles show only approved counts and safe trust signals.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">Chat history and support access</h2>
-        <p>Conversation history remains stored after a connection ends to support safety reviews and dispute resolution. Ended chats become read-only for the two members. Authorised administrators may review and join a conversation when support or moderation is required.</p>
+        <p>Conversation history, including privately shared chat images, remains stored after a connection ends to support safety reviews and dispute resolution. Ended chats become read-only for the two members. Chat images are available only to conversation participants and authorised administrators who join for support or moderation.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">Your rights</h2>
         <p>You can request deletion of your account and data at any time from Settings.</p>
       </div>

@@ -95,6 +95,13 @@ export async function prepareTrustUpload(file: File) {
   return prepareImage(file);
 }
 
+export async function prepareChatImageUpload(file: File) {
+  const extension = extensionOf(file.name);
+  const isImage = file.type.startsWith('image/') || IMAGE_EXTENSIONS.includes(extension);
+  if (!isImage) throw new Error('Choose a phone photo, JPG, PNG, WebP, HEIC, or HEIF image.');
+  return prepareImage(file);
+}
+
 export function isPreviewableTrustImage(url: string) {
   try {
     const pathname = new URL(url).pathname.toLowerCase();

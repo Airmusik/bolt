@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole, Headphones } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
+import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole, Headphones, ImagePlus, Loader2 } from 'lucide-react';
+import { CHAT_MEDIA_BUCKET, supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import type { Conversation, Message, Profile, VehicleWithRelations } from '@/lib/types';
@@ -14,6 +14,8 @@ import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Modal } from '@/components/Modal';
+import { ChatMediaImage } from '@/components/ChatMediaImage';
+import { prepareChatImageUpload } from '@/lib/trustUpload';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
@@ -83,8 +85,10 @@ export function ChatPage() {
   const [blockStatus, setBlockStatus] = useState<BlockStatus>(CLEAR_BLOCK_STATUS);
   const [otherTyping, setOtherTyping] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingStopTimerRef = useRef<number | null>(null);
   const remoteTypingTimerRef = useRef<number | null>(null);
@@ -177,7 +181,8 @@ export function ChatPage() {
   }, [loadMessages]);
 
   const loadBlockStatus = useCallback(async () => {
-    if (!active || !user || (user.id !== active.driver_id && user.id !== active.owner_id)) {
+    const directSupportConversation = Boolean(active?.admin_id && !(active.driver_id && active.owner_id));
+    if (!active || !user || directSupportConversation || (user.id !== active.driver_id && user.id !== active.owner_id)) {
       setBlockStatus(CLEAR_BLOCK_STATUS);
       return;
     }
@@ -281,7 +286,7 @@ export function ChatPage() {
       })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
         const m = payload.new as Message;
-        setMessages((prev) => prev.map((x) => x.id === m.id ? m : x));
+        setMessages((prev) => prev.map((x) => x.id === m.id ? { ...x, ...m, sender: x.sender } : x));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -340,6 +345,35 @@ export function ChatPage() {
     void loadConversations();
   };
 
+  const uploadChatImage = async (file: File) => {
+    if (!user || !active) return;
+    if (active.closed_at) { toast('This chat is read-only, so images cannot be sent.', 'error'); return; }
+    setUploadingImage(true);
+    let path: string | null = null;
+    try {
+      const prepared = await prepareChatImageUpload(file);
+      path = `${active.id}/${user.id}/chat-${Date.now()}-${crypto.randomUUID()}.jpg`;
+      const { error: uploadError } = await supabase.storage.from(CHAT_MEDIA_BUCKET).upload(path, prepared, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600',
+        upsert: false,
+      });
+      if (uploadError) throw uploadError;
+      const { error: messageError } = await supabase.rpc('send_chat_image', {
+        p_conversation_id: active.id,
+        p_path: path,
+      });
+      if (messageError) throw messageError;
+      await Promise.all([loadMessages(), loadConversations()]);
+    } catch (error) {
+      if (path) await supabase.storage.from(CHAT_MEDIA_BUCKET).remove([path]);
+      toast(`Could not send image: ${error instanceof Error ? error.message : 'Please try again.'}`, 'error');
+    } finally {
+      setUploadingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = '';
+    }
+  };
+
   const blockUser = async () => {
     if (!user || !active) return;
     const otherId = user.id === active.driver_id ? active.owner_id : active.driver_id;
@@ -390,7 +424,8 @@ export function ChatPage() {
 
   const other = active ? (user?.id === active.driver_id ? (active.owner || active.admin) : user?.id === active.owner_id ? (active.driver || active.admin) : active.driver || active.owner) : null;
   const chatClosed = !activeGroup?.items.some((conversation) => !conversation.closed_at);
-  const chatBlocked = blockStatus.i_blocked_other || blockStatus.blocked_by_other;
+  const isDirectSupportConversation = Boolean(active?.admin_id && !(active.driver_id && active.owner_id));
+  const chatBlocked = !isDirectSupportConversation && (blockStatus.i_blocked_other || blockStatus.blocked_by_other);
   const supportSessionActive = Boolean(activeGroup?.items.some((conversation) => conversation.support_reopened_at && !conversation.support_resolved_at && !conversation.closed_at));
   const adminClosedChat = Boolean(activeGroup?.items.some((conversation) => conversation.closed_at && conversation.admin_closed_at));
   const memberConnectionChat = Boolean(active?.driver_id && active?.owner_id);
@@ -447,11 +482,11 @@ export function ChatPage() {
                 <div className="flex gap-1">
                   {memberConnectionChat && <button onClick={() => setShowSupportRequest(true)} aria-label="Contact support about this conversation" title="Contact support about this conversation" className="inline-flex items-center gap-1 rounded-full px-2 py-2 text-violet-600 hover:bg-violet-100 dark:text-violet-300"><Headphones className="h-4 w-4" /><span className="hidden text-xs font-semibold sm:inline">Support</span></button>}
                   <button onClick={() => setShowReport(true)} aria-label="Report conversation" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><Flag className="h-4 w-4" /></button>
-                  {blockStatus.i_blocked_other ? (
+                  {!isDirectSupportConversation && (blockStatus.i_blocked_other ? (
                     <button onClick={() => setConfirmSafetyAction('unblock')} aria-label="Unblock user" title="Unblock user" className="rounded-full bg-amber-50 p-2 text-amber-700 hover:bg-amber-100"><Ban className="h-4 w-4" /></button>
                   ) : (
                     <button onClick={() => setConfirmSafetyAction('block')} aria-label="Block user" title="Block user" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-danger"><Ban className="h-4 w-4" /></button>
-                  )}
+                  ))}
                 </div>
               </div>
 
@@ -502,7 +537,7 @@ export function ChatPage() {
                       <div className={cn('max-w-[82%] rounded-2xl px-3.5 py-2.5 text-sm shadow-sm sm:max-w-[72%]', m.type === 'system' ? 'bg-violet-50 text-center text-xs font-medium text-violet-800 ring-1 ring-violet-100 dark:bg-violet-950/30 dark:text-violet-200' : fromSupport ? 'rounded-bl-md border border-violet-200 bg-gradient-to-br from-violet-50 to-white text-violet-950 ring-1 ring-violet-100 dark:from-violet-950/40 dark:to-[#1d1d20] dark:text-violet-50' : mine ? 'rounded-br-md bg-gradient-to-br from-brand-600 to-brand-700 text-white shadow-brand-900/10' : 'rounded-bl-md bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}>
                         <p className={cn('mb-1 flex items-center gap-1 text-[10px] font-bold', mine && m.type !== 'system' ? 'text-brand-100' : fromSupport || m.type === 'system' ? 'text-violet-700 dark:text-violet-300' : 'text-brand-700')}>{fromSupport && <Headphones className="h-3 w-3" />}{senderName}{fromSupport && <span className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] uppercase tracking-wide text-violet-700 dark:bg-violet-900/50 dark:text-violet-200">Support</span>}</p>
                         {m.type === 'image' ? (
-                          <img src={m.content || ''} alt="" className="max-h-48 rounded-lg" />
+                          <ChatMediaImage src={m.content || ''} alt={`Image from ${senderName}`} />
                         ) : (
                           <p className="whitespace-pre-wrap break-words">{m.content}</p>
                         )}
@@ -531,6 +566,8 @@ export function ChatPage() {
               {/* Input */}
               {!chatClosed && !chatBlocked && <div className="flex items-center gap-2 border-t border-ink-100 bg-white p-3 dark:bg-[#141416]">
                 <button onClick={() => setShowEmoji((v) => !v)} aria-label="Choose emoji" className="rounded-full p-2 text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
+                <input ref={imageInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadChatImage(file); }} />
+                <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Send an image" title="Send an image" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
                 <div className="relative flex-1"><input
                   ref={inputRef}
                   value={text}
@@ -570,7 +607,7 @@ export function ChatPage() {
           <button type="button" onClick={contactSupport} disabled={requestingSupport || supportRequest.trim().length < 10} className="btn-primary mt-4 w-full"><Headphones className="h-4 w-4" /> {requestingSupport ? 'Sending request…' : 'Send to support'}</button>
         </Modal>
       )}
-      {confirmSafetyAction && (
+      {confirmSafetyAction && !isDirectSupportConversation && (
         <ConfirmDialog
           title={confirmSafetyAction === 'block' ? 'Block this member?' : 'Unblock this member?'}
           message={confirmSafetyAction === 'block'
