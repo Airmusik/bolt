@@ -77,9 +77,13 @@ export function ChatPage() {
   const [showReport, setShowReport] = useState(false);
   const [confirmSafetyAction, setConfirmSafetyAction] = useState<'block' | 'unblock' | null>(null);
   const [blockStatus, setBlockStatus] = useState<BlockStatus>(CLEAR_BLOCK_STATUS);
+  const [otherTyping, setOtherTyping] = useState(false);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const typingStopTimerRef = useRef<number | null>(null);
+  const remoteTypingTimerRef = useRef<number | null>(null);
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
@@ -128,6 +132,14 @@ export function ChatPage() {
     () => activeGroup?.items.map((conversation) => conversation.id) || [],
     [activeGroup],
   );
+
+  const typingTopic = useMemo(() => {
+    if (!active || !user) return null;
+    const participants = [active.driver_id, active.owner_id, active.admin_id]
+      .filter((id): id is string => Boolean(id))
+      .sort();
+    return participants.length > 1 ? `chat-typing:${participants.join(':')}` : null;
+  }, [active, user]);
 
   useEffect(() => {
     if (conversationId && conversations.length > 0) {
@@ -180,6 +192,54 @@ export function ChatPage() {
     loadBlockStatus();
   }, [loadBlockStatus]);
 
+  useEffect(() => {
+    setOtherTyping(false);
+    if (typingStopTimerRef.current) window.clearTimeout(typingStopTimerRef.current);
+    if (remoteTypingTimerRef.current) window.clearTimeout(remoteTypingTimerRef.current);
+    if (!typingTopic || !user) return;
+
+    const channel = supabase
+      .channel(typingTopic, { config: { broadcast: { self: false } } })
+      .on('broadcast', { event: 'typing' }, ({ payload }) => {
+        if (!payload || payload.user_id === user.id) return;
+        const isTyping = payload.is_typing === true;
+        setOtherTyping(isTyping);
+        if (remoteTypingTimerRef.current) window.clearTimeout(remoteTypingTimerRef.current);
+        if (isTyping) {
+          remoteTypingTimerRef.current = window.setTimeout(() => setOtherTyping(false), 2500);
+        }
+      })
+      .subscribe();
+    typingChannelRef.current = channel;
+
+    return () => {
+      if (typingStopTimerRef.current) window.clearTimeout(typingStopTimerRef.current);
+      if (remoteTypingTimerRef.current) window.clearTimeout(remoteTypingTimerRef.current);
+      if (typingChannelRef.current === channel) typingChannelRef.current = null;
+      supabase.removeChannel(channel);
+    };
+  }, [typingTopic, user]);
+
+  const broadcastTyping = useCallback((isTyping: boolean) => {
+    if (!user || !typingChannelRef.current) return;
+    void typingChannelRef.current.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { user_id: user.id, is_typing: isTyping },
+    });
+    if (typingStopTimerRef.current) window.clearTimeout(typingStopTimerRef.current);
+    if (isTyping) {
+      typingStopTimerRef.current = window.setTimeout(() => {
+        if (!typingChannelRef.current) return;
+        void typingChannelRef.current.send({
+          type: 'broadcast',
+          event: 'typing',
+          payload: { user_id: user.id, is_typing: false },
+        });
+      }, 1200);
+    }
+  }, [user]);
+
   const activeId = active?.id;
   useEffect(() => {
     if (!activeId) return;
@@ -204,7 +264,7 @@ export function ChatPage() {
   // realtime subscriptions
   useEffect(() => {
     if (!user) return;
-    const channel = supabase.channel('chat-realtime')
+    const channel = supabase.channel(`chat-realtime:${user.id}:${active?.id || 'list'}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const m = payload.new as Message;
         if (active && activeConversationIds.includes(m.conversation_id)) {
@@ -241,18 +301,39 @@ export function ChatPage() {
     if (blockStatus.blocked_by_other) { toast('This member has blocked messaging with you.', 'error'); return; }
     const body = text.trim();
     if (!body) return;
-    const { error } = await supabase.rpc('send_message', {
+    const optimisticId = `pending-${crypto.randomUUID()}`;
+    const optimisticMessage: Message = {
+      id: optimisticId,
+      conversation_id: active.id,
+      sender_id: user.id,
+      content: body,
+      type: 'text',
+      read: false,
+      created_at: new Date().toISOString(),
+      sender: profile || undefined,
+    };
+    setMessages((current) => [...current, optimisticMessage]);
+    setText('');
+    setShowEmoji(false);
+    broadcastTyping(false);
+
+    const { data, error } = await supabase.rpc('send_message', {
       p_conversation_id: active.id,
       p_content: body,
     });
     if (error) {
+      setMessages((current) => current.filter((message) => message.id !== optimisticId));
+      setText(body);
       toast('Could not send message: ' + error.message, 'error');
       return;
     }
-    setText('');
-    setShowEmoji(false);
-    await loadMessages();
-    loadConversations();
+    const savedMessage = (Array.isArray(data) ? data[0] : data) as Message | null;
+    if (savedMessage) {
+      setMessages((current) => current.map((message) => message.id === optimisticId ? { ...savedMessage, sender: profile || undefined } : message));
+    } else {
+      await loadMessages();
+    }
+    void loadConversations();
   };
 
   const blockUser = async () => {
@@ -423,7 +504,7 @@ export function ChatPage() {
                 <div className="relative flex-1"><input
                   ref={inputRef}
                   value={text}
-                  onChange={(e) => setText(e.target.value)}
+                  onChange={(e) => { setText(e.target.value); broadcastTyping(e.target.value.trim().length > 0); }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
                   placeholder="Type a message…"
                   className="input w-full rounded-2xl border-0 bg-ink-50 pr-16 ring-1 ring-ink-100 focus:bg-white focus:ring-brand-300"
@@ -431,6 +512,9 @@ export function ChatPage() {
                   autoFocus
                 /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-ink-300">{text.length}/1000</span></div>
                 <button onClick={() => send()} disabled={!text.trim()} className="btn-primary h-10 w-10 rounded-full p-0 shadow-lg shadow-brand-600/20" aria-label="Send message"><Send className="h-4 w-4" /></button>
+              </div>}
+              {!chatClosed && !chatBlocked && otherTyping && <div className="border-t border-ink-100 bg-white px-4 pb-2 text-xs font-medium text-brand-700 dark:bg-[#141416]">
+                <span className="inline-flex items-center gap-1"><span>{other.full_name} is typing</span><span className="animate-pulse">•••</span></span>
               </div>}
             </>
           ) : (
