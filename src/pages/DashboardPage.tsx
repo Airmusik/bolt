@@ -76,11 +76,12 @@ export function DashboardPage() {
         .limit(24);
       setAvailableCars((cars as VehicleWithRelations[]) || []);
     }
-    const { data: convs } = await supabase
+    const { data: convs, error: conversationsError } = await supabase
       .from('conversations')
-      .select(`*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles(${PUBLIC_PROFILE_FIELDS}), owner:profiles(${PUBLIC_PROFILE_FIELDS})`)
+      .select(`*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
       .or(`driver_id.eq.${user.id},owner_id.eq.${user.id}`)
       .order('last_message_at', { ascending: false, nullsFirst: false });
+    if (conversationsError) toast('Could not load chat history: ' + conversationsError.message, 'error');
     setConversations((convs as ConversationWithRelations[]) || []);
 
     // connections
@@ -92,7 +93,7 @@ export function DashboardPage() {
     setOutgoingConnections((out as OutgoingConnection[]) || []);
 
     setLoading(false);
-  }, [user, profile]);
+  }, [user, profile, toast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -100,6 +101,9 @@ export function DashboardPage() {
   const isOwner = profile.role === 'owner';
   const isDriver = profile.role === 'driver';
   const pendingConnections = incomingConnections.filter((c) => c.status === 'pending');
+  const chatThreadCount = new Set(conversations.map((conversation) => (
+    conversation.driver_id === user?.id ? conversation.owner_id : conversation.driver_id
+  ) || conversation.id)).size;
 
   const stats = isOwner ? [
     { label: 'Live listings', value: vehicles.filter(v => v.status === 'active' && v.approval_status === 'approved').length, icon: Car, tab: 'vehicles' as Tab },
@@ -109,7 +113,7 @@ export function DashboardPage() {
   ] : [
     { label: 'Applications', value: myApplications.length, icon: Users, tab: 'applications' as Tab },
     { label: 'Connection requests', value: pendingConnections.length, icon: Link2, tab: 'connections' as Tab },
-    { label: 'Chat history', value: conversations.length, icon: MessageSquare, tab: 'chats' as Tab },
+    { label: 'Chat history', value: chatThreadCount, icon: MessageSquare, tab: 'chats' as Tab },
     { label: 'Rating', value: profile.rating > 0 ? profile.rating.toFixed(1) : 'New', icon: Star, tab: null },
   ];
 
@@ -171,7 +175,7 @@ export function DashboardPage() {
         {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} />}
         {tab === 'applications' && isOwner && <OwnerApplicationsTab applications={applications} onAction={load} toast={toast} />}
         {tab === 'applications' && isDriver && <DriverApplicationsTab applications={myApplications} />}
-        {tab === 'connections' && <ConnectionsTab incoming={incomingConnections} outgoing={outgoingConnections} onAction={async () => { await load(); await refreshProfile(); }} toast={toast} />}
+        {tab === 'connections' && <ConnectionsTab incoming={incomingConnections} outgoing={outgoingConnections} onAction={async () => { await load(); await refreshProfile(); }} onEnded={() => setTab('chats')} toast={toast} />}
         {tab === 'chats' && <ChatsTab conversations={conversations} loading={loading} currentUserId={user?.id || ''} />}
       </div>
     </div>
@@ -403,7 +407,7 @@ function DriverApplicationsTab({ applications }: { applications: DriverApplicati
   );
 }
 
-function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: IncomingConnection[]; outgoing: OutgoingConnection[]; onAction: () => void; toast: ToastFn }) {
+function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { incoming: IncomingConnection[]; outgoing: OutgoingConnection[]; onAction: () => void | Promise<void>; onEnded: () => void; toast: ToastFn }) {
   const pendingIn = incoming.filter((c) => c.status === 'pending');
   const acceptedIn = incoming.filter((c) => c.status === 'accepted');
   const acceptedOut = outgoing.filter((c) => c.status === 'accepted');
@@ -432,7 +436,8 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
     const { error } = await endConnection(c.id);
     if (error) { toast(error, 'error'); return; }
     toast('Connection ended. The chat remains available as read-only history.');
-    onAction();
+    await onAction();
+    onEnded();
   };
 
   return (
