@@ -166,6 +166,9 @@ export interface Conversation {
   last_message_at: string | null;
   closed_at: string | null;
   closed_by: string | null;
+  support_reopened_at: string | null;
+  support_reopened_by: string | null;
+  support_resolved_at: string | null;
   created_at: string;
   vehicle?: Vehicle;
   driver?: Profile;

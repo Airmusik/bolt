@@ -13,6 +13,7 @@ import { cn, timeAgo } from '@/lib/utils';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Modal } from '@/components/Modal';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
@@ -75,6 +76,9 @@ export function ChatPage() {
   const [text, setText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [showSupportRequest, setShowSupportRequest] = useState(false);
+  const [supportRequest, setSupportRequest] = useState('');
+  const [requestingSupport, setRequestingSupport] = useState(false);
   const [confirmSafetyAction, setConfirmSafetyAction] = useState<'block' | 'unblock' | null>(null);
   const [blockStatus, setBlockStatus] = useState<BlockStatus>(CLEAR_BLOCK_STATUS);
   const [otherTyping, setOtherTyping] = useState(false);
@@ -360,6 +364,20 @@ export function ChatPage() {
     await loadBlockStatus();
   };
 
+  const contactSupport = async () => {
+    if (!active || supportRequest.trim().length < 10) return;
+    setRequestingSupport(true);
+    const { error } = await supabase.rpc('request_conversation_support', {
+      p_conversation_id: active.id,
+      p_message: supportRequest.trim(),
+    });
+    setRequestingSupport(false);
+    if (error) { toast('Could not contact support: ' + error.message, 'error'); return; }
+    setSupportRequest('');
+    setShowSupportRequest(false);
+    toast('Support request sent. An administrator can now open this exact conversation.');
+  };
+
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
 
   if (conversations.length === 0) {
@@ -373,6 +391,8 @@ export function ChatPage() {
   const other = active ? (user?.id === active.driver_id ? (active.owner || active.admin) : user?.id === active.owner_id ? (active.driver || active.admin) : active.driver || active.owner) : null;
   const chatClosed = !activeGroup?.items.some((conversation) => !conversation.closed_at);
   const chatBlocked = blockStatus.i_blocked_other || blockStatus.blocked_by_other;
+  const supportSessionActive = Boolean(activeGroup?.items.some((conversation) => conversation.support_reopened_at && !conversation.support_resolved_at && !conversation.closed_at));
+  const memberConnectionChat = Boolean(active?.driver_id && active?.owner_id);
 
   return (
     <div className="container-content py-6">
@@ -424,6 +444,7 @@ export function ChatPage() {
                   </div>
                 </div>
                 <div className="flex gap-1">
+                  {memberConnectionChat && <button onClick={() => setShowSupportRequest(true)} aria-label="Contact support about this conversation" title="Contact support about this conversation" className="inline-flex items-center gap-1 rounded-full px-2 py-2 text-violet-600 hover:bg-violet-100 dark:text-violet-300"><Headphones className="h-4 w-4" /><span className="hidden text-xs font-semibold sm:inline">Support</span></button>}
                   <button onClick={() => setShowReport(true)} aria-label="Report conversation" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><Flag className="h-4 w-4" /></button>
                   {blockStatus.i_blocked_other ? (
                     <button onClick={() => setConfirmSafetyAction('unblock')} aria-label="Unblock user" title="Unblock user" className="rounded-full bg-amber-50 p-2 text-amber-700 hover:bg-amber-100"><Ban className="h-4 w-4" /></button>
@@ -432,6 +453,13 @@ export function ChatPage() {
                   )}
                 </div>
               </div>
+
+              {supportSessionActive && (
+                <div className="flex items-start gap-2 border-b border-violet-200 bg-violet-100/80 px-4 py-3 text-violet-950 dark:bg-violet-950/35 dark:text-violet-100">
+                  <Headphones className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p className="text-xs leading-5"><strong>Support session active:</strong> An administrator reopened this ended chat. Both members can message while support helps resolve the issue.</p>
+                </div>
+              )}
 
               <div className="flex items-start gap-2 border-b border-violet-100 bg-violet-50/80 px-4 py-2.5 text-violet-900 dark:bg-violet-950/20 dark:text-violet-100">
                 <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
@@ -488,7 +516,7 @@ export function ChatPage() {
                 })}
               </div>
 
-              {chatClosed && <div className="flex items-start gap-3 border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-sm font-semibold">Connection ended — chat history preserved</p><p className="text-xs">Both members can still view this read-only history for safety and dispute resolution. Send and accept a new connection request to resume messaging.</p></div></div>}
+              {chatClosed && <div className="flex flex-wrap items-start justify-between gap-3 border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100"><div className="flex items-start gap-3"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-sm font-semibold">Connection ended — chat history preserved</p><p className="text-xs">This chat is read-only. Start a new connection, or contact support if help is needed with this conversation.</p></div></div>{memberConnectionChat && <button type="button" onClick={() => setShowSupportRequest(true)} className="btn-secondary shrink-0 px-3 py-1.5 text-xs"><Headphones className="h-3.5 w-3.5" /> Contact support</button>}</div>}
 
               {/* Emoji picker */}
               {!chatClosed && !chatBlocked && showEmoji && (
@@ -529,6 +557,17 @@ export function ChatPage() {
 
       {showReport && active && other && (
         <ReportModal targetType="conversation" targetId={active.id} reportedId={other.id} onClose={() => setShowReport(false)} onDone={() => { setShowReport(false); toast('Conversation reported.'); }} />
+      )}
+      {showSupportRequest && active && (
+        <Modal title="Contact support about this chat" onClose={() => setShowSupportRequest(false)}>
+          <div className="rounded-xl bg-violet-50 p-3 text-sm text-violet-900 ring-1 ring-violet-100 dark:bg-violet-950/25 dark:text-violet-100">
+            Your request is private. Support will receive a link to this exact conversation and can reopen an ended chat while helping resolve the issue.
+          </div>
+          <label className="label mt-4" htmlFor="support-request-message">What help do you need?</label>
+          <textarea id="support-request-message" value={supportRequest} onChange={(event) => setSupportRequest(event.target.value)} rows={4} maxLength={1000} className="input" placeholder="Explain the issue and what you would like support to help with…" />
+          <div className="mt-1 text-right text-xs text-ink-400">{supportRequest.length}/1000</div>
+          <button type="button" onClick={contactSupport} disabled={requestingSupport || supportRequest.trim().length < 10} className="btn-primary mt-4 w-full"><Headphones className="h-4 w-4" /> {requestingSupport ? 'Sending request…' : 'Send to support'}</button>
+        </Modal>
       )}
       {confirmSafetyAction && (
         <ConfirmDialog

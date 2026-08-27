@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole, Upload, ImageIcon, Loader2 } from 'lucide-react';
+import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole, Upload, ImageIcon, Loader2, Headphones } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
@@ -62,11 +62,16 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
 
 type Tab = 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings';
 
+const ADMIN_TABS: Tab[] = ['overview', 'members', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings'];
+
 export function AdminPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
-  const [tab, setTab] = useState<Tab>('overview');
+  const [tab, setTab] = useState<Tab>(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab') as Tab | null;
+    return requested && ADMIN_TABS.includes(requested) ? requested : 'overview';
+  });
   const [users, setUsers] = useState<Profile[]>([]);
   const [vehicles, setVehicles] = useState<AdminVehicle[]>([]);
   const [reports, setReports] = useState<AdminReport[]>([]);
@@ -360,9 +365,9 @@ export function AdminPage() {
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
-    { key: 'contact', label: 'Contact inbox', icon: Mail, badge: newContactMessages.length },
+    { key: 'contact', label: 'Contact forms', icon: Mail, badge: newContactMessages.length },
     { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
-    { key: 'chat', label: 'Chat', icon: MessageSquare },
+    { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
@@ -708,7 +713,7 @@ export function AdminPage() {
         )}
 
         {/* ---------- Chat ---------- */}
-        {tab === 'chat' && !loading && <AdminChat user={user} />}
+        {tab === 'chat' && !loading && <AdminChat user={user} onDataChange={load} />}
 
         {/* ---------- Settings ---------- */}
         {tab === 'settings' && !loading && <AdminSettings />}
@@ -871,6 +876,12 @@ export function AdminPage() {
             adminStartChat(viewingReport.reported, viewingReport);
             setViewingReport(null);
           }}
+          onOpenConversation={viewingReport.target_type === 'conversation' && viewingReport.target_id ? () => {
+            const conversationId = viewingReport.target_id!;
+            setViewingReport(null);
+            setTab('chat');
+            window.setTimeout(() => window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: conversationId })), 50);
+          } : undefined}
           onViewProfile={() => {
             if (viewingReport.reported) setViewingUser(viewingReport.reported);
             setViewingReport(null);
@@ -906,11 +917,12 @@ export function AdminPage() {
   );
 }
 
-function ReportReviewModal({ report, onClose, onWarn, onContact, onViewProfile, onSuspend, onStatus }: {
+function ReportReviewModal({ report, onClose, onWarn, onContact, onOpenConversation, onViewProfile, onSuspend, onStatus }: {
   report: AdminReport;
   onClose: () => void;
   onWarn: (message: string) => Promise<boolean>;
   onContact: () => void;
+  onOpenConversation?: () => void;
   onViewProfile: () => void;
   onSuspend: () => void;
   onStatus: (status: 'resolved' | 'dismissed') => void | Promise<void>;
@@ -943,6 +955,7 @@ function ReportReviewModal({ report, onClose, onWarn, onContact, onViewProfile, 
           <div><label className="label">Warning message</label><textarea value={warningMessage} onChange={(event) => setWarningMessage(event.target.value)} rows={3} className="input" /><p className="mt-1 text-xs text-ink-500">The member will also receive the report reason, report details, their warning count, and: “Three warnings may lead to account suspension.”</p><button onClick={sendWarning} disabled={sending || warningMessage.trim().length < 3} className="btn-secondary mt-3 text-amber-800"><Flag className="h-4 w-4" /> {sending ? 'Sending…' : 'Send warning'}</button></div>
         ) : null}
         <div className="flex flex-wrap gap-2 border-t border-ink-100 pt-4">
+          {onOpenConversation && <button onClick={onOpenConversation} className="btn-primary"><Headphones className="h-4 w-4" /> Open connection chat</button>}
           {report.reported && <><button onClick={onViewProfile} className="btn-secondary"><Eye className="h-4 w-4" /> User profile</button><button onClick={onContact} className="btn-secondary"><MessageSquare className="h-4 w-4" /> Contact user</button><button onClick={onSuspend} className="btn-secondary text-danger"><Ban className="h-4 w-4" /> Suspend user</button></>}
           <div className="flex-1" />
           <button onClick={() => onStatus('dismissed')} className="btn-ghost">Dismiss report</button>
@@ -1462,7 +1475,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 // ---------- Admin Chat component ----------
-function AdminChat({ user }: { user: { id: string; email: string } | null }) {
+function AdminChat({ user, onDataChange }: { user: { id: string; email: string } | null; onDataChange: () => void | Promise<void> }) {
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
   const [conversations, setConversations] = useState<(Conversation & { driver?: Profile; owner?: Profile })[]>([]);
@@ -1472,6 +1485,7 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
   const [loading, setLoading] = useState(true);
   const [joinedConversationIds, setJoinedConversationIds] = useState<Set<string>>(new Set());
   const [joining, setJoining] = useState(false);
+  const [confirmEndSupport, setConfirmEndSupport] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const loadConversations = useCallback(async () => {
@@ -1543,14 +1557,25 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
   };
 
   const joinConversation = async (conversationId: string) => {
+    const wasClosed = conversations.find((conversation) => conversation.id === conversationId)?.closed_at != null;
     setJoining(true);
     const { error } = await supabase.rpc('admin_join_conversation', { p_conversation_id: conversationId });
     setJoining(false);
     if (error) { toast('Could not join conversation: ' + error.message, 'error'); return; }
     setJoinedConversationIds((current) => new Set(current).add(conversationId));
-    toast('You joined the conversation. Both members were notified in chat.');
+    toast(wasClosed ? 'Support session opened. Both members can message again.' : 'You joined the conversation. Both members were notified in chat.');
     await loadMessages();
     loadConversations();
+  };
+
+  const endSupportSession = async () => {
+    if (!active) return;
+    const { error } = await supabase.rpc('admin_resolve_conversation_support', { p_conversation_id: active.id });
+    if (error) { toast('Could not end the support session: ' + error.message, 'error'); return; }
+    toast('Support session resolved. The chat is read-only again and its history remains saved.');
+    await loadMessages();
+    await loadConversations();
+    await onDataChange();
   };
 
   if (loading) return <div className="card h-64 animate-pulse" />;
@@ -1566,6 +1591,7 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
 
   const other = active?.driver || active?.owner;
   const activeJoined = Boolean(active && (active.admin_id === user?.id || joinedConversationIds.has(active.id)));
+  const supportSessionActive = Boolean(active?.support_reopened_at && !active.support_resolved_at && !active.closed_at);
 
   return (
     <div className="grid h-[70vh] gap-4 lg:grid-cols-[300px_1fr]">
@@ -1579,8 +1605,9 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink-900">{c.driver && c.owner ? `${c.driver.full_name} ↔ ${c.owner.full_name}` : u?.full_name}</p>
                 <p className="text-xs capitalize text-ink-500">{c.driver && c.owner ? 'Member conversation' : `${u?.role || 'member'} support`}</p>
+                <p className="mt-0.5 text-[10px] text-ink-400">{formatDateTime(c.last_message_at || c.created_at)}</p>
               </div>
-              <div className="text-right">{joined && <span className="badge badge-success text-[10px]">Joined</span>}{c.last_message_at && <span className="mt-1 block text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}</div>
+              <div className="text-right">{c.support_reopened_at && !c.support_resolved_at && !c.closed_at ? <span className="badge bg-violet-100 text-[10px] text-violet-700">Support open</span> : joined && <span className="badge badge-success text-[10px]">Joined</span>}{c.last_message_at && <span className="mt-1 block text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}</div>
             </button>
           );
         })}
@@ -1594,9 +1621,9 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
               <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.is_verified} />
               <div>
                 <p className="font-semibold text-ink-900">{active.driver && active.owner ? `${active.driver.full_name} ↔ ${active.owner.full_name}` : other.full_name}</p>
-                <p className="text-xs capitalize text-brand-600">{active.closed_at ? 'Ended · preserved history' : active.driver && active.owner ? 'Active member chat' : `${other.role} support`}</p>
+                <p className="text-xs capitalize text-brand-600">{active.closed_at ? 'Ended · preserved history' : supportSessionActive ? 'Reopened support session · members can chat' : active.driver && active.owner ? 'Active member chat' : `${other.role} support`}</p>
               </div>
-              <div className="ml-auto">{!activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}</div>
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{active.closed_at ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><Headphones className="h-4 w-4" /> {joining ? 'Reopening…' : 'Reopen with support'}</button> : !activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}{supportSessionActive && <button onClick={() => setConfirmEndSupport(true)} className="btn-secondary text-xs"><LockKeyhole className="h-4 w-4" /> End support chat</button>}</div>
             </div>
             <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-ink-50/50 p-4">
               {messages.map((m) => {
@@ -1613,10 +1640,10 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
                 );
               })}
             </div>
-            {activeJoined ? <div className="flex items-center gap-2 border-t border-ink-100 p-3">
+            {activeJoined && !active.closed_at ? <div className="flex items-center gap-2 border-t border-ink-100 p-3">
               <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Type a message…" className="input flex-1" />
               <button onClick={send} disabled={!text.trim()} aria-label="Send message" className="btn-primary px-3"><Send className="h-4 w-4" /></button>
-            </div> : <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><LockKeyhole className="h-4 w-4" />Review the preserved history, then click Join chat before sending a support message.</div>}
+            </div> : <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><LockKeyhole className="h-4 w-4" />This history is read-only. Click Reopen with support to let both members and support message again.</div>}
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center text-ink-400">
@@ -1624,6 +1651,7 @@ function AdminChat({ user }: { user: { id: string; email: string } | null }) {
           </div>
         )}
       </div>
+      {confirmEndSupport && <ConfirmDialog title="End this support session?" message="Both members will lose the ability to send new messages in this ended connection chat. The complete history will remain saved and readable." confirmLabel="End support chat" onConfirm={endSupportSession} onClose={() => setConfirmEndSupport(false)} />}
     </div>
   );
 }
