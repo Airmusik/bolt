@@ -16,6 +16,16 @@ import { useSiteSettings } from '@/lib/siteSettings';
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 
+type BlockStatus = {
+  i_blocked_other: boolean;
+  blocked_by_other: boolean;
+};
+
+const CLEAR_BLOCK_STATUS: BlockStatus = {
+  i_blocked_other: false,
+  blocked_by_other: false,
+};
+
 function isProfileOnline(member?: Profile | null) {
   if (!member?.last_seen_at) return false;
   return Date.now() - new Date(member.last_seen_at).getTime() < ONLINE_WINDOW_MS;
@@ -39,6 +49,7 @@ export function ChatPage() {
   const [text, setText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [blockStatus, setBlockStatus] = useState<BlockStatus>(CLEAR_BLOCK_STATUS);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -82,6 +93,26 @@ export function ChatPage() {
   useEffect(() => {
     loadMessages();
   }, [loadMessages]);
+
+  const loadBlockStatus = useCallback(async () => {
+    if (!active || !user || (user.id !== active.driver_id && user.id !== active.owner_id)) {
+      setBlockStatus(CLEAR_BLOCK_STATUS);
+      return;
+    }
+    const { data, error } = await supabase.rpc('get_conversation_block_status', {
+      p_conversation_id: active.id,
+    });
+    if (error) {
+      setBlockStatus(CLEAR_BLOCK_STATUS);
+      return;
+    }
+    const status = data?.[0] as BlockStatus | undefined;
+    setBlockStatus(status || CLEAR_BLOCK_STATUS);
+  }, [active, user]);
+
+  useEffect(() => {
+    loadBlockStatus();
+  }, [loadBlockStatus]);
 
   const activeId = active?.id;
   useEffect(() => {
@@ -137,6 +168,8 @@ export function ChatPage() {
   const send = async () => {
     if (!user || !active) return;
     if (active.closed_at) { toast('This connection has ended. The chat is saved as read-only history.', 'error'); return; }
+    if (blockStatus.i_blocked_other) { toast('Unblock this member before sending a message.', 'error'); return; }
+    if (blockStatus.blocked_by_other) { toast('This member has blocked messaging with you.', 'error'); return; }
     const body = text.trim();
     if (!body) return;
     const { error } = await supabase.rpc('send_message', {
@@ -157,10 +190,25 @@ export function ChatPage() {
     if (!user || !active) return;
     const otherId = user.id === active.driver_id ? active.owner_id : active.driver_id;
     if (!otherId) { toast('Could not identify this user.', 'error'); return; }
+    if (!window.confirm('Block this member? You will not be able to message each other until you unblock them.')) return;
     const { error } = await supabase.from('blocks').insert({ blocker_id: user.id, blocked_id: otherId });
     if (error) { toast('Could not block user: ' + error.message, 'error'); return; }
     toast('User blocked.');
-    setActive(null);
+    await loadBlockStatus();
+  };
+
+  const unblockUser = async () => {
+    if (!user || !active) return;
+    const otherId = user.id === active.driver_id ? active.owner_id : active.driver_id;
+    if (!otherId) { toast('Could not identify this user.', 'error'); return; }
+    const { error } = await supabase
+      .from('blocks')
+      .delete()
+      .eq('blocker_id', user.id)
+      .eq('blocked_id', otherId);
+    if (error) { toast('Could not unblock user: ' + error.message, 'error'); return; }
+    toast('Member unblocked.');
+    await loadBlockStatus();
   };
 
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
@@ -175,6 +223,7 @@ export function ChatPage() {
 
   const other = active ? (user?.id === active.driver_id ? (active.owner || active.admin) : user?.id === active.owner_id ? (active.driver || active.admin) : active.driver || active.owner) : null;
   const chatClosed = Boolean(active?.closed_at);
+  const chatBlocked = blockStatus.i_blocked_other || blockStatus.blocked_by_other;
 
   return (
     <div className="container-content py-6">
@@ -226,7 +275,11 @@ export function ChatPage() {
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => setShowReport(true)} aria-label="Report conversation" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><Flag className="h-4 w-4" /></button>
-                  <button onClick={blockUser} aria-label="Block user" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-danger"><Ban className="h-4 w-4" /></button>
+                  {blockStatus.i_blocked_other ? (
+                    <button onClick={unblockUser} aria-label="Unblock user" title="Unblock user" className="rounded-full bg-amber-50 p-2 text-amber-700 hover:bg-amber-100"><Ban className="h-4 w-4" /></button>
+                  ) : (
+                    <button onClick={blockUser} aria-label="Block user" title="Block user" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-danger"><Ban className="h-4 w-4" /></button>
+                  )}
                 </div>
               </div>
 
@@ -234,6 +287,25 @@ export function ChatPage() {
                 <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
                 <p className="text-xs leading-5"><strong>Dispute support:</strong> An authorised administrator may review and join this chat if a report, safety concern, or dispute needs help resolving.</p>
               </div>
+
+              {chatBlocked && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
+                  <div className="flex items-start gap-2">
+                    <Ban className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold">Messaging is blocked</p>
+                      <p className="text-xs leading-5">
+                        {blockStatus.i_blocked_other && blockStatus.blocked_by_other
+                          ? 'You blocked this member, and they have also blocked you. You can remove only your own block.'
+                          : blockStatus.i_blocked_other
+                            ? 'You blocked this member. Unblock them to restore your side of messaging.'
+                            : 'This member has blocked messaging with you. Only they can remove their block.'}
+                      </p>
+                    </div>
+                  </div>
+                  {blockStatus.i_blocked_other && <button onClick={unblockUser} className="btn-secondary shrink-0 px-3 py-1.5 text-xs">Unblock member</button>}
+                </div>
+              )}
 
               {/* Messages */}
               <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.08),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(139,92,246,0.08),transparent_36%)] bg-ink-50/50 p-4 sm:p-5">
@@ -268,7 +340,7 @@ export function ChatPage() {
               {chatClosed && <div className="flex items-start gap-3 border-t border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100"><LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="text-sm font-semibold">Connection ended — chat history preserved</p><p className="text-xs">This conversation is read-only. Send and accept a new connection request to start a new chat.</p></div></div>}
 
               {/* Emoji picker */}
-              {!chatClosed && showEmoji && (
+              {!chatClosed && !chatBlocked && showEmoji && (
                 <div className="flex flex-wrap gap-1 border-t border-ink-100 bg-white/95 p-2 shadow-[0_-6px_20px_rgba(0,0,0,0.03)] dark:bg-[#141416]">
                   {EMOJIS.map((e) => (
                     <button key={e} onClick={() => { setText((t) => t + e); }} className="rounded-lg p-1.5 text-lg hover:bg-ink-100">{e}</button>
@@ -277,7 +349,7 @@ export function ChatPage() {
               )}
 
               {/* Input */}
-              {!chatClosed && <div className="flex items-center gap-2 border-t border-ink-100 bg-white p-3 dark:bg-[#141416]">
+              {!chatClosed && !chatBlocked && <div className="flex items-center gap-2 border-t border-ink-100 bg-white p-3 dark:bg-[#141416]">
                 <button onClick={() => setShowEmoji((v) => !v)} aria-label="Choose emoji" className="rounded-full p-2 text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
                 <div className="relative flex-1"><input
                   ref={inputRef}
