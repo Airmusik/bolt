@@ -320,6 +320,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
   const [reviewing, setReviewing] = useState<Application | null>(null);
   const [showReview, setShowReview] = useState(false);
   const [accepting, setAccepting] = useState<Application | null>(null);
+  const [rejecting, setRejecting] = useState<Application | null>(null);
 
   const act = async (app: Application, status: 'accepted' | 'rejected' | 'completed') => {
     const { error } = await supabase.rpc('transition_application', {
@@ -354,7 +355,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
             {a.status === 'pending' && (
               <>
                 <button onClick={() => setAccepting(a)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
-                <button onClick={() => act(a, 'rejected')} className="btn-secondary px-3 py-1.5 text-xs"><X className="h-3.5 w-3.5" /> Reject</button>
+                <button onClick={() => setRejecting(a)} className="btn-secondary px-3 py-1.5 text-xs"><X className="h-3.5 w-3.5" /> Reject</button>
               </>
             )}
             {a.status === 'accepted' && (
@@ -375,6 +376,14 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
         confirmLabel="Accept application"
         onConfirm={() => act(accepting, 'accepted')}
         onClose={() => setAccepting(null)}
+      />}
+      {rejecting && <ConfirmDialog
+        title="Reject this application?"
+        message="The driver will be notified and this application cannot be accepted afterward. They would need to submit a new application."
+        confirmLabel="Reject application"
+        danger
+        onConfirm={() => act(rejecting, 'rejected')}
+        onClose={() => setRejecting(null)}
       />}
     </div>
   );
@@ -402,6 +411,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
   const expiredOut = outgoing.filter((c) => c.status === 'expired');
   const expiredIn = incoming.filter((c) => c.status === 'expired');
   const [accepting, setAccepting] = useState<Connection | null>(null);
+  const [confirmingAction, setConfirmingAction] = useState<{ connection: Connection; action: 'reject' | 'cancel' | 'end' } | null>(null);
 
   useEffect(() => {
     supabase.rpc('expire_old_connections').then(() => onAction());
@@ -443,7 +453,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
                   <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
                 </div>
                 <button onClick={() => setAccepting(c)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
-                <button onClick={() => handleReject(c)} className="btn-secondary px-3 py-1.5 text-xs"><X className="h-3.5 w-3.5" /> Reject</button>
+                <button onClick={() => setConfirmingAction({ connection: c, action: 'reject' })} className="btn-secondary px-3 py-1.5 text-xs"><X className="h-3.5 w-3.5" /> Reject</button>
               </div>
             ))}
           </div>
@@ -469,7 +479,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
                 </div>
                 <div className="flex gap-2">
                   <Link to="/chat" className="btn-secondary flex-1 px-3 py-1.5 text-xs"><MessageSquare className="h-3.5 w-3.5" /> Chat</Link>
-                  <button onClick={() => handleEnd(c)} className="btn-ghost flex-1 px-3 py-1.5 text-xs text-danger hover:bg-red-50"><X className="h-3.5 w-3.5" /> End</button>
+                  <button onClick={() => setConfirmingAction({ connection: c, action: 'end' })} className="btn-ghost flex-1 px-3 py-1.5 text-xs text-danger hover:bg-red-50"><X className="h-3.5 w-3.5" /> End</button>
                 </div>
               </div>
             ))}
@@ -490,7 +500,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
                   <p className="text-xs text-ink-500 capitalize">{c.recipient?.role} · waiting for response</p>
                   <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
                 </div>
-                <button onClick={() => handleReject(c)} className="btn-ghost px-3 py-1.5 text-xs text-danger hover:bg-red-50"><X className="h-3.5 w-3.5" /> Cancel</button>
+                <button onClick={() => setConfirmingAction({ connection: c, action: 'cancel' })} className="btn-ghost px-3 py-1.5 text-xs text-danger hover:bg-red-50"><X className="h-3.5 w-3.5" /> Cancel</button>
               </div>
             ))}
           </div>
@@ -523,6 +533,18 @@ function ConnectionsTab({ incoming, outgoing, onAction, toast }: { incoming: Inc
         confirmLabel="Accept connection"
         onConfirm={() => handleAccept(accepting)}
         onClose={() => setAccepting(null)}
+      />}
+      {confirmingAction && <ConfirmDialog
+        title={confirmingAction.action === 'end' ? 'End this connection?' : confirmingAction.action === 'cancel' ? 'Cancel this request?' : 'Reject this request?'}
+        message={confirmingAction.action === 'end'
+          ? 'Both members will become available again and this conversation will become read-only. The chat history will remain saved.'
+          : confirmingAction.action === 'cancel'
+            ? 'The recipient will no longer be able to accept this request. You can send a new request later.'
+            : 'The sender will be notified and would need to send a new request if they want to connect later.'}
+        confirmLabel={confirmingAction.action === 'end' ? 'End connection' : confirmingAction.action === 'cancel' ? 'Cancel request' : 'Reject request'}
+        danger
+        onConfirm={() => confirmingAction.action === 'end' ? handleEnd(confirmingAction.connection) : handleReject(confirmingAction.connection)}
+        onClose={() => setConfirmingAction(null)}
       />}
     </div>
   );

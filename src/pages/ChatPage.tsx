@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -12,6 +12,7 @@ import { ReportModal } from './VehicleDetailsPage';
 import { cn, timeAgo } from '@/lib/utils';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
@@ -19,6 +20,19 @@ const ONLINE_WINDOW_MS = 2 * 60 * 1000;
 type BlockStatus = {
   i_blocked_other: boolean;
   blocked_by_other: boolean;
+};
+
+type ConversationWithRelations = Conversation & {
+  vehicle?: VehicleWithRelations;
+  driver?: Profile;
+  owner?: Profile;
+};
+
+type ConversationGroup = {
+  key: string;
+  items: ConversationWithRelations[];
+  latest: ConversationWithRelations;
+  activeConversation: ConversationWithRelations;
 };
 
 const CLEAR_BLOCK_STATUS: BlockStatus = {
@@ -37,18 +51,31 @@ function lastSeenText(member?: Profile | null) {
   return `Last seen ${timeAgo(member.last_seen_at)}`;
 }
 
+function conversationActivity(conversation: Conversation) {
+  return new Date(conversation.last_message_at || conversation.created_at).getTime();
+}
+
+function conversationPartnerId(conversation: Conversation, userId: string) {
+  if (userId === conversation.driver_id) return conversation.owner_id || conversation.admin_id;
+  if (userId === conversation.owner_id) return conversation.driver_id || conversation.admin_id;
+  if (userId === conversation.admin_id) return conversation.driver_id || conversation.owner_id;
+  return conversation.driver_id || conversation.owner_id || conversation.admin_id;
+}
+
 export function ChatPage() {
   const { conversationId } = useParams();
+  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const { settings } = useSiteSettings();
 
-  const [conversations, setConversations] = useState<(Conversation & { vehicle?: VehicleWithRelations; driver?: Profile; owner?: Profile })[]>([]);
+  const [conversations, setConversations] = useState<ConversationWithRelations[]>([]);
   const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  const [confirmSafetyAction, setConfirmSafetyAction] = useState<'block' | 'unblock' | null>(null);
   const [blockStatus, setBlockStatus] = useState<BlockStatus>(CLEAR_BLOCK_STATUS);
   const [loading, setLoading] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -61,34 +88,73 @@ export function ChatPage() {
       .select(`*, vehicle:vehicles(*, photos:vehicle_photos(*)), connection:connections(status), application:applications(status), driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), admin:profiles!conversations_admin_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
       .or(`driver_id.eq.${user.id},owner_id.eq.${user.id},admin_id.eq.${user.id}`)
       .order('last_message_at', { ascending: false, nullsFirst: false });
-    setConversations((data as (Conversation & { vehicle?: VehicleWithRelations; driver?: Profile; owner?: Profile })[]) || []);
+    const sorted = ((data as ConversationWithRelations[]) || []).sort((a, b) => conversationActivity(b) - conversationActivity(a));
+    setConversations(sorted);
     setLoading(false);
   }, [user]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
+  const conversationGroups = useMemo<ConversationGroup[]>(() => {
+    if (!user) return [];
+    const grouped = new Map<string, ConversationWithRelations[]>();
+    conversations.forEach((conversation) => {
+      const partnerId = conversationPartnerId(conversation, user.id);
+      const key = partnerId ? `member:${partnerId}` : `conversation:${conversation.id}`;
+      const existing = grouped.get(key) || [];
+      existing.push(conversation);
+      grouped.set(key, existing);
+    });
+    return [...grouped.entries()]
+      .map(([key, items]) => {
+        const ordered = [...items].sort((a, b) => conversationActivity(b) - conversationActivity(a));
+        return {
+          key,
+          items: ordered,
+          latest: ordered[0],
+          activeConversation: ordered.find((conversation) => !conversation.closed_at) || ordered[0],
+        };
+      })
+      .sort((a, b) => conversationActivity(b.latest) - conversationActivity(a.latest));
+  }, [conversations, user]);
+
+  const activeGroup = useMemo(() => {
+    if (!active || !user) return null;
+    const key = conversationPartnerId(active, user.id);
+    return conversationGroups.find((group) => group.key === (key ? `member:${key}` : `conversation:${active.id}`)) || null;
+  }, [active, conversationGroups, user]);
+
+  const activeConversationIds = useMemo(
+    () => activeGroup?.items.map((conversation) => conversation.id) || [],
+    [activeGroup],
+  );
+
   useEffect(() => {
     if (conversationId && conversations.length > 0) {
       const c = conversations.find((x) => x.id === conversationId);
-      if (c) setActive(c);
+      if (c && user) {
+        const partnerId = conversationPartnerId(c, user.id);
+        const group = conversationGroups.find((item) => item.key === (partnerId ? `member:${partnerId}` : `conversation:${c.id}`));
+        setActive(group?.activeConversation || c);
+      }
     } else if (!conversationId && conversations.length > 0 && !active) {
       // keep none selected on mobile until clicked
     }
-  }, [conversationId, conversations, active]);
+  }, [conversationId, conversations, conversationGroups, active, user]);
 
   const loadMessages = useCallback(async () => {
-    if (!active) return;
+    if (!active || activeConversationIds.length === 0) return;
     const { data } = await supabase
       .from('messages')
       .select(`*, sender:profiles!messages_sender_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
-      .eq('conversation_id', active.id)
+      .in('conversation_id', activeConversationIds)
       .order('created_at', { ascending: true });
     setMessages((data as Message[]) || []);
     // mark incoming as read
     if (user) {
-      await supabase.from('messages').update({ read: true }).eq('conversation_id', active.id).neq('sender_id', user.id).eq('read', false);
+      await supabase.from('messages').update({ read: true }).in('conversation_id', activeConversationIds).neq('sender_id', user.id).eq('read', false);
     }
-  }, [active, user]);
+  }, [active, activeConversationIds, user]);
 
   useEffect(() => {
     loadMessages();
@@ -141,7 +207,7 @@ export function ChatPage() {
     const channel = supabase.channel('chat-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
         const m = payload.new as Message;
-        if (active && m.conversation_id === active.id) {
+        if (active && activeConversationIds.includes(m.conversation_id)) {
           loadMessages();
           if (m.sender_id !== user.id) {
             supabase.from('messages').update({ read: true }).eq('id', m.id);
@@ -155,10 +221,13 @@ export function ChatPage() {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [user, active, loadConversations, loadMessages]);
+  }, [user, active, activeConversationIds, loadConversations, loadMessages]);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+    const frame = window.requestAnimationFrame(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [messages]);
 
   useEffect(() => {
@@ -190,7 +259,6 @@ export function ChatPage() {
     if (!user || !active) return;
     const otherId = user.id === active.driver_id ? active.owner_id : active.driver_id;
     if (!otherId) { toast('Could not identify this user.', 'error'); return; }
-    if (!window.confirm('Block this member? You will not be able to message each other until you unblock them.')) return;
     const { error } = await supabase.from('blocks').insert({ blocker_id: user.id, blocked_id: otherId });
     if (error) { toast('Could not block user: ' + error.message, 'error'); return; }
     toast('User blocked.');
@@ -222,7 +290,7 @@ export function ChatPage() {
   }
 
   const other = active ? (user?.id === active.driver_id ? (active.owner || active.admin) : user?.id === active.owner_id ? (active.driver || active.admin) : active.driver || active.owner) : null;
-  const chatClosed = Boolean(active?.closed_at);
+  const chatClosed = !activeGroup?.items.some((conversation) => !conversation.closed_at);
   const chatBlocked = blockStatus.i_blocked_other || blockStatus.blocked_by_other;
 
   return (
@@ -236,19 +304,20 @@ export function ChatPage() {
         <div className={cn('card overflow-y-auto bg-gradient-to-b from-white to-ink-50/60 dark:from-[#141416] dark:to-[#101012]', active && 'hidden lg:block')}>
           <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-100 bg-white/90 px-4 py-3 backdrop-blur dark:bg-[#141416]/90">
             <span className="flex items-center gap-2 text-sm font-semibold text-ink-900"><MessageCircle className="h-4 w-4 text-brand-600" /> Conversations</span>
-            <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-700">{conversations.length}</span>
+            <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-700">{conversationGroups.length}</span>
           </div>
-          {conversations.map((c) => {
+          {conversationGroups.map((group) => {
+            const c = group.latest;
             const otherUser = user?.id === c.driver_id ? (c.owner || c.admin) : user?.id === c.owner_id ? (c.driver || c.admin) : (c.driver || c.owner);
             const online = isProfileOnline(otherUser);
             return (
-              <button key={c.id} onClick={() => setActive(c)} className={cn('group relative flex w-full items-center gap-3 border-b border-ink-50 p-3 text-left transition hover:bg-brand-50/60', active?.id === c.id && 'bg-brand-50 shadow-[inset_3px_0_0_0_theme(colors.brand.500)] dark:bg-brand-950/25')}>
+              <button key={group.key} onClick={() => { setActive(group.activeConversation); navigate(`/chat/${group.activeConversation.id}`); }} className={cn('group relative flex w-full items-center gap-3 border-b border-ink-50 p-3 text-left transition hover:bg-brand-50/60', activeGroup?.key === group.key && 'bg-brand-50 shadow-[inset_3px_0_0_0_theme(colors.brand.500)] dark:bg-brand-950/25')}>
                 <Avatar name={otherUser?.full_name || 'User'} src={otherUser?.avatar_url} size={44} verified={!!otherUser?.is_verified} />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
                     {otherUser?.full_name} <VerifiedBadge verified={otherUser?.is_verified} size={11} />
                   </p>
-                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-500">{c.vehicle?.make && <CarFront className="h-3 w-3 shrink-0" />}{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : c.admin_id ? `${settings.site_name} Admin` : 'Conversation'} </p>
+                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-500">{c.vehicle?.make && <CarFront className="h-3 w-3 shrink-0" />}{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : c.admin_id ? `${settings.site_name} Admin` : 'Conversation'}{group.items.length > 1 ? ` · ${group.items.length} connections` : ''}</p>
                   <p className={cn('mt-0.5 flex items-center gap-1 text-[10px]', online ? 'font-semibold text-emerald-600' : 'text-ink-400')}><span className={cn('h-1.5 w-1.5 rounded-full', online ? 'bg-emerald-500' : 'bg-ink-300')} />{lastSeenText(otherUser)}</p>
                 </div>
                 {c.last_message_at && <span className="text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}
@@ -264,7 +333,7 @@ export function ChatPage() {
               {/* Header */}
               <div className="flex items-center justify-between border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-violet-50 p-4 dark:from-brand-950/30 dark:via-[#141416] dark:to-violet-950/20">
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setActive(null)} className="lg:hidden"><ArrowLeft className="h-5 w-5 text-ink-500" /></button>
+                  <button onClick={() => { setActive(null); navigate('/chat'); }} aria-label="Back to conversations" className="lg:hidden"><ArrowLeft className="h-5 w-5 text-ink-500" /></button>
                   <Link to={`/members/${other.id}`} title={`View ${other.full_name}'s profile`} aria-label={`View ${other.full_name}'s profile`} className="rounded-full transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-400">
                     <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.is_verified} />
                   </Link>
@@ -276,9 +345,9 @@ export function ChatPage() {
                 <div className="flex gap-1">
                   <button onClick={() => setShowReport(true)} aria-label="Report conversation" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><Flag className="h-4 w-4" /></button>
                   {blockStatus.i_blocked_other ? (
-                    <button onClick={unblockUser} aria-label="Unblock user" title="Unblock user" className="rounded-full bg-amber-50 p-2 text-amber-700 hover:bg-amber-100"><Ban className="h-4 w-4" /></button>
+                    <button onClick={() => setConfirmSafetyAction('unblock')} aria-label="Unblock user" title="Unblock user" className="rounded-full bg-amber-50 p-2 text-amber-700 hover:bg-amber-100"><Ban className="h-4 w-4" /></button>
                   ) : (
-                    <button onClick={blockUser} aria-label="Block user" title="Block user" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-danger"><Ban className="h-4 w-4" /></button>
+                    <button onClick={() => setConfirmSafetyAction('block')} aria-label="Block user" title="Block user" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-danger"><Ban className="h-4 w-4" /></button>
                   )}
                 </div>
               </div>
@@ -303,7 +372,7 @@ export function ChatPage() {
                       </p>
                     </div>
                   </div>
-                  {blockStatus.i_blocked_other && <button onClick={unblockUser} className="btn-secondary shrink-0 px-3 py-1.5 text-xs">Unblock member</button>}
+                  {blockStatus.i_blocked_other && <button onClick={() => setConfirmSafetyAction('unblock')} className="btn-secondary shrink-0 px-3 py-1.5 text-xs">Unblock member</button>}
                 </div>
               )}
 
@@ -375,6 +444,18 @@ export function ChatPage() {
 
       {showReport && active && other && (
         <ReportModal targetType="conversation" targetId={active.id} reportedId={other.id} onClose={() => setShowReport(false)} onDone={() => { setShowReport(false); toast('Conversation reported.'); }} />
+      )}
+      {confirmSafetyAction && (
+        <ConfirmDialog
+          title={confirmSafetyAction === 'block' ? 'Block this member?' : 'Unblock this member?'}
+          message={confirmSafetyAction === 'block'
+            ? 'You will not be able to message each other until the block is removed. The other member will not be told why you blocked them.'
+            : 'Messaging will be restored only if the other member has not also blocked you.'}
+          confirmLabel={confirmSafetyAction === 'block' ? 'Block member' : 'Unblock member'}
+          danger={confirmSafetyAction === 'block'}
+          onConfirm={confirmSafetyAction === 'block' ? blockUser : unblockUser}
+          onClose={() => setConfirmSafetyAction(null)}
+        />
       )}
     </div>
   );

@@ -10,6 +10,46 @@ import { ThemeToggle } from './ThemeToggle';
 import { SiteLogo } from './SiteLogo';
 import { NOTIFICATIONS_CHANGED_EVENT } from '@/lib/notificationEvents';
 
+type AudioWindow = typeof window & { webkitAudioContext?: typeof AudioContext };
+let notificationAudioContext: AudioContext | null = null;
+
+function getNotificationAudioContext() {
+  if (notificationAudioContext) return notificationAudioContext;
+  const AudioContextClass = window.AudioContext || (window as AudioWindow).webkitAudioContext;
+  if (!AudioContextClass) return null;
+  notificationAudioContext = new AudioContextClass();
+  return notificationAudioContext;
+}
+
+function playNotificationTone() {
+  try {
+    const context = getNotificationAudioContext();
+    if (!context) return;
+    if (context.state === 'suspended') void context.resume();
+    const gain = context.createGain();
+    gain.connect(context.destination);
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.16, context.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.7);
+
+    const first = context.createOscillator();
+    first.type = 'sine';
+    first.frequency.value = 784;
+    first.connect(gain);
+    first.start(context.currentTime);
+    first.stop(context.currentTime + 0.24);
+
+    const second = context.createOscillator();
+    second.type = 'sine';
+    second.frequency.value = 523.25;
+    second.connect(gain);
+    second.start(context.currentTime + 0.25);
+    second.stop(context.currentTime + 0.65);
+  } catch {
+    // Browsers may prevent sound until the member has interacted with the page.
+  }
+}
+
 export function Header() {
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
@@ -18,6 +58,24 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [unread, setUnread] = useState(0);
   const { settings } = useSiteSettings();
+
+  useEffect(() => {
+    let unlocked = false;
+    const unlockNotificationSound = () => {
+      if (unlocked) return;
+      unlocked = true;
+      const context = getNotificationAudioContext();
+      if (context?.state === 'suspended') void context.resume();
+      window.removeEventListener('pointerdown', unlockNotificationSound);
+      window.removeEventListener('keydown', unlockNotificationSound);
+    };
+    window.addEventListener('pointerdown', unlockNotificationSound);
+    window.addEventListener('keydown', unlockNotificationSound);
+    return () => {
+      window.removeEventListener('pointerdown', unlockNotificationSound);
+      window.removeEventListener('keydown', unlockNotificationSound);
+    };
+  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -39,7 +97,12 @@ export function Header() {
     window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, load);
     const channel = supabase
       .channel('notif-unread')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, load)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => {
+        playNotificationTone();
+        load();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, load)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, load)
       .subscribe();
     return () => {
       active = false;
