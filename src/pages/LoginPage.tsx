@@ -5,10 +5,8 @@ import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import { useSiteSettings } from '@/lib/siteSettings';
-import { supabase } from '@/lib/supabase';
-import { getAuthErrorMessage } from '@/lib/authErrors';
-import { isValidPin } from '@/lib/phoneAuth';
 import { SiteLogo } from '@/components/SiteLogo';
+import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 
 export function LoginPage() {
   const { signIn, user, resetPin } = useAuth();
@@ -21,14 +19,12 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [showReset, setShowReset] = useState(false);
+  const [showReset, setShowReset] = useState(() => new URLSearchParams(window.location.search).get('forgot') === '1');
   const [resetEmail, setResetEmail] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [resetting, setResetting] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [resetError, setResetError] = useState<string | null>(null);
-  const [resetMode, setResetMode] = useState(() => new URLSearchParams(window.location.search).get('reset') === '1');
+  const legacyResetMode = new URLSearchParams(window.location.search).get('reset') === '1';
   const { settings } = useSiteSettings();
   const supportMessage = `Contact support at ${settings.admin_contact_email} or ${settings.admin_contact_phone} to reset your password.`;
 
@@ -47,86 +43,14 @@ export function LoginPage() {
     }
   };
 
-  const handlePasswordUpdate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setResetError(null);
-    if (!isValidPin(newPassword)) {
-      setResetError('Use at least 10 characters with uppercase, lowercase, and a number.');
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setResetError('Passwords do not match. Please re-enter them.');
-      return;
-    }
-    setResetting(true);
-    try {
-      const { error } = await supabase.auth.updateUser({ password: newPassword });
-      if (error) {
-        setResetError(getAuthErrorMessage(error, 'reset'));
-      } else {
-        toast('Password updated successfully.');
-        await supabase.auth.signOut();
-        setResetMode(false);
-        navigate('/login', { replace: true });
-      }
-    } catch (error) {
-      setResetError(getAuthErrorMessage(error, 'reset'));
-    } finally {
-      setResetting(false);
-    }
-  };
-
   useEffect(() => {
-    if (user && !resetMode) {
+    if (user && !legacyResetMode) {
       const from = (location.state as { from?: string })?.from || '/dashboard';
       navigate(from, { replace: true });
     }
-  }, [user, resetMode, navigate, location.state]);
+  }, [user, legacyResetMode, navigate, location.state]);
 
-  if (resetMode) {
-    return (
-      <div className="container-content flex min-h-[80vh] items-center justify-center py-12">
-        <div className="w-full max-w-md">
-          <BackButton to="/login" className="mb-4" />
-          <div className="mb-8 text-center">
-            <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-xl bg-brand-600 text-white">
-              <Lock className="h-6 w-6" />
-            </div>
-            <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Set a new password</h1>
-            <p className="mt-1 text-sm text-ink-500">Choose a strong password with at least 10 characters.</p>
-            <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
-          </div>
-          {resetSent ? (
-            <div className="card p-6 text-center">
-              <Check className="mx-auto h-10 w-10 text-success" />
-              <p className="mt-3 text-sm text-ink-600">If an account exists for <strong>{resetEmail}</strong>, a password-reset link has been sent.</p>
-              <p className="mt-2 text-xs text-ink-500">{supportMessage}</p>
-              <button onClick={() => { setResetMode(false); setResetSent(false); }} className="btn-secondary mt-4">Back to sign in</button>
-            </div>
-          ) : (
-            <form onSubmit={handlePasswordUpdate} className="card p-6">
-              {resetError && <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{resetError}</div>}
-              <div>
-                <label className="label">New password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-                  <input value={newPassword} onChange={(e) => setNewPassword(e.target.value)} type="password" autoComplete="new-password" placeholder="At least 10 characters" className="input pl-10" required />
-                </div>
-              </div>
-              <div className="mt-4">
-                <label className="label">Confirm new password</label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-                  <input value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} type="password" autoComplete="new-password" placeholder="Repeat password" className="input pl-10" required />
-                </div>
-              </div>
-              <button type="submit" disabled={resetting} className="btn-primary mt-6 w-full">{resetting ? 'Updating…' : 'Update password'} <ArrowRight className="h-4 w-4" /></button>
-            </form>
-          )}
-        </div>
-      </div>
-    );
-  }
+  if (legacyResetMode) return <ResetPasswordPage />;
 
   if (showReset) {
     return (

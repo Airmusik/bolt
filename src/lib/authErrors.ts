@@ -1,4 +1,4 @@
-type AuthAction = 'signup' | 'signin' | 'reset' | 'profile';
+type AuthAction = 'signup' | 'signin' | 'resetRequest' | 'passwordUpdate' | 'profile';
 
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message.toLowerCase();
@@ -26,6 +26,9 @@ export function getAuthErrorMessage(error: unknown, action: AuthAction): string 
   if (message.includes('email not confirmed')) {
     return 'Confirm your email using the link we sent you, then sign in.';
   }
+  if (action === 'passwordUpdate' && (message.includes('auth session missing') || message.includes('session expired') || message.includes('invalid jwt') || message.includes('otp expired') || message.includes('expired'))) {
+    return 'This password-reset link is invalid or has expired. Request a new link and try again.';
+  }
   if (message.includes('invalid login credentials')) {
     return 'Incorrect email or password. Please try again.';
   }
@@ -42,6 +45,7 @@ export function getAuthErrorMessage(error: unknown, action: AuthAction): string 
     return 'Your account was created, but profile setup could not finish. Sign in to continue or contact support.';
   }
   if (action === 'signin') return 'Could not sign in right now. Please try again.';
-  if (action === 'reset') return 'Could not send the reset email right now. Please try again.';
+  if (action === 'resetRequest') return 'Could not send the reset email right now. Please try again.';
+  if (action === 'passwordUpdate') return 'Could not update your password right now. Request a new reset link and try again.';
   return 'Could not create your account right now. Please try again.';
 }
