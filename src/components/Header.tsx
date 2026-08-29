@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { Menu, X, Bell, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy } from 'lucide-react';
+import { Menu, X, Bell, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy, User } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { Avatar } from './Avatar';
 import { cn } from '@/lib/utils';
@@ -130,6 +130,19 @@ export function Header() {
         { to: '/how-it-works', label: 'How it works', icon: undefined, show: !isAdmin },
       ].filter((l) => l.show);
 
+  const mobileAccountLinks = isSuspended
+    ? []
+    : isAdmin
+      ? [
+          { to: '/admin', label: 'Admin dashboard', icon: LayoutDashboard },
+          { to: '/help', label: 'Help center', icon: LifeBuoy },
+        ]
+      : [
+          { to: '/saved', label: 'Saved listings', icon: Heart },
+          { to: '/settings', label: 'Settings', icon: Settings },
+          { to: '/help', label: 'Help center', icon: LifeBuoy },
+        ];
+
   return (
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur-md dark:bg-[#0b0b0d]/90">
       <div className="container-content flex h-16 items-center justify-between gap-4">
@@ -180,7 +193,7 @@ export function Header() {
               <div className="relative">
                 <button
                   type="button"
-                  onClick={() => setMenuOpen((v) => !v)}
+                  onClick={() => { setMobileOpen(false); setMenuOpen((v) => !v); }}
                   className="flex items-center gap-2 rounded-full p-1 pr-2 hover:bg-ink-100"
                   aria-label="Open account menu"
                   aria-haspopup="menu"
@@ -199,8 +212,11 @@ export function Header() {
                         <p className="truncate text-sm font-semibold text-ink-900">{profile?.full_name}</p>
                         <p className="text-xs capitalize text-ink-500">{profile?.role}</p>
                       </div>
-                      {!isSuspended && (
-                        <>
+                      {!isAdmin && user && <MenuItem to={`/members/${user.id}`} icon={<User className="h-4 w-4" />}>View profile</MenuItem>}
+                      {isAdmin && <div className="md:hidden"><MenuItem to="/admin" icon={<LayoutDashboard className="h-4 w-4" />}>Admin dashboard</MenuItem></div>}
+                      <div className="hidden md:block">
+                        {!isSuspended && (
+                          <>
                           {isAdmin ? (
                             <MenuItem to="/admin" icon={<LayoutDashboard className="h-4 w-4" />}>Admin dashboard</MenuItem>
                           ) : (
@@ -211,14 +227,15 @@ export function Header() {
                             </>
                           )}
                           <MenuItem to="/help" icon={<LifeBuoy className="h-4 w-4" />}>Help center</MenuItem>
-                        </>
-                      )}
-                      <button
-                        onClick={async () => { await signOut(); navigate('/'); }}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-danger hover:bg-red-50"
-                      >
-                        <LogOut className="h-4 w-4" /> Sign out
-                      </button>
+                          </>
+                        )}
+                        <button
+                          onClick={async () => { await signOut(); navigate('/'); }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-danger hover:bg-red-50"
+                        >
+                          <LogOut className="h-4 w-4" /> Sign out
+                        </button>
+                      </div>
                     </div>
                   </>
                 )}
@@ -234,7 +251,7 @@ export function Header() {
           <button
             type="button"
             className="rounded-full p-2 text-ink-700 hover:bg-ink-100 md:hidden"
-            onClick={() => setMobileOpen((v) => !v)}
+            onClick={() => { setMenuOpen(false); setMobileOpen((v) => !v); }}
             aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
             aria-expanded={mobileOpen}
             aria-controls="mobile-navigation"
@@ -253,6 +270,24 @@ export function Header() {
                 {l.label}
               </Link>
             ))}
+            {user && (
+              <div className="mt-2 border-t border-ink-100 pt-2">
+                <p className="px-3 pb-1 pt-1 text-[11px] font-bold uppercase tracking-wider text-ink-400">Account</p>
+                {mobileAccountLinks.map((item) => (
+                  <Link key={item.to} to={item.to} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100">
+                    <item.icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                ))}
+                <button
+                  type="button"
+                  onClick={async () => { await signOut(); navigate('/'); }}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-danger hover:bg-red-50"
+                >
+                  <LogOut className="h-4 w-4" /> Sign out
+                </button>
+              </div>
+            )}
             {!user && (
               <div className="mt-2 flex gap-2 border-t border-ink-100 pt-3">
                 <Link to="/login" className="btn-secondary flex-1">Sign in</Link>
