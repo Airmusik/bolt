@@ -5,7 +5,7 @@ import {
   Heart, Share2, Flag, ArrowLeft, CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
+import { BROWSE_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import type { VehicleWithRelations, Review } from '@/lib/types';
@@ -42,7 +42,7 @@ export function VehicleDetailsPage() {
     setLoadError('');
     const { data, error } = await supabase
         .from('vehicles')
-        .select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
+        .select(`*, owner:profiles!vehicles_owner_id_fkey(${BROWSE_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .eq('id', id)
         .maybeSingle();
     if (error) {
@@ -56,7 +56,7 @@ export function VehicleDetailsPage() {
     if (data) {
       const { data: revs } = await supabase
         .from('reviews')
-        .select(`*, reviewer:profiles(${PUBLIC_PROFILE_FIELDS})`)
+        .select(`*, reviewer:profiles(${BROWSE_PROFILE_FIELDS})`)
         .eq('reviewee_id', (data as VehicleWithRelations).owner_id)
         .order('created_at', { ascending: false });
       setReviews((revs as Review[]) || []);

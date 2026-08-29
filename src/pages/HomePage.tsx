@@ -12,7 +12,7 @@ import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { titleCase } from '@/lib/utils';
-import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
+import { BROWSE_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
@@ -37,14 +37,14 @@ export function HomePage() {
       const [{ data: v }, { data: d }] = await Promise.all([
         supabase
           .from('vehicles')
-          .select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
+          .select(`*, owner:profiles!vehicles_owner_id_fkey(${BROWSE_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
           .eq('status', 'active')
           .eq('approval_status', 'approved')
           .order('created_at', { ascending: false })
           .limit(6),
         supabase
           .from('profiles')
-          .select(PUBLIC_PROFILE_FIELDS)
+          .select(BROWSE_PROFILE_FIELDS)
           .eq('role', 'driver')
           .eq('onboarding_completed', true)
           .eq('is_verified', true)

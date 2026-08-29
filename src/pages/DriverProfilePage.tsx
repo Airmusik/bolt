@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, ArrowLeft, CalendarDays, Award, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
+import { BROWSE_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useAuth } from '@/lib/useAuth';
 import type { Profile, PlatformHistory, Review, TrustPassport } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
@@ -34,11 +34,11 @@ export function DriverProfilePage() {
     setLoadError('');
     const profileRequest = user?.id === id
       ? supabase.rpc('get_my_profile').maybeSingle()
-      : supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', id).maybeSingle();
+      : supabase.from('profiles').select(BROWSE_PROFILE_FIELDS).eq('id', id).maybeSingle();
     const [profileResult, historyResult, reviewsResult, trustResult] = await Promise.all([
       profileRequest,
       supabase.from('driver_platform_history').select('id,driver_id,platform,months_active,trips,rating,approved,created_at').eq('driver_id', id).eq('approved', true),
-      supabase.from('reviews').select(`*, reviewer:profiles(${PUBLIC_PROFILE_FIELDS})`).eq('reviewee_id', id).order('created_at', { ascending: false }),
+      supabase.from('reviews').select(`*, reviewer:profiles(${BROWSE_PROFILE_FIELDS})`).eq('reviewee_id', id).order('created_at', { ascending: false }),
       supabase.rpc('get_trust_passport', { p_user_id: id }).maybeSingle(),
     ]);
     if (profileResult.error) {
