@@ -205,10 +205,11 @@ export function VehicleFormPage() {
       </button>
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">{isEdit ? 'Edit vehicle' : 'Add a vehicle'}</h1>
       <p className="mt-1 text-sm text-ink-500">New listings stay private until approval. Later text updates stay live; every new photo still requires admin review.</p>
+      <p className="mt-2 text-xs text-ink-400"><span className="font-bold text-danger">*</span> Required information</p>
 
       <div className="mt-6 space-y-6">
         {/* Photos */}
-        <Card title="Vehicle photos" desc="Upload clear photos of the exterior and interior. Every new photo requires admin approval.">
+        <Card title="Vehicle photos *" desc="Required: upload at least one clear exterior or interior photo. Every new photo requires admin approval.">
           <div className="flex flex-wrap gap-3">
             {photos.map((p) => (
               <div key={p.id} className="relative h-24 w-32 overflow-hidden rounded-lg ring-1 ring-ink-200">
@@ -234,25 +235,25 @@ export function VehicleFormPage() {
         {/* Basics */}
         <Card title="Vehicle details">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Make">
+            <Field label="Make" required hint="Select the vehicle manufacturer.">
               <select value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} className="input">
                 <option value="">Select make…</option>
                 {VEHICLE_MAKES.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </Field>
-            <Field label="Model"><input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="input" placeholder="e.g. Axio, Fielder, Note" /></Field>
-            <Field label="Year"><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} className="input" /></Field>
-            <Field label="Location">
+            <Field label="Model" required hint="Enter the model drivers will search for."><input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="input" placeholder="e.g. Axio, Fielder, Note" /></Field>
+            <Field label="Year" required hint="Enter the vehicle's manufacture year."><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} className="input" /></Field>
+            <Field label="Location" required hint="Enter where the vehicle is normally available.">
               <PlaceAutocomplete value={form.location} onChange={(location) => setForm({ ...form, location })} required />
               <p className="mt-1 text-xs text-ink-400">This is also your owner profile location, so members see one consistent area.</p>
             </Field>
-            <Field label="Transmission">
+            <Field label="Transmission" required hint="Choose the gearbox type the driver will use.">
               <select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value as Vehicle['transmission'] })} className="input">
                 <option value="automatic">Automatic</option>
                 <option value="manual">Manual</option>
               </select>
             </Field>
-            <Field label="Fuel type">
+            <Field label="Fuel type" required hint="Choose the vehicle's primary fuel or power type.">
               <select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value as Vehicle['fuel_type'] })} className="input">
                 <option value="petrol">Petrol</option>
                 <option value="diesel">Diesel</option>
@@ -276,11 +277,11 @@ export function VehicleFormPage() {
         {/* Targets */}
         <Card title="Targets & deposit">
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Weekly target (KES)"><input type="number" value={form.weekly_target} onChange={(e) => setForm({ ...form, weekly_target: e.target.value })} className="input" placeholder="e.g. 5000" /></Field>
-            <Field label="Monthly target (KES)"><input type="number" value={form.monthly_target} onChange={(e) => setForm({ ...form, monthly_target: e.target.value })} className="input" placeholder="optional" /></Field>
-            <Field label="Deposit (KES)"><input type="number" value={form.deposit} onChange={(e) => setForm({ ...form, deposit: e.target.value })} className="input" placeholder="0 if none" /></Field>
+            <Field label="Weekly target (KES)" hint="Enter the amount the driver must remit each week."><input type="number" value={form.weekly_target} onChange={(e) => setForm({ ...form, weekly_target: e.target.value })} className="input" placeholder="e.g. 5000" /></Field>
+            <Field label="Monthly target (KES)" hint="Optional alternative monthly amount."><input type="number" value={form.monthly_target} onChange={(e) => setForm({ ...form, monthly_target: e.target.value })} className="input" placeholder="optional" /></Field>
+            <Field label="Deposit (KES)" hint="Enter 0 when no deposit is required."><input type="number" value={form.deposit} onChange={(e) => setForm({ ...form, deposit: e.target.value })} className="input" placeholder="0 if none" /></Field>
           </div>
-          <Field label="Availability">
+          <Field label="Availability" hint="Choose whether drivers can currently apply for this vehicle.">
             <select value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} className="input">
               <option value="available">Available now</option>
               <option value="taken">Currently taken</option>
@@ -291,15 +292,15 @@ export function VehicleFormPage() {
         {/* Insurance */}
         <Card title="Insurance" desc="Drivers can see the type and expiry before applying.">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Insurance type">
+            <Field label="Insurance type" hint="Select the cover currently held by the vehicle.">
               <select value={form.insurance_type} onChange={(e) => setForm({ ...form, insurance_type: e.target.value as Vehicle['insurance_type'] })} className="input">
                 <option value="third_party">Third party</option>
                 <option value="comprehensive">Comprehensive</option>
                 <option value="none">None</option>
               </select>
             </Field>
-            <Field label="Insurance expiry date"><input type="date" value={form.insurance_expiry} onChange={(e) => setForm({ ...form, insurance_expiry: e.target.value })} className="input" /></Field>
-            <Field label="Available from"><input type="date" value={form.available_from} onChange={(e) => setForm({ ...form, available_from: e.target.value })} className="input" /></Field>
+            <Field label="Insurance expiry date" hint="Enter the date shown on the active insurance cover."><input type="date" value={form.insurance_expiry} onChange={(e) => setForm({ ...form, insurance_expiry: e.target.value })} className="input" /></Field>
+            <Field label="Available from" hint="Choose the earliest date a driver can take the vehicle."><input type="date" value={form.available_from} onChange={(e) => setForm({ ...form, available_from: e.target.value })} className="input" /></Field>
           </div>
         </Card>
 
@@ -325,13 +326,13 @@ export function VehicleFormPage() {
 
         {/* Requirements */}
         <Card title="Driver requirements">
-          <Field label="Minimum driving experience">
+          <Field label="Minimum driving experience" hint="Choose the least experience an applicant should have.">
             <select value={form.minimum_driver_experience_years} onChange={(e) => setForm({ ...form, minimum_driver_experience_years: e.target.value })} className="input">
               <option value="0">No minimum</option>
               {Array.from({ length: 16 }, (_, years) => <option key={years + 1} value={years + 1}>{years + 1}+ year{years === 0 ? '' : 's'}</option>)}
             </select>
           </Field>
-          <Field label="Other requirements"><textarea value={form.requirements} onChange={(e) => setForm({ ...form, requirements: e.target.value })} rows={3} className="input" placeholder="e.g. Must have PSV badge, good conduct certificate…" /></Field>
+          <Field label="Other requirements" hint="Optional: add conditions not covered above."><textarea value={form.requirements} onChange={(e) => setForm({ ...form, requirements: e.target.value })} rows={3} className="input" placeholder="e.g. Must have PSV badge, good conduct certificate…" /></Field>
         </Card>
 
         <div className="flex justify-end gap-3">
@@ -366,11 +367,12 @@ function Card({ title, desc, icon, children }: { title: string; desc?: string; i
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, hint, required = false }: { label: string; children: React.ReactNode; hint?: string; required?: boolean }) {
   return (
     <div className="mb-4">
-      <label className="label">{label}</label>
+      <label className="label">{label} {required && <span className="text-danger">*</span>}</label>
       {children}
+      {hint && <p className="mt-1.5 text-xs text-ink-400">{hint}</p>}
     </div>
   );
 }

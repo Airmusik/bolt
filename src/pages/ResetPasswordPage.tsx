@@ -109,12 +109,14 @@ export function ResetPasswordPage() {
           <form onSubmit={handlePasswordUpdate} className="card p-6">
             {error && <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
             <div>
-              <label className="label" htmlFor="new-password">New password</label>
+              <label className="label" htmlFor="new-password">New password <span className="text-danger">*</span></label>
               <div className="relative"><Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" /><input id="new-password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} type="password" autoComplete="new-password" placeholder="At least 10 characters" className="input pl-10" required /></div>
+              <p className="mt-1.5 text-xs text-ink-400">Use at least 10 characters with uppercase, lowercase, and a number.</p>
             </div>
             <div className="mt-4">
-              <label className="label" htmlFor="confirm-new-password">Confirm new password</label>
+              <label className="label" htmlFor="confirm-new-password">Confirm new password <span className="text-danger">*</span></label>
               <div className="relative"><Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" /><input id="confirm-new-password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} type="password" autoComplete="new-password" placeholder="Repeat password" className="input pl-10" required /></div>
+              <p className="mt-1.5 text-xs text-ink-400">Repeat the new password exactly.</p>
             </div>
             <button type="submit" disabled={resetting} className="btn-primary mt-6 w-full">{resetting ? 'Updating…' : 'Update password'} <ArrowRight className="h-4 w-4" /></button>
           </form>

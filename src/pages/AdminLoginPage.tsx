@@ -93,7 +93,7 @@ export function AdminLoginPage() {
         <form onSubmit={handleSignIn} className="card p-6">
           {error && <div className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
           <div>
-            <label className="label">Admin email</label>
+            <label className="label">Admin email <span className="text-danger">*</span></label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
@@ -105,9 +105,10 @@ export function AdminLoginPage() {
                 required
               />
             </div>
+            <p className="mt-1.5 text-xs text-ink-400">Use the email address assigned an administrator role.</p>
           </div>
           <div className="mt-4">
-            <label className="label">Password</label>
+            <label className="label">Password <span className="text-danger">*</span></label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
@@ -122,6 +123,7 @@ export function AdminLoginPage() {
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
+            <p className="mt-1.5 text-xs text-ink-400">Enter the password for this administrator account.</p>
           </div>
           <button type="submit" disabled={loading} className="btn-primary mt-6 w-full">
             {loading ? 'Signing in…' : 'Sign in to admin'} <ArrowRight className="h-4 w-4" />

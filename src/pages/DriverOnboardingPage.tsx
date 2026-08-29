@@ -313,6 +313,7 @@ export function DriverOnboardingPage() {
       <BackButton to="/dashboard" />
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Build your driver trust profile</h1>
       <p className="mt-1 max-w-3xl text-sm text-ink-500">No identity document is required. Your latest ride-hailing platform history with proof is required so admins can confirm real driving activity.</p>
+      <p className="mt-2 text-xs text-ink-400"><span className="font-bold text-danger">*</span> Required information</p>
 
       <div className="mt-6 space-y-6">
         <Section title="How trust works" desc="People can see approved trust signals and their status, never your private proof files.">
@@ -327,10 +328,15 @@ export function DriverOnboardingPage() {
 
         <Section title="Platform history and proof (required)" desc="Add at least one platform, enter your recent activity, and upload its latest Uber, Bolt, Faras, Little Cab, or other platform history. Admins see the private proof; other members only see approved activity.">
           <div className="space-y-3">{history.map((item) => <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select><input type="number" min={0} value={item.months_active} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, months_active: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'months_active', Number(e.target.value))} className="input py-2" placeholder="Months active" /><input type="number" min={0} value={item.trips} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, trips: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'trips', Number(e.target.value))} className="input py-2" placeholder="Trips" /><button type="button" onClick={() => removeHistory(item)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button></div>
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+              <Field label="Platform" required hint="Select the app shown in your proof."><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select></Field>
+              <Field label="Months active" required hint="Enter at least 1 month."><input type="number" min={1} value={item.months_active} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, months_active: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'months_active', Number(e.target.value))} className="input py-2" placeholder="e.g. 12" /></Field>
+              <Field label="Recent trips" hint="Optional activity total."><input type="number" min={0} value={item.trips} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, trips: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'trips', Number(e.target.value))} className="input py-2" placeholder="e.g. 250" /></Field>
+              <button type="button" onClick={() => removeHistory(item)} aria-label={`Remove ${titleCase(item.platform)} history`} className="btn-ghost mb-4 self-center text-danger"><Trash2 className="h-4 w-4" /></button>
+            </div>
             <div className="flex flex-wrap items-end gap-2">
               <div className="w-full sm:max-w-sm">
-                <label htmlFor={`history-proof-${item.id}`} className="mb-1 block text-xs font-semibold text-ink-700">{item.proof_url ? 'Choose replacement proof' : 'Choose proof'}</label>
+                <label htmlFor={`history-proof-${item.id}`} className="mb-1 block text-xs font-semibold text-ink-700">{item.proof_url ? 'Choose replacement proof' : 'Choose proof'} <span className="text-danger">*</span></label>
                 <input
                   id={`history-proof-${item.id}`}
                   type="file"
@@ -347,7 +353,7 @@ export function DriverOnboardingPage() {
               </div>
               {uploadingType === `history-${item.id}` && <span className="text-xs font-semibold text-brand-700">Preparing preview…</span>}
               {item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}
-              <span className="basis-full text-[11px] text-ink-400">Phone photos, HEIC, JPG, PNG, WebP, or PDF · preview before submission · maximum 8 MB</span>
+              <span className="basis-full text-[11px] text-ink-400">Upload your latest platform activity screen. Phone photos, HEIC, JPG, PNG, WebP, or PDF · preview before submission · maximum 8 MB.</span>
             </div>
             {pendingUpload?.item.id === item.id && (
               <div className="rounded-2xl border border-brand-200 bg-brand-50/60 p-3 sm:p-4">
@@ -387,15 +393,15 @@ export function DriverOnboardingPage() {
 function AboutFields({ profileForm, setProfileForm }: { profileForm: DriverAboutForm; setProfileForm: (value: DriverAboutForm) => void }) {
   return <Section title="About you" desc="This information is required before your driver profile can appear publicly.">
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Full name"><input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="input" /></Field>
-      <Field label="Age"><input type="number" min={18} max={85} value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="input" /></Field>
-      <Field label="Location"><PlaceAutocomplete value={profileForm.location} onChange={(location) => setProfileForm({ ...profileForm, location })} placeholder="e.g. Ongata Rongai" required /></Field>
-      <Field label="Driving experience (years)"><input type="number" min={1} max={60} value={profileForm.driving_experience_years} onChange={(e) => setProfileForm({ ...profileForm, driving_experience_years: e.target.value })} className="input" /></Field>
-      <Field label="Languages spoken"><input value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="input" placeholder="English, Swahili" /></Field>
-      <Field label="Preferred work locations"><input value={profileForm.preferred_locations} onChange={(e) => setProfileForm({ ...profileForm, preferred_locations: e.target.value })} className="input" placeholder="Nairobi, Mombasa" /></Field>
+      <Field label="Full name" required hint="Use the name owners will recognise on your public profile."><input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="input" /></Field>
+      <Field label="Age" required hint="Drivers must be between 18 and 85 years old."><input type="number" min={18} max={85} value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="input" /></Field>
+      <Field label="Location" required hint="Enter the Kenyan town or neighbourhood where you are based."><PlaceAutocomplete value={profileForm.location} onChange={(location) => setProfileForm({ ...profileForm, location })} placeholder="e.g. Ongata Rongai" required /></Field>
+      <Field label="Driving experience (years)" required hint="Enter completed years of driving experience; minimum 1."><input type="number" min={1} max={60} value={profileForm.driving_experience_years} onChange={(e) => setProfileForm({ ...profileForm, driving_experience_years: e.target.value })} className="input" /></Field>
+      <Field label="Languages spoken" required hint="Separate multiple languages with commas."><input value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="input" placeholder="English, Swahili" /></Field>
+      <Field label="Preferred work locations" hint="Optional: list areas where you would prefer to work."><input value={profileForm.preferred_locations} onChange={(e) => setProfileForm({ ...profileForm, preferred_locations: e.target.value })} className="input" placeholder="Nairobi, Mombasa" /></Field>
     </div>
-    <Field label="Bio / About me"><textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} rows={3} className="input" placeholder="Tell owners about your experience and working style…" /></Field>
-    <Field label="Platforms you've worked on"><div className="flex flex-wrap gap-2">{PLATFORMS.map((platform) => (
+    <Field label="Bio / About me" required hint="Write at least 20 characters about your experience and working style."><textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} rows={3} className="input" placeholder="Tell owners about your experience and working style…" /></Field>
+    <Field label="Platforms you've worked on" hint="Select every ride-hailing platform you have driven on."><div className="flex flex-wrap gap-2">{PLATFORMS.map((platform) => (
       <button key={platform} type="button" onClick={() => setProfileForm({ ...profileForm, platforms_worked: profileForm.platforms_worked.includes(platform) ? profileForm.platforms_worked.filter((value) => value !== platform) : [...profileForm.platforms_worked, platform] })} className={cn('rounded-full px-4 py-2 text-sm font-medium ring-1 transition', profileForm.platforms_worked.includes(platform) ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-700 ring-ink-200 hover:ring-ink-300 dark:bg-[#141416]')}>{titleCase(platform)}</button>
     ))}</div></Field>
   </Section>;
@@ -420,6 +426,6 @@ function Section({ title, desc, children }: { title: string; desc?: string; chil
   return <div className="card p-5"><h2 className="font-display text-lg font-bold text-ink-900">{title}</h2>{desc && <p className="mt-1 text-xs text-ink-500">{desc}</p>}<div className="mt-4">{children}</div></div>;
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div className="mb-4"><label className="label">{label}</label>{children}</div>;
+function Field({ label, children, hint, required = false }: { label: string; children: React.ReactNode; hint?: string; required?: boolean }) {
+  return <div className="mb-4"><label className="label">{label} {required && <span className="text-danger">*</span>}</label>{children}{hint && <p className="mt-1.5 text-xs text-ink-400">{hint}</p>}</div>;
 }

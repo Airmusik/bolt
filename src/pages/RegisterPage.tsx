@@ -68,9 +68,11 @@ export function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="card p-6">
           {error && <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+          <p className="mb-4 text-xs text-ink-400"><span className="font-bold text-danger">*</span> Required information</p>
 
           <div className="mb-5">
-            <label className="label">I am a…</label>
+            <label className="label">I am a… <span className="text-danger">*</span></label>
+            <p className="mb-2 text-xs text-ink-400">Choose Driver if you need a vehicle, or Owner if you want to list a vehicle.</p>
             <div className="grid grid-cols-2 gap-3">
               {(['driver', 'owner'] as Role[]).map((r) => (
                 <button
@@ -89,21 +91,23 @@ export function RegisterPage() {
           </div>
 
           <div>
-            <label className="label">Full name</label>
+            <label className="label">Full name <span className="text-danger">*</span></label>
             <div className="relative">
               <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Doe" className="input pl-10" required />
             </div>
+            <p className="mt-1.5 text-xs text-ink-400">Use the name other members will recognise on your profile.</p>
           </div>
           <div className="mt-4">
-            <label className="label">Phone number</label>
+            <label className="label">Phone number <span className="text-danger">*</span></label>
             <div className="relative">
               <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712 345 678" inputMode="tel" className="input pl-10" required />
             </div>
+            <p className="mt-1.5 text-xs text-ink-400">Enter an active Kenyan number, for example 0712 345 678.</p>
           </div>
           <div className="mt-4">
-            <label className="label">Email</label>
+            <label className="label">Email <span className="text-danger">*</span></label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="input pl-10" required />
@@ -111,13 +115,13 @@ export function RegisterPage() {
             <p className="mt-1.5 text-xs text-ink-400">You will use this email to sign in and reset your password.</p>
           </div>
           <div className="mt-4">
-            <label className="label">Town or neighbourhood</label>
+            <label className="label">Town or neighbourhood <span className="text-danger">*</span></label>
             <PlaceAutocomplete value={location} onChange={setLocation} placeholder="e.g. Ongata Rongai" required />
             <p className="mt-1.5 text-xs text-ink-400">Shown publicly so nearby drivers and owners can find you. {settings.site_name} operates in Kenya only.</p>
           </div>
 
           <div className="mt-4">
-            <label className="label">Password</label>
+            <label className="label">Password <span className="text-danger">*</span></label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
@@ -137,7 +141,7 @@ export function RegisterPage() {
           </div>
 
           <div className="mt-4">
-            <label className="label">Confirm password</label>
+            <label className="label">Confirm password <span className="text-danger">*</span></label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
@@ -150,6 +154,7 @@ export function RegisterPage() {
                 required
               />
             </div>
+            <p className="mt-1.5 text-xs text-ink-400">Type the same password again to prevent mistakes.</p>
             {confirmPin.length > 0 && pin !== confirmPin && (
               <p className="mt-1.5 text-xs text-danger">Passwords do not match.</p>
             )}

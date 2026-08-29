@@ -397,7 +397,7 @@ export function ReportModal({ targetType, targetId, reportedId, onClose, onDone 
   return (
     <Modal title="Report" onClose={onClose}>
       <div>
-        <label htmlFor="report-reason" className="label">Reason</label>
+        <label htmlFor="report-reason" className="label">Reason <span className="text-danger">*</span></label>
         <select id="report-reason" value={reason} onChange={(e) => setReason(e.target.value)} className="input">
           <option value="">Select a reason…</option>
           <option>Fraud or scam</option>
@@ -406,6 +406,7 @@ export function ReportModal({ targetType, targetId, reportedId, onClose, onDone 
           <option>Spam</option>
           <option>Other</option>
         </select>
+        <p className="mt-1.5 text-xs text-ink-400">Choose the option that best describes the safety or conduct concern.</p>
       </div>
       <div className="mt-4">
         <label htmlFor="report-details" className="label">Details (optional)</label>

@@ -160,6 +160,7 @@ export function SettingsPage() {
         {/* Profile */}
         <div className="card p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink-900"><User className="h-5 w-5" /> Profile</h2>
+          <p className="mt-1 text-xs text-ink-400"><span className="font-bold text-danger">*</span> Required information</p>
 
           {/* Avatar upload */}
           <div className="mt-4 flex items-center gap-4">
@@ -178,14 +179,14 @@ export function SettingsPage() {
           </div>
 
           <div className="mt-4 space-y-4">
-            <div><label className="label">Full name</label><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" /></div>
+            <div><label className="label">Full name <span className="text-danger">*</span></label><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" /><p className="mt-1 text-xs text-ink-400">This is the name other members see on your profile and in chat.</p></div>
             <div><label className="label">Registered email address</label><div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={user?.email || profile?.email || ''} readOnly className="input pl-10 opacity-80" /></div><p className="mt-1 text-xs text-ink-400">This is the address you use to sign in.</p></div>
             <div>
-              <label className="label">Location</label>
+              <label className="label">Location <span className="text-danger">*</span></label>
               <PlaceAutocomplete value={location} onChange={setLocation} />
               <p className="mt-1 text-xs text-ink-400">Type any town, estate, neighbourhood, or landmark in Kenya.</p>
             </div>
-            <div><label className="label">Bio</label><textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="input" /></div>
+            <div><label className="label">Bio <span className="text-xs font-normal text-ink-400">(optional)</span></label><textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="input" /><p className="mt-1 text-xs text-ink-400">Briefly describe yourself, your work, or what you are looking for.</p></div>
           </div>
           <button onClick={save} disabled={saving} className="btn-primary mt-4">
             {saving ? 'Saving…' : justSaved ? <><Check className="h-4 w-4" /> Saved</> : 'Save changes'}
@@ -259,6 +260,7 @@ export function SettingsPage() {
           <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-900 dark:bg-red-950/20 dark:text-red-100"><AlertTriangle className="h-6 w-6" /><p className="mt-3 font-semibold">This cannot be undone.</p><p className="mt-2 text-sm leading-6">Your profile will disappear, your listings and applications will be removed, active connections will end, and your platform records, messages, reviews, reports, and uploaded evidence linked to the account will be deleted.</p></div>
           <label className="label mt-4" htmlFor="delete-account-password">Enter your current password to confirm</label>
           <input id="delete-account-password" type="password" autoComplete="current-password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} placeholder="Current password" className="input" />
+          <p className="mt-1.5 text-xs text-ink-400">Required to prove that you own this account before permanent deletion.</p>
           <div className="mt-5 flex gap-2"><button type="button" onClick={() => { setShowDeleteAccount(false); setDeletePassword(''); }} disabled={deletingAccount} className="btn-secondary flex-1">Keep my account</button><button type="button" onClick={deleteAccount} disabled={deletingAccount || !deletePassword} className="btn flex-1 bg-danger text-white hover:bg-red-700 disabled:opacity-50">{deletingAccount ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting…</> : <><Trash2 className="h-4 w-4" /> Delete forever</>}</button></div>
         </Modal>
       )}
@@ -295,9 +297,9 @@ function ChangePinSection() {
 
   return (
     <div className="mt-3 space-y-3">
-      <input type="password" value={oldPin} onChange={(e) => setOldPin(e.target.value)} placeholder="Current password" className="input" />
-      <input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="New password" className="input" />
-      <input type="password" value={confirmNewPin} onChange={(e) => setConfirmNewPin(e.target.value)} placeholder="Confirm new password" className="input" />
+      <div><label className="label">Current password <span className="text-danger">*</span></label><input type="password" value={oldPin} onChange={(e) => setOldPin(e.target.value)} placeholder="Current password" className="input" /><p className="mt-1 text-xs text-ink-400">Used to confirm that this account belongs to you.</p></div>
+      <div><label className="label">New password <span className="text-danger">*</span></label><input type="password" value={newPin} onChange={(e) => setNewPin(e.target.value)} placeholder="New password" className="input" /><p className="mt-1 text-xs text-ink-400">Use at least 10 characters with uppercase, lowercase, and a number.</p></div>
+      <div><label className="label">Confirm new password <span className="text-danger">*</span></label><input type="password" value={confirmNewPin} onChange={(e) => setConfirmNewPin(e.target.value)} placeholder="Confirm new password" className="input" /><p className="mt-1 text-xs text-ink-400">Repeat the new password exactly.</p></div>
       <button onClick={changePin} disabled={saving || !oldPin || !newPin || !confirmNewPin} className="btn-primary">
         {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />} Update password
       </button>

@@ -76,11 +76,12 @@ export function LoginPage() {
             <form onSubmit={handleReset} className="card p-6">
               {resetError && <div role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{resetError}</div>}
               <div>
-                <label className="label">Email address</label>
+                <label className="label">Email address <span className="text-danger">*</span></label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
                   <input value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="input pl-10" required />
                 </div>
+                <p className="mt-1.5 text-xs text-ink-400">Use the email address registered on your account.</p>
               </div>
               <button type="submit" disabled={resetting} className="btn-primary mt-6 w-full">{resetting ? 'Sending…' : 'Send reset link'} <ArrowRight className="h-4 w-4" /></button>
             </form>
@@ -126,7 +127,7 @@ export function LoginPage() {
             <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
           )}
           <div>
-            <label className="label">Email address</label>
+            <label className="label">Email address <span className="text-danger">*</span></label>
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
@@ -139,9 +140,10 @@ export function LoginPage() {
                 required
               />
             </div>
+            <p className="mt-1.5 text-xs text-ink-400">Enter the email address you used when creating your account.</p>
           </div>
           <div className="mt-4">
-            <label className="label">Password</label>
+            <label className="label">Password <span className="text-danger">*</span></label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
               <input
@@ -156,6 +158,7 @@ export function LoginPage() {
                 {showPin ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
             </div>
+            <p className="mt-1.5 text-xs text-ink-400">Enter your current account password exactly as you created it.</p>
           </div>
           <button type="submit" disabled={loading} className="btn-primary mt-6 w-full">
             {loading ? 'Signing in…' : 'Sign in'} <ArrowRight className="h-4 w-4" />

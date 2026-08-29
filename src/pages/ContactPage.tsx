@@ -37,9 +37,10 @@ export function ContactPage() {
           <div className="flex items-center gap-3"><MapPin className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Address</p><p className="text-sm text-ink-500">Nairobi, Kenya</p></div></div>
         </div>
         <form onSubmit={submit} className="card p-6">
-          <div><label className="label">Name</label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input" required /></div>
-          <div className="mt-4"><label className="label">Email</label><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input" required /></div>
-          <div className="mt-4"><label className="label">Message</label><textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} rows={4} className="input" required /></div>
+          <p className="mb-4 text-xs text-ink-400"><span className="font-bold text-danger">*</span> Required information</p>
+          <div><label className="label">Name <span className="text-danger">*</span></label><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="input" required /><p className="mt-1.5 text-xs text-ink-400">Tell support what name to use when replying.</p></div>
+          <div className="mt-4"><label className="label">Email <span className="text-danger">*</span></label><input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="input" required /><p className="mt-1.5 text-xs text-ink-400">Enter an address where you can receive our response.</p></div>
+          <div className="mt-4"><label className="label">Message <span className="text-danger">*</span></label><textarea value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} rows={4} className="input" required /><p className="mt-1.5 text-xs text-ink-400">Describe what happened, what you expected, and the help you need.</p></div>
           <button type="submit" disabled={loading} className="btn-primary mt-4 w-full">{loading ? 'Sending…' : 'Send message'} <Send className="h-4 w-4" /></button>
         </form>
       </div>
