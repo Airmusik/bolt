@@ -236,7 +236,8 @@ export function SettingsPage() {
         {/* Danger */}
         <div className="card p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink-900"><LogOut className="h-5 w-5" /> Account</h2>
-          <div className="mt-3 flex flex-wrap gap-2"><button onClick={async () => { await signOut(); navigate('/'); }} className="btn-ghost">Sign out</button><button onClick={() => setShowDeleteAccount(true)} className="btn-secondary text-danger"><Trash2 className="h-4 w-4" /> Delete account</button></div>
+          <div className="mt-3 flex flex-wrap gap-2"><button onClick={async () => { await signOut(); navigate('/'); }} className="btn-ghost">Sign out</button>{profile?.role !== 'admin' && <button onClick={() => setShowDeleteAccount(true)} className="btn-secondary text-danger"><Trash2 className="h-4 w-4" /> Delete account</button>}</div>
+          {profile?.role === 'admin' && <p className="mt-2 text-xs text-ink-500">For platform safety, an administrator account can only be removed after another administrator takes over its responsibilities.</p>}
         </div>
       </div>
 
