@@ -1,6 +1,6 @@
-import { Routes, Route } from 'react-router-dom';
+import { Link, Routes, Route } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LockKeyhole, Wrench } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/lib/useAuth';
@@ -42,8 +42,15 @@ export default function App() {
     return (
       <Layout>
         <div className="container-content flex min-h-[70vh] flex-col items-center justify-center py-16 text-center">
+          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+            <Wrench className="h-8 w-8" />
+          </span>
           <h1 className="font-display text-3xl font-bold text-ink-900">{settings.site_name} is under maintenance</h1>
           <p className="mt-3 max-w-md text-ink-600">We're making updates right now. Please check back soon.</p>
+          <Link to="/admin/login" className="btn-secondary mt-8">
+            <LockKeyhole className="h-4 w-4" /> Admin sign in
+          </Link>
+          <p className="mt-2 text-xs text-ink-400">Platform administrators can continue managing the site during maintenance.</p>
         </div>
       </Layout>
     );
