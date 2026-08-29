@@ -9,7 +9,7 @@ import { cn, titleCase } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { ModeratedImage } from '@/components/ModeratedImage';
-import { isPreviewableTrustImage, prepareTrustUpload } from '@/lib/trustUpload';
+import { isPreviewableTrustImage, isTrustImageFile, prepareTrustUpload } from '@/lib/trustUpload';
 import { Modal } from '@/components/Modal';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
@@ -106,7 +106,7 @@ export function DriverOnboardingPage() {
       setPendingUpload({
         ...target,
         file: preparedFile,
-        previewUrl: preparedFile.type.startsWith('image/') ? URL.createObjectURL(preparedFile) : null,
+        previewUrl: isTrustImageFile(preparedFile) ? URL.createObjectURL(preparedFile) : null,
         uploadKey,
       } as PendingUpload);
     } catch (error) {

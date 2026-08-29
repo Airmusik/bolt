@@ -10,6 +10,10 @@ function extensionOf(name: string) {
   return name.split('.').pop()?.toLowerCase() || '';
 }
 
+export function isTrustImageFile(file: File) {
+  return file.type.startsWith('image/') || IMAGE_EXTENSIONS.includes(extensionOf(file.name));
+}
+
 function friendlyBaseName(name: string) {
   return name.replace(/\.[^.]+$/, '').replace(/[^a-z0-9_-]+/gi, '-').slice(0, 60) || 'platform-proof';
 }
@@ -170,9 +174,18 @@ export async function prepareTrustUpload(file: File) {
     return file;
   }
 
-  const isImage = file.type.startsWith('image/') || IMAGE_EXTENSIONS.includes(extension);
+  const isImage = isTrustImageFile(file);
   if (!isImage) throw new Error('Choose a phone photo, JPG, PNG, WebP, HEIC, HEIF, or PDF file.');
-  return prepareImage(file);
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new Error('The photo must be smaller than 8 MB. Choose a smaller photo or upload a screenshot.');
+  }
+
+  // Platform proof is previewed before it is uploaded. Avoid decoding the full
+  // camera image or drawing it to a canvas here: high-resolution phone photos
+  // can exhaust a mobile tab's memory and make the browser reload the route as
+  // soon as the system file picker closes. Chat, avatar, and vehicle uploads
+  // still use prepareImage because they require a normalized JPEG.
+  return file;
 }
 
 export async function prepareChatImageUpload(file: File) {
