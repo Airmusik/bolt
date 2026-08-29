@@ -84,6 +84,10 @@ export function AdminPage() {
   const [viewingDoc, setViewingDoc] = useState<DocumentRow | null>(null);
   const [rejectingDoc, setRejectingDoc] = useState<DocumentRow | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [photoRejection, setPhotoRejection] = useState<{ photo: VehiclePhoto; ownerId: string } | null>(null);
+  const [historyRejection, setHistoryRejection] = useState<AdminHistory | null>(null);
+  const [moderationReason, setModerationReason] = useState('');
+  const [moderationLoading, setModerationLoading] = useState(false);
   const [confirmAction, setConfirmAction] = useState<{ message: string; onConfirm: () => void | Promise<void>; label: string } | null>(null);
   const [suspendingUser, setSuspendingUser] = useState<Profile | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
@@ -144,22 +148,6 @@ export function AdminPage() {
   const newContactMessages = contactMessages.filter((message) => message.status === 'new');
   const unsolvedReports = reports.filter((report) => report.status === 'open' || report.status === 'reviewing');
 
-  const approveVerification = async (p: Profile) => {
-    const { count, error: historyError } = await supabase.from('driver_platform_history').select('id', { count: 'exact', head: true }).eq('driver_id', p.id).eq('approved', true);
-    if (historyError) { toast('Could not check platform history: ' + historyError.message, 'error'); return; }
-    if (!count) { toast('Approve at least one uploaded platform-history proof before approving this driver.', 'error'); return; }
-    const { error } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', p.id);
-    if (error) { toast('Update failed: ' + error.message, 'error'); return; }
-    await notifyUser(p.id, 'trust', 'Platform history approved', `Your recent driver platform history is now approved on ${siteSettings.site_name}.`);
-    toast('Driver platform history approved.');
-    load();
-  };
-  const rejectVerification = async (p: Profile) => {
-    const { error } = await supabase.from('profiles').update({ is_verified: false, verification_status: 'rejected' }).eq('id', p.id);
-    if (error) { toast('Update failed: ' + error.message, 'error'); return; }
-    toast('Driver platform history rejected.');
-    load();
-  };
   const suspend = async (p: Profile, reason: string) => {
     setSuspending(true);
     const { error } = await supabase.from('profiles').update({ is_suspended: true, suspension_reason: reason, suspended_at: new Date().toISOString() }).eq('id', p.id);
@@ -251,14 +239,66 @@ export function AdminPage() {
     load();
   };
 
-  const rejectVehiclePhoto = async (photo: VehiclePhoto, ownerId: string) => {
-    const reason = window.prompt('Why is this vehicle photo being rejected?');
-    if (!reason?.trim()) return;
-    const { error } = await supabase.from('vehicle_photos').update({ approved: false, rejected: true, rejection_reason: reason.trim() }).eq('id', photo.id);
-    if (error) { toast('Could not reject vehicle photo: ' + error.message, 'error'); return; }
-    await notifyUser(ownerId, 'upload', 'Vehicle photo rejected', reason.trim());
-    toast('Vehicle photo rejected.');
-    load();
+  const rejectVehiclePhoto = async (photo: VehiclePhoto, ownerId: string, reason: string) => {
+    setModerationLoading(true);
+    const cleanReason = reason.trim();
+    const { error } = await supabase.from('vehicle_photos').update({ approved: false, rejected: true, rejection_reason: cleanReason }).eq('id', photo.id);
+    if (error) {
+      toast('Could not reject vehicle photo: ' + error.message, 'error');
+      setModerationLoading(false);
+      return;
+    }
+    await notifyUser(ownerId, 'upload', 'Vehicle photo rejected', `${cleanReason} Please replace it with a corrected image.`);
+    toast('Vehicle photo rejected with a reason.');
+    setPhotoRejection(null);
+    setModerationReason('');
+    setModerationLoading(false);
+    await load();
+  };
+
+  const rejectPlatformHistory = async (item: AdminHistory, reason: string) => {
+    setModerationLoading(true);
+    const cleanReason = reason.trim();
+    const { error } = await supabase.from('driver_platform_history').update({ approved: false, proof_url: null }).eq('id', item.id);
+    if (error) {
+      toast('Could not reject platform history: ' + error.message, 'error');
+      setModerationLoading(false);
+      return;
+    }
+    const { count, error: countError } = await supabase.from('driver_platform_history').select('id', { count: 'exact', head: true }).eq('driver_id', item.driver_id).eq('approved', true);
+    if (countError) {
+      toast('History was rejected, but the driver signal could not be checked: ' + countError.message, 'error');
+    } else if (count === 0) {
+      const { error: profileError } = await supabase.from('profiles').update({ is_verified: false, verification_status: 'rejected' }).eq('id', item.driver_id);
+      if (profileError) toast('History was rejected, but the public driver signal could not be updated: ' + profileError.message, 'error');
+    }
+    await notifyUser(item.driver_id, 'trust', 'Platform history rejected', `${cleanReason} Please upload clearer, recent platform history.`);
+    toast('Platform history rejected with a reason.');
+    setHistoryRejection(null);
+    setModerationReason('');
+    setModerationLoading(false);
+    await load();
+  };
+
+  const approvePlatformHistory = async (item: AdminHistory) => {
+    setModerationLoading(true);
+    const { error } = await supabase.from('driver_platform_history').update({ approved: true }).eq('id', item.id);
+    if (error) {
+      toast('Could not approve platform history: ' + error.message, 'error');
+      setModerationLoading(false);
+      return;
+    }
+    const { error: profileError } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', item.driver_id);
+    if (profileError) {
+      toast('History was approved, but the public driver signal could not be updated: ' + profileError.message, 'error');
+      setModerationLoading(false);
+      return;
+    }
+    await notifyUser(item.driver_id, 'trust', 'Platform history approved', `Your recent ${item.platform} history is now approved on ${siteSettings.site_name}.`);
+    toast('Platform history approved and public signal updated.');
+    setViewingHistory(null);
+    setModerationLoading(false);
+    await load();
   };
 
   const approveListing = async (vehicle: AdminVehicle) => {
@@ -470,7 +510,14 @@ export function AdminPage() {
                 {pendingVerifications.slice(0, 5).map((p) => (
                   <div key={p.id} className="flex items-center justify-between">
                     <span className="text-sm text-ink-700">{p.full_name} <span className="capitalize text-ink-400">({p.role})</span></span>
-                    <button onClick={() => setViewingUser(p)} className="btn-primary px-3 py-1 text-xs"><Eye className="h-3 w-3" /> Review</button>
+                    <button
+                      onClick={() => {
+                        const pendingItem = history.find((item) => item.driver_id === p.id && !item.approved);
+                        if (pendingItem) setViewingHistory(pendingItem);
+                        else setViewingUser(p);
+                      }}
+                      className="btn-primary px-3 py-1 text-xs"
+                    ><Eye className="h-3 w-3" /> Review</button>
                   </div>
                 ))}
                 {pendingVerifications.length === 0 && <p className="text-sm text-ink-400">No platform-history reviews are pending.</p>}
@@ -507,7 +554,7 @@ export function AdminPage() {
             </div>
             {filteredUsers.map((member) => (
               <div key={member.id} className="card flex flex-wrap items-center gap-3 p-4">
-                <Avatar name={member.full_name} src={member.avatar_url} size={42} verified={member.is_verified} />
+                <Avatar name={member.full_name} src={member.avatar_url} size={42} verified={member.role === 'driver' && member.is_verified} />
                 <div className="min-w-0 flex-1"><p className="font-medium text-ink-900">{member.full_name || 'Unnamed member'}</p><p className="truncate text-xs text-ink-500">{member.email || 'No email'} · {member.phone || 'No phone'} · <span className="capitalize">{member.role}</span></p><p className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-700"><CalendarDays className="h-3.5 w-3.5" /> Joined {formatDate(member.created_at)}</p></div>
                 {member.is_suspended && <span className="badge-danger"><Ban className="h-3 w-3" /> Suspended</span>}
                 {member.is_suspended && <button onClick={() => unban(member)} className="btn-secondary px-3 py-2 text-sm text-success"><ShieldCheck className="h-4 w-4" /> Reinstate</button>}
@@ -534,8 +581,7 @@ export function AdminPage() {
                   {!u.is_suspended && u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> History approved</span>}
                   {!u.is_suspended && u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> History rejected</span>}
                   <button onClick={() => setViewingUser(u)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
-                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setViewingUser(u)} className="btn-primary px-3 py-1 text-xs">Approve history</button>}
-                  {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject history</button>}
+                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setTab('history')} className="btn-primary px-3 py-1 text-xs">Review uploads</button>}
                   <button onClick={() => setEditingUser(u)} aria-label={`Edit ${u.full_name}`} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
                   <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
@@ -629,7 +675,7 @@ export function AdminPage() {
                     <ModeratedImage src={photo.photo_url} alt="Pending vehicle" className="h-16 w-24 rounded-lg object-cover ring-1 ring-ink-200" />
                     <div className="min-w-0 flex-1"><p className="font-medium text-ink-900">{photo.vehicle.make} {photo.vehicle.model}</p><p className="text-xs text-ink-500">Owner: {photo.vehicle.owner?.full_name || 'Unknown'}</p></div>
                     <button onClick={() => approveVehiclePhoto(photo, photo.vehicle.owner_id)} className="btn-primary px-3 py-1.5 text-sm"><Check className="h-4 w-4" /> Approve</button>
-                    <button onClick={() => rejectVehiclePhoto(photo, photo.vehicle.owner_id)} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button>
+                    <button onClick={() => { setPhotoRejection({ photo, ownerId: photo.vehicle.owner_id }); setModerationReason(''); }} className="btn-secondary px-3 py-1.5 text-sm"><X className="h-4 w-4" /> Reject</button>
                   </div>
                 ))}
                 {pendingVehiclePhotos.length === 0 && <p className="text-sm text-ink-400">No pending vehicle photos.</p>}
@@ -759,6 +805,48 @@ export function AdminPage() {
         </Modal>
       )}
 
+      {photoRejection && (
+        <Modal title="Reject vehicle photo" onClose={() => { if (!moderationLoading) { setPhotoRejection(null); setModerationReason(''); } }}>
+          <p className="text-sm text-ink-600">Give the owner a clear reason so they know exactly what to replace or correct.</p>
+          <label htmlFor="photo-rejection-reason" className="label mt-4">Reason</label>
+          <textarea
+            id="photo-rejection-reason"
+            value={moderationReason}
+            onChange={(event) => setModerationReason(event.target.value)}
+            rows={4}
+            placeholder="e.g. The image is too dark to identify the vehicle."
+            className="input"
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => { setPhotoRejection(null); setModerationReason(''); }} disabled={moderationLoading} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={() => void rejectVehiclePhoto(photoRejection.photo, photoRejection.ownerId, moderationReason)} disabled={moderationLoading || moderationReason.trim().length < 3} className="btn-danger">
+              {moderationLoading ? 'Rejecting…' : 'Reject photo'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {historyRejection && (
+        <Modal title={`Reject ${historyRejection.platform} platform history`} onClose={() => { if (!moderationLoading) { setHistoryRejection(null); setModerationReason(''); } }}>
+          <p className="text-sm text-ink-600">This private proof will be removed. Explain what the driver should upload next.</p>
+          <label htmlFor="history-rejection-reason" className="label mt-4">Reason</label>
+          <textarea
+            id="history-rejection-reason"
+            value={moderationReason}
+            onChange={(event) => setModerationReason(event.target.value)}
+            rows={4}
+            placeholder="e.g. The screenshot does not show recent trip activity or the platform name."
+            className="input"
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <button type="button" onClick={() => { setHistoryRejection(null); setModerationReason(''); }} disabled={moderationLoading} className="btn-secondary">Cancel</button>
+            <button type="button" onClick={() => void rejectPlatformHistory(historyRejection, moderationReason)} disabled={moderationLoading || moderationReason.trim().length < 3} className="btn-danger">
+              {moderationLoading ? 'Rejecting…' : 'Reject history'}
+            </button>
+          </div>
+        </Modal>
+      )}
+
       {/* Suspend user modal */}
       {suspendingUser && (
         <Modal title={`Suspend ${suspendingUser.full_name}`} onClose={() => { setSuspendingUser(null); setSuspendReason(''); setSuspensionReportId(null); }}>
@@ -812,8 +900,6 @@ export function AdminPage() {
         <ViewUserModal
           user={viewingUser}
           onClose={() => setViewingUser(null)}
-          onApprove={() => { approveVerification(viewingUser); setViewingUser(null); }}
-          onReject={() => { rejectVerification(viewingUser); setViewingUser(null); }}
           onSuspend={() => { setSuspensionReportId(null); setSuspendingUser(viewingUser); setSuspendReason(''); setViewingUser(null); }}
           onReinstate={() => unban(viewingUser)}
           onViewDoc={async (doc: DocumentRow) => {
@@ -856,17 +942,15 @@ export function AdminPage() {
           </div>
           <div className="mt-4 flex justify-end gap-2">
             <button onClick={() => setViewingHistory(null)} className="btn-secondary">Close</button>
-            <button onClick={async () => {
-              const reason = window.prompt('Why is this platform history being rejected?');
-              if (!reason?.trim()) return;
-              const { error } = await supabase.from('driver_platform_history').update({ approved: false, proof_url: null }).eq('id', viewingHistory.id);
-              if (error) { toast('Could not reject platform history: ' + error.message, 'error'); return; }
-              const { count } = await supabase.from('driver_platform_history').select('id', { count: 'exact', head: true }).eq('driver_id', viewingHistory.driver_id).eq('approved', true);
-              if (count === 0) await supabase.from('profiles').update({ is_verified: false, verification_status: 'rejected' }).eq('id', viewingHistory.driver_id);
-              await notifyUser(viewingHistory.driver_id, 'trust', 'Platform history rejected', reason.trim());
-              toast('Platform history rejected.'); setViewingHistory(null); load();
-            }} className="btn-secondary"><X className="h-4 w-4" /> Reject</button>
-            <button onClick={async () => { const { error } = await supabase.from('driver_platform_history').update({ approved: true }).eq('id', viewingHistory.id); if (error) { toast('Could not approve platform history: ' + error.message, 'error'); return; } const { error: profileError } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', viewingHistory.driver_id); if (profileError) { toast('History was approved, but the driver signal could not be updated: ' + profileError.message, 'error'); return; } await notifyUser(viewingHistory.driver_id, 'trust', 'Platform history approved', `Your recent ${viewingHistory.platform} history is now approved on ${siteSettings.site_name}.`); toast('Platform history approved and public signal updated.'); setViewingHistory(null); load(); }} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
+            <button
+              type="button"
+              onClick={() => { setHistoryRejection(viewingHistory); setModerationReason(''); setViewingHistory(null); }}
+              disabled={moderationLoading}
+              className="btn-secondary"
+            ><X className="h-4 w-4" /> Reject</button>
+            <button type="button" onClick={() => void approvePlatformHistory(viewingHistory)} disabled={moderationLoading} className="btn-primary">
+              {moderationLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Approve
+            </button>
           </div>
         </Modal>
       )}
@@ -1353,11 +1437,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 // ---------- View User Modal ----------
-function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onReinstate, onViewDoc, onChangePin, onDelete, onMessage, onEdit }: {
+function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onChangePin, onDelete, onMessage, onEdit }: {
   user: Profile;
   onClose: () => void;
-  onApprove: () => void;
-  onReject: () => void;
   onSuspend: () => void;
   onReinstate: () => void;
   onViewDoc: (doc: DocumentRow) => void;
@@ -1392,7 +1474,7 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onReinst
       <div className="max-h-[70vh] space-y-4 overflow-y-auto">
         {/* Profile info */}
         <div className="flex items-center gap-3">
-          <Avatar name={user.full_name} src={user.avatar_url} size={64} verified={user.is_verified} />
+          <Avatar name={user.full_name} src={user.avatar_url} size={64} verified={user.role === 'driver' && user.is_verified} />
           <div>
             <p className="font-display text-lg font-bold text-ink-900">{user.full_name}</p>
             <p className="text-sm capitalize text-ink-500">{user.role}</p>
@@ -1474,12 +1556,6 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onReinst
         <button onClick={onClose} className="btn-secondary">Close</button>
         <button onClick={onMessage} className="btn-secondary"><MessageSquare className="h-4 w-4" /> Message</button>
         <button onClick={onEdit} className="btn-secondary"><Pencil className="h-4 w-4" /> Edit profile</button>
-        {user.role === 'driver' && !user.is_suspended && user.verification_status !== 'approved' && (
-          <button onClick={onApprove} className="btn-primary"><Check className="h-4 w-4" /> Approve history</button>
-        )}
-        {user.role === 'driver' && !user.is_suspended && user.verification_status !== 'rejected' && (
-          <button onClick={onReject} className="btn-secondary"><X className="h-4 w-4" /> Reject history</button>
-        )}
         <button onClick={onChangePin} className="btn-secondary"><KeyRound className="h-4 w-4" /> Change password</button>
         {user.is_suspended ? (
           <button onClick={onReinstate} className="btn-primary"><ShieldCheck className="h-4 w-4" /> Reinstate account</button>
@@ -1681,7 +1757,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
           const joined = c.admin_id === user?.id || joinedConversationIds.has(c.id);
           return (
             <button key={c.id} onClick={() => setActiveId(c.id)} className={cn('flex w-full items-center gap-3 border-b border-ink-50 p-3 text-left hover:bg-ink-50', activeId === c.id && 'bg-brand-50')}>
-              <Avatar name={u?.full_name || 'User'} src={u?.avatar_url} size={44} verified={u?.is_verified} />
+              <Avatar name={u?.full_name || 'User'} src={u?.avatar_url} size={44} verified={u?.role === 'driver' && u?.is_verified} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink-900">{c.driver && c.owner ? `Driver: ${c.driver.full_name} ↔ Car owner: ${c.owner.full_name}` : u?.full_name}</p>
                 <p className="text-xs text-ink-500">{c.driver && c.owner ? 'Driver and car-owner conversation' : `${u?.role === 'owner' ? 'Car owner' : u?.role === 'driver' ? 'Driver' : 'Member'} · direct support`}</p>

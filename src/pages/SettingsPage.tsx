@@ -162,7 +162,7 @@ export function SettingsPage() {
           {/* Avatar upload */}
           <div className="mt-4 flex items-center gap-4">
             <div className="relative">
-              <Avatar name={profile?.full_name || 'User'} src={profile?.avatar_url} size={72} verified={!!profile?.is_verified} />
+              <Avatar name={profile?.full_name || 'User'} src={profile?.avatar_url} size={72} verified={profile?.role === 'driver' && !!profile?.is_verified} />
               <label className="absolute -bottom-1 -right-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-brand-600 text-white shadow-md ring-2 ring-white transition-transform hover:scale-110">
                 <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ''; }} disabled={uploadingAvatar} />
                 {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}

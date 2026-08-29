@@ -111,7 +111,7 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
               <Avatar name={vehicle.owner.full_name} src={vehicle.owner.avatar_url} size={28} />
               <div>
                 <p className="text-xs font-medium text-ink-800">{vehicle.owner.full_name}</p>
-                <p className="flex items-center gap-1 text-[10px] text-success"><ShieldCheck className="h-3 w-3" /> Vehicle photos reviewed</p>
+                <p className="flex items-center gap-1 text-[10px] text-success"><ShieldCheck className="h-3 w-3" /> Listing approved by admin</p>
                 <Rating value={vehicle.owner.rating} size={11} count={vehicle.owner.rating_count} showValue />
               </div>
             </div>

@@ -449,7 +449,7 @@ export function ChatPage() {
             const online = isProfileOnline(otherUser);
             return (
               <button key={group.key} onClick={() => { setActive(group.activeConversation); navigate(`/chat/${group.activeConversation.id}`); }} className={cn('group relative flex w-full items-center gap-3 border-b border-ink-50 p-3 text-left transition hover:bg-brand-50/60', activeGroup?.key === group.key && 'bg-brand-50 shadow-[inset_3px_0_0_0_theme(colors.brand.500)] dark:bg-brand-950/25')}>
-                <Avatar name={otherUser?.full_name || 'User'} src={otherUser?.avatar_url} size={44} verified={!!otherUser?.is_verified} />
+                <Avatar name={otherUser?.full_name || 'User'} src={otherUser?.avatar_url} size={44} verified={otherUser?.role === 'driver' && !!otherUser?.is_verified} />
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
                     {otherUser?.full_name} <VerifiedBadge verified={otherUser?.is_verified} size={11} />
@@ -472,7 +472,7 @@ export function ChatPage() {
                 <div className="flex items-center gap-3">
                   <button onClick={() => { setActive(null); navigate('/chat'); }} aria-label="Back to conversations" className="lg:hidden"><ArrowLeft className="h-5 w-5 text-ink-500" /></button>
                   <Link to={`/members/${other.id}`} title={`View ${other.full_name}'s profile`} aria-label={`View ${other.full_name}'s profile`} className="rounded-full transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-400">
-                    <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.is_verified} />
+                    <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.role === 'driver' && other.is_verified} />
                   </Link>
                   <div>
                     <Link to={`/members/${other.id}`} className="flex items-center gap-1 font-semibold text-ink-900 hover:text-brand-700 hover:underline">{other.full_name} <VerifiedBadge verified={other.is_verified} size={12} /></Link>

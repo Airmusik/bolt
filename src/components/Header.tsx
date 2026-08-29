@@ -179,10 +179,14 @@ export function Header() {
 
               <div className="relative">
                 <button
+                  type="button"
                   onClick={() => setMenuOpen((v) => !v)}
                   className="flex items-center gap-2 rounded-full p-1 pr-2 hover:bg-ink-100"
+                  aria-label="Open account menu"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
                 >
-                  <Avatar name={profile?.full_name || 'User'} src={profile?.avatar_url} size={32} verified={profile?.is_verified} />
+                  <Avatar name={profile?.full_name || 'User'} src={profile?.avatar_url} size={32} verified={profile?.role === 'driver' && profile?.is_verified} />
                   <span className="hidden text-sm font-medium text-ink-800 sm:block">
                     {profile?.full_name?.split(' ')[0]}
                   </span>
@@ -190,7 +194,7 @@ export function Header() {
                 {menuOpen && (
                   <>
                     <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-                    <div className="absolute right-0 top-12 z-20 w-56 animate-scale-in overflow-hidden rounded-xl bg-white py-1 shadow-card-hover ring-1 ring-ink-200 dark:bg-[#141416]">
+                    <div role="menu" className="absolute right-0 top-12 z-20 w-56 animate-scale-in overflow-hidden rounded-xl bg-white py-1 shadow-card-hover ring-1 ring-ink-200 dark:bg-[#141416]">
                       <div className="border-b border-ink-100 px-4 py-3">
                         <p className="truncate text-sm font-semibold text-ink-900">{profile?.full_name}</p>
                         <p className="text-xs capitalize text-ink-500">{profile?.role}</p>
@@ -228,9 +232,12 @@ export function Header() {
           )}
 
           <button
+            type="button"
             className="rounded-full p-2 text-ink-700 hover:bg-ink-100 md:hidden"
             onClick={() => setMobileOpen((v) => !v)}
-            aria-label="Menu"
+            aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-navigation"
           >
             {mobileOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
@@ -238,7 +245,7 @@ export function Header() {
       </div>
 
       {mobileOpen && (
-        <div className="border-t border-ink-100 bg-white dark:bg-[#0b0b0d] md:hidden">
+        <div id="mobile-navigation" className="border-t border-ink-100 bg-white dark:bg-[#0b0b0d] md:hidden">
           <div className="container-content flex flex-col py-3">
             {navLinks.map((l) => (
               <Link key={l.to} to={l.to} className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-ink-700 hover:bg-ink-100">

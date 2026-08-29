@@ -450,7 +450,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
           <div className="mt-3 space-y-3">
             {pendingIn.map((c) => (
               <div key={c.id} className="card flex items-center gap-3 p-4">
-                <Avatar name={c.requester?.full_name || 'User'} src={c.requester?.avatar_url} size={44} verified={!!c.requester?.is_verified} />
+                <Avatar name={c.requester?.full_name || 'User'} src={c.requester?.avatar_url} size={44} verified={c.requester?.role === 'driver' && !!c.requester?.is_verified} />
                 <div className="flex-1">
                   <Link to={`/drivers/${c.requester_id}`} className="flex items-center gap-1 font-semibold text-ink-900 hover:underline">{c.requester?.full_name} <VerifiedBadge verified={!!c.requester?.is_verified} size={12} /></Link>
                   {c.message && <p className="text-sm text-ink-600">"{c.message}"</p>}
@@ -474,7 +474,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
             {[...acceptedIn.map((c) => ({ c, p: c.requester })), ...acceptedOut.map((c) => ({ c, p: c.recipient }))].map(({ c, p }) => (
               <div key={c.id} className="card flex flex-col gap-3 p-4">
                 <div className="flex items-center gap-3">
-                  <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={!!p?.is_verified} />
+                  <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={p?.role === 'driver' && !!p?.is_verified} />
                   <div className="flex-1 min-w-0">
                     <Link to={`/drivers/${p?.id}`} className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900 hover:underline">{p?.full_name} <VerifiedBadge verified={!!p?.is_verified} size={11} /></Link>
                     <p className="text-xs text-ink-500 capitalize">{p?.role}</p>
@@ -498,7 +498,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
           <div className="mt-3 space-y-3">
             {outgoing.filter((c) => c.status === 'pending').map((c) => (
               <div key={c.id} className="card flex items-center gap-3 p-4">
-                <Avatar name={c.recipient?.full_name || 'User'} src={c.recipient?.avatar_url} size={40} verified={!!c.recipient?.is_verified} />
+                <Avatar name={c.recipient?.full_name || 'User'} src={c.recipient?.avatar_url} size={40} verified={c.recipient?.role === 'driver' && !!c.recipient?.is_verified} />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-ink-900">{c.recipient?.full_name}</p>
                   <p className="text-xs text-ink-500 capitalize">{c.recipient?.role} · waiting for response</p>
@@ -519,7 +519,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
           <div className="mt-3 space-y-3">
             {[...expiredIn.map((c) => ({ c, p: c.requester })), ...expiredOut.map((c) => ({ c, p: c.recipient }))].map(({ c, p }) => (
               <div key={c.id} className="card flex items-center gap-3 p-4 opacity-70">
-                <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={!!p?.is_verified} />
+                <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={p?.role === 'driver' && !!p?.is_verified} />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-ink-900">{p?.full_name}</p>
                   <p className="text-xs text-ink-500 capitalize">{p?.role} · expired</p>
@@ -571,7 +571,7 @@ function ChatsTab({ conversations, loading, currentUserId }: { conversations: Co
     <div className="space-y-3">
       {threads.map(({ latest: c, count }) => (
         <Link key={c.id} to={`/chat/${c.id}`} className="card card-hover flex items-center gap-3 p-4">
-          <Avatar name={(c.driver?.full_name || c.owner?.full_name || 'User')} src={c.driver?.avatar_url || c.owner?.avatar_url} size={44} verified={!!c.driver?.is_verified || !!c.owner?.is_verified} />
+          <Avatar name={(c.driver?.full_name || c.owner?.full_name || 'User')} src={c.driver?.avatar_url || c.owner?.avatar_url} size={44} verified={!!c.driver?.is_verified} />
           <div className="flex-1">
             <p className="font-semibold text-ink-900">{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : `${c.driver?.full_name || 'Driver'} ↔ ${c.owner?.full_name || 'Owner'}`}</p>
             <p className="text-xs text-ink-400">{count > 1 ? `${count} connections · complete history preserved` : c.closed_at ? 'Ended · history preserved' : c.last_message_at ? timeAgo(c.last_message_at) : 'No messages yet'}</p>

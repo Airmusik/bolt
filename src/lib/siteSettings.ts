@@ -2,7 +2,7 @@ import { createContext, createElement, ReactNode, useCallback, useContext, useEf
 import { supabase } from './supabase';
 
 export const DEFAULT_SITE_SETTINGS = {
-  site_name: 'GariLink',
+  site_name: 'Drivevell',
   site_tagline: 'The right driver. The right car. A trusted connection.',
   site_logo_url: '',
   maintenance_mode: 'false',

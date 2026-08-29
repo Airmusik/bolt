@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   MapPin, Fuel, Settings2, Wallet, Calendar, ShieldCheck, AlertTriangle,
@@ -26,33 +26,45 @@ export function VehicleDetailsPage() {
 
   const [vehicle, setVehicle] = useState<VehicleWithRelations | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [activePhoto, setActivePhoto] = useState(0);
   const [saved, setSaved] = useState(false);
   const [favId, setFavId] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
 
-  useEffect(() => {
-    if (!id) return;
-    (async () => {
-      setLoading(true);
-      const { data } = await supabase
+  const loadVehicle = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError('');
+    const { data, error } = await supabase
         .from('vehicles')
         .select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
         .eq('id', id)
         .maybeSingle();
-      setVehicle(data as VehicleWithRelations);
-      if (data) {
-        const { data: revs } = await supabase
-          .from('reviews')
-          .select(`*, reviewer:profiles(${PUBLIC_PROFILE_FIELDS})`)
-          .eq('reviewee_id', (data as VehicleWithRelations).owner_id)
-          .order('created_at', { ascending: false });
-        setReviews((revs as Review[]) || []);
-      }
+    if (error) {
+      setVehicle(null);
+      setLoadError(error.message);
       setLoading(false);
-    })();
+      return;
+    }
+    setVehicle(data as VehicleWithRelations | null);
+    setActivePhoto(0);
+    if (data) {
+      const { data: revs } = await supabase
+        .from('reviews')
+        .select(`*, reviewer:profiles(${PUBLIC_PROFILE_FIELDS})`)
+        .eq('reviewee_id', (data as VehicleWithRelations).owner_id)
+        .order('created_at', { ascending: false });
+      setReviews((revs as Review[]) || []);
+    }
+    setLoading(false);
   }, [id]);
+
+  useEffect(() => { void loadVehicle(); }, [loadVehicle]);
 
   useEffect(() => {
     if (!user || !vehicle) return;
@@ -97,6 +109,17 @@ export function VehicleDetailsPage() {
     return (
       <div className="container-content py-8">
         <div className="card h-96 animate-pulse" />
+      </div>
+    );
+  }
+  if (loadError) {
+    return (
+      <div className="container-content py-12">
+        <EmptyState
+          title="Could not load this listing"
+          description="Check your connection and try again."
+          action={<button type="button" onClick={() => void loadVehicle()} className="btn-primary">Try again</button>}
+        />
       </div>
     );
   }
@@ -156,7 +179,7 @@ export function VehicleDetailsPage() {
                 <Heart className={cn('h-4 w-4', saved && 'fill-brand-600 text-brand-600')} /> {saved ? 'Saved' : 'Save'}
               </button>
               <button onClick={handleShare} className="btn-secondary"><Share2 className="h-4 w-4" /> Share</button>
-              <button onClick={() => setShowReport(true)} aria-label="Report vehicle" className="btn-ghost text-ink-500"><Flag className="h-4 w-4" /></button>
+              {!isOwner && <button type="button" onClick={() => setShowReport(true)} aria-label="Report vehicle" className="btn-ghost text-ink-500"><Flag className="h-4 w-4" /></button>}
             </div>
           </div>
 
@@ -232,7 +255,7 @@ export function VehicleDetailsPage() {
           )}
 
           {/* Owner reviews */}
-          <Section title={`Reviews of ${vehicle.owner?.full_name}`}>
+          <Section title={vehicle.owner?.full_name ? `Reviews of ${vehicle.owner.full_name}` : 'Owner reviews'}>
             {reviews.length > 0 ? (
               <div className="space-y-4">
                 {reviews.map((r) => (
@@ -287,7 +310,7 @@ export function VehicleDetailsPage() {
                   <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
                     {vehicle.owner.full_name}
                   </p>
-                  <p className="mt-1 flex items-center gap-1 text-xs text-success"><ShieldCheck className="h-3.5 w-3.5" /> Vehicle photos reviewed by admin</p>
+                  <p className="mt-1 flex items-center gap-1 text-xs text-success"><ShieldCheck className="h-3.5 w-3.5" /> Listing approved by admin</p>
                   <p className="mt-1 text-xs text-ink-500">{vehicle.owner.location || 'Location not provided'}</p>
                   <Rating value={vehicle.owner.rating} size={11} showValue count={vehicle.owner.rating_count} />
                 </div>
@@ -299,6 +322,8 @@ export function VehicleDetailsPage() {
             <div className="mt-5 space-y-2">
               {isOwner ? (
                 <Link to={`/vehicles/${vehicle.id}/edit`} className="btn-secondary w-full">Edit listing</Link>
+              ) : !vehicle.owner ? (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-700">The owner profile is currently unavailable.</p>
               ) : (
                 <ConnectionButton otherUserId={vehicle.owner_id} vehicleId={vehicle.id} className="w-full" />
               )}
@@ -357,11 +382,23 @@ export function ReportModal({ targetType, targetId, reportedId, onClose, onDone 
     onDone();
   };
 
+  if (!user) {
+    return (
+      <Modal title="Sign in to report" onClose={onClose}>
+        <p className="text-sm text-ink-600">Reports are linked to an account so the support team can follow up and prevent misuse.</p>
+        <div className="mt-4 flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+          <Link to="/login" state={{ from: window.location.pathname }} className="btn-primary">Sign in</Link>
+        </div>
+      </Modal>
+    );
+  }
+
   return (
     <Modal title="Report" onClose={onClose}>
       <div>
-        <label className="label">Reason</label>
-        <select value={reason} onChange={(e) => setReason(e.target.value)} className="input">
+        <label htmlFor="report-reason" className="label">Reason</label>
+        <select id="report-reason" value={reason} onChange={(e) => setReason(e.target.value)} className="input">
           <option value="">Select a reason…</option>
           <option>Fraud or scam</option>
           <option>Fake listing</option>
@@ -371,10 +408,10 @@ export function ReportModal({ targetType, targetId, reportedId, onClose, onDone 
         </select>
       </div>
       <div className="mt-4">
-        <label className="label">Details (optional)</label>
-        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="input" placeholder="Tell us what happened…" />
+        <label htmlFor="report-details" className="label">Details (optional)</label>
+        <textarea id="report-details" value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} className="input" placeholder="Tell us what happened…" />
       </div>
-      <button onClick={submit} disabled={loading || !reason} className="btn-danger mt-4 w-full">{loading ? 'Submitting…' : 'Submit report'}</button>
+      <button type="button" onClick={submit} disabled={loading || !reason} className="btn-danger mt-4 w-full">{loading ? 'Submitting…' : 'Submit report'}</button>
     </Modal>
   );
 }

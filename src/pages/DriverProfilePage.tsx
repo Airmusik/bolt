@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, ArrowLeft, CalendarDays, Award, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -22,29 +22,42 @@ export function DriverProfilePage() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [trustPassport, setTrustPassport] = useState<TrustPassport | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [showReport, setShowReport] = useState(false);
 
-  useEffect(() => {
-    if (!id) return;
-    (async () => {
-      const profileRequest = user?.id === id
-        ? supabase.rpc('get_my_profile').maybeSingle()
-        : supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', id).maybeSingle();
-      const [{ data: p }, { data: h }, { data: r }, { data: trust }] = await Promise.all([
-        profileRequest,
-        supabase.from('driver_platform_history').select('id,driver_id,platform,months_active,trips,rating,approved,created_at').eq('driver_id', id).eq('approved', true),
-        supabase.from('reviews').select(`*, reviewer:profiles(${PUBLIC_PROFILE_FIELDS})`).eq('reviewee_id', id).order('created_at', { ascending: false }),
-        supabase.rpc('get_trust_passport', { p_user_id: id }).maybeSingle(),
-      ]);
-      setProfile(p as Profile);
-      setHistory((h as PlatformHistory[]) || []);
-      setReviews((r as Review[]) || []);
-      setTrustPassport(trust as TrustPassport | null);
+  const loadProfile = useCallback(async () => {
+    if (!id) {
       setLoading(false);
-    })();
+      return;
+    }
+    setLoading(true);
+    setLoadError('');
+    const profileRequest = user?.id === id
+      ? supabase.rpc('get_my_profile').maybeSingle()
+      : supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', id).maybeSingle();
+    const [profileResult, historyResult, reviewsResult, trustResult] = await Promise.all([
+      profileRequest,
+      supabase.from('driver_platform_history').select('id,driver_id,platform,months_active,trips,rating,approved,created_at').eq('driver_id', id).eq('approved', true),
+      supabase.from('reviews').select(`*, reviewer:profiles(${PUBLIC_PROFILE_FIELDS})`).eq('reviewee_id', id).order('created_at', { ascending: false }),
+      supabase.rpc('get_trust_passport', { p_user_id: id }).maybeSingle(),
+    ]);
+    if (profileResult.error) {
+      setProfile(null);
+      setLoadError(profileResult.error.message);
+      setLoading(false);
+      return;
+    }
+    setProfile(profileResult.data as Profile | null);
+    setHistory((historyResult.data as PlatformHistory[]) || []);
+    setReviews((reviewsResult.data as Review[]) || []);
+    setTrustPassport(trustResult.data as TrustPassport | null);
+    setLoading(false);
   }, [id, user?.id]);
 
+  useEffect(() => { void loadProfile(); }, [loadProfile]);
+
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
+  if (loadError) return <div className="container-content py-12"><EmptyState title="Could not load this profile" description="Check your connection and try again." action={<button type="button" onClick={() => void loadProfile()} className="btn-primary">Try again</button>} /></div>;
   if (!profile) return <div className="container-content py-12"><EmptyState title="Profile not found" /></div>;
   if (profile.role === 'driver' && !profile.onboarding_completed) return <div className="container-content py-12"><EmptyState title="Profile not public yet" description="This driver is still completing their About You information." /></div>;
 

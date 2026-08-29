@@ -12,7 +12,7 @@ export function PrivacyPage() {
         <h2 className="font-display text-lg font-bold text-ink-900">Information we collect</h2>
         <p>Your name, phone number, location, profile details, platform history and optional trust evidence. Profile photos appear immediately; vehicle photos remain private until an admin approves them.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">How we use it</h2>
-        <p>To operate Trust Passports, show listings, enable chat, moderate uploads and improve the platform. We do not sell your data.</p>
+        <p>To operate driver trust profiles, show listings, enable chat, moderate platform-history uploads and improve the platform. We do not sell your data.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">Evidence visibility</h2>
         <p>Evidence files are private to you and our admin team. Public profiles show only approved counts and safe trust signals.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">Chat history and support access</h2>
