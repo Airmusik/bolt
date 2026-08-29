@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, ShieldCheck, Pencil, Clock3, History, FileText } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, ShieldCheck, Pencil, Clock3, History, FileText } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -10,7 +10,6 @@ import { BackButton } from '@/components/BackButton';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { isPreviewableTrustImage, isTrustImageFile, prepareTrustUpload } from '@/lib/trustUpload';
-import { Modal } from '@/components/Modal';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 const TRUST_FILE_ACCEPT = 'image/*,application/pdf,.pdf,.heic,.heif';
@@ -26,7 +25,16 @@ interface DriverAboutForm {
   platforms_worked: string[];
 }
 
-type PendingUpload = { kind: 'history'; file: File; previewUrl: string | null; uploadKey: string; item: PlatformHistory; label: string };
+type PendingUpload = {
+  kind: 'history';
+  file: File;
+  previewUrl: string | null;
+  previewReady: boolean;
+  previewFailed: boolean;
+  uploadKey: string;
+  item: PlatformHistory;
+  label: string;
+};
 
 export function DriverOnboardingPage() {
   const { user, profile, refreshProfile } = useAuth();
@@ -78,6 +86,12 @@ export function DriverOnboardingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile, hydrateProfileForm]);
 
+  useEffect(() => {
+    if (user && sessionStorage.getItem(`driver-proof-edit-${user.id}`) === 'true') {
+      setEditingPassport(true);
+    }
+  }, [user]);
+
   const startEditingPassport = async () => {
     setLoadingSavedProfile(true);
     try {
@@ -86,6 +100,7 @@ export function DriverOnboardingPage() {
       const savedProfile = Array.isArray(data) ? data[0] : data;
       hydrateProfileForm(savedProfile || profile);
       await loadTrustData();
+      if (user) sessionStorage.setItem(`driver-proof-edit-${user.id}`, 'true');
       setEditingPassport(true);
     } catch (error) {
       console.error('saved profile load failed', error);
@@ -103,10 +118,13 @@ export function DriverOnboardingPage() {
     setUploadingType(uploadKey);
     try {
       const preparedFile = await prepareTrustUpload(file);
+      const imageFile = isTrustImageFile(preparedFile);
       setPendingUpload({
         ...target,
         file: preparedFile,
-        previewUrl: isTrustImageFile(preparedFile) ? URL.createObjectURL(preparedFile) : null,
+        previewUrl: imageFile ? URL.createObjectURL(preparedFile) : null,
+        previewReady: !imageFile,
+        previewFailed: false,
         uploadKey,
       } as PendingUpload);
     } catch (error) {
@@ -118,13 +136,15 @@ export function DriverOnboardingPage() {
   };
 
   const clearPendingUpload = () => {
-    if (pendingUpload?.previewUrl) URL.revokeObjectURL(pendingUpload.previewUrl);
     setPendingUpload(null);
   };
 
-  useEffect(() => () => {
-    if (pendingUpload?.previewUrl) URL.revokeObjectURL(pendingUpload.previewUrl);
-  }, [pendingUpload]);
+  useEffect(() => {
+    const previewUrl = pendingUpload?.previewUrl;
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [pendingUpload?.previewUrl]);
 
   const addHistory = async () => {
     if (!user) return;
@@ -217,6 +237,7 @@ export function DriverOnboardingPage() {
     setSaving(false);
     if (error) { toast(error.message, 'error'); return; }
     await refreshProfile();
+    sessionStorage.removeItem(`driver-proof-edit-${user.id}`);
     toast('Platform history submitted for admin review.');
     navigate('/dashboard');
   };
@@ -307,28 +328,58 @@ export function DriverOnboardingPage() {
         <Section title="Platform history and proof (required)" desc="Add at least one platform, enter your recent activity, and upload its latest Uber, Bolt, Faras, Little Cab, or other platform history. Admins see the private proof; other members only see approved activity.">
           <div className="space-y-3">{history.map((item) => <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]"><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select><input type="number" min={0} value={item.months_active} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, months_active: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'months_active', Number(e.target.value))} className="input py-2" placeholder="Months active" /><input type="number" min={0} value={item.trips} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, trips: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'trips', Number(e.target.value))} className="input py-2" placeholder="Trips" /><button type="button" onClick={() => removeHistory(item)} className="btn-ghost text-danger"><Trash2 className="h-4 w-4" /></button></div>
-            <div className="flex flex-wrap items-center gap-2"><label className="btn-secondary cursor-pointer text-xs"><input type="file" accept={TRUST_FILE_ACCEPT} className="hidden" disabled={uploadingType === `history-${item.id}`} onChange={(e) => { const file = e.currentTarget.files?.[0]; e.currentTarget.value = ''; if (file) void chooseUpload(file, { kind: 'history', item, label: `${titleCase(item.platform)} platform proof` }); }} /><Upload className="h-3.5 w-3.5" /> {uploadingType === `history-${item.id}` ? 'Preparing preview…' : item.proof_url ? 'Replace proof' : 'Choose proof'}</label>{item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}<span className="basis-full text-[11px] text-ink-400">Phone photos, HEIC, JPG, PNG, WebP, or PDF · preview before submission · maximum 8 MB</span></div>
+            <div className="flex flex-wrap items-end gap-2">
+              <div className="w-full sm:max-w-sm">
+                <label htmlFor={`history-proof-${item.id}`} className="mb-1 block text-xs font-semibold text-ink-700">{item.proof_url ? 'Choose replacement proof' : 'Choose proof'}</label>
+                <input
+                  id={`history-proof-${item.id}`}
+                  type="file"
+                  accept={TRUST_FILE_ACCEPT}
+                  aria-label={`Choose ${titleCase(item.platform)} platform proof`}
+                  className="block w-full rounded-xl border border-ink-200 bg-white text-xs text-ink-600 file:mr-3 file:border-0 file:border-r file:border-ink-200 file:bg-ink-50 file:px-4 file:py-3 file:text-xs file:font-semibold file:text-ink-800 hover:file:bg-ink-100 disabled:opacity-50 dark:bg-[#141416]"
+                  disabled={uploadingType === `history-${item.id}`}
+                  onClick={(event) => { event.currentTarget.value = ''; }}
+                  onChange={(event) => {
+                    const file = event.currentTarget.files?.item(0);
+                    if (file) void chooseUpload(file, { kind: 'history', item, label: `${titleCase(item.platform)} platform proof` });
+                  }}
+                />
+              </div>
+              {uploadingType === `history-${item.id}` && <span className="text-xs font-semibold text-brand-700">Preparing preview…</span>}
+              {item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}
+              <span className="basis-full text-[11px] text-ink-400">Phone photos, HEIC, JPG, PNG, WebP, or PDF · preview before submission · maximum 8 MB</span>
+            </div>
+            {pendingUpload?.item.id === item.id && (
+              <div className="rounded-2xl border border-brand-200 bg-brand-50/60 p-3 sm:p-4">
+                <p className="text-sm font-semibold text-ink-900">Review before submitting</p>
+                <p className="mt-1 text-xs text-ink-600">Make sure this is the correct platform-history proof. Nothing is uploaded until you press submit.</p>
+                <div className="mt-3 overflow-hidden rounded-xl border border-ink-200 bg-white p-2">
+                  {pendingUpload.previewUrl ? (
+                    <img
+                      src={pendingUpload.previewUrl}
+                      alt={`Preview of ${pendingUpload.label}`}
+                      className="mx-auto max-h-[50vh] w-full rounded-lg object-contain"
+                      onLoad={() => setPendingUpload((current) => current?.item.id === item.id ? { ...current, previewReady: true } : current)}
+                      onError={() => setPendingUpload((current) => current?.item.id === item.id ? { ...current, previewReady: false, previewFailed: true } : current)}
+                    />
+                  ) : (
+                    <div className="flex min-h-36 flex-col items-center justify-center text-center"><FileText className="h-10 w-10 text-brand-600" /><p className="mt-2 text-sm font-semibold text-ink-900">{pendingUpload.file.name}</p><p className="mt-1 text-xs text-ink-500">PDF selected</p></div>
+                  )}
+                </div>
+                {pendingUpload.previewFailed && <p className="mt-2 text-xs font-semibold text-danger">This phone cannot preview that image format. Take a screenshot of the image and choose the screenshot instead.</p>}
+                <p className="mt-2 break-all text-xs text-ink-500">{pendingUpload.file.name} · {(pendingUpload.file.size / (1024 * 1024)).toFixed(1)} MB</p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <button type="button" onClick={clearPendingUpload} disabled={uploadingType === pendingUpload.uploadKey} className="btn-secondary flex-1">Choose another</button>
+                  <button type="button" onClick={submitPendingUpload} disabled={uploadingType === pendingUpload.uploadKey || !pendingUpload.previewReady} className="btn-primary flex-1">{uploadingType === pendingUpload.uploadKey ? 'Submitting…' : 'Submit for review'}</button>
+                </div>
+              </div>
+            )}
             {item.proof_url && isPreviewableTrustImage(item.proof_url) && <UploadPreview url={item.proof_url} label={`${titleCase(item.platform)} platform proof`} />}
           </div>)}<button type="button" onClick={addHistory} className="btn-secondary"><Plus className="h-4 w-4" /> Add platform</button></div>
         </Section>
 
         <div className="flex justify-end"><button type="button" onClick={saveProfile} disabled={saving} className="btn-primary">{saving ? 'Saving…' : 'Save & submit platform history'} <ArrowRight className="h-4 w-4" /></button></div>
       </div>
-
-      {pendingUpload && (
-        <Modal title="Review before submitting" onClose={clearPendingUpload}>
-          <p className="text-sm text-ink-600">Make sure this is the correct platform-history proof. Nothing is uploaded until you press submit.</p>
-          <div className="mt-4 overflow-hidden rounded-2xl border border-ink-200 bg-ink-50 p-3">
-            {pendingUpload.previewUrl ? (
-              <img src={pendingUpload.previewUrl} alt={`Preview of ${pendingUpload.label}`} className="mx-auto max-h-[55vh] w-full rounded-xl object-contain" />
-            ) : (
-              <div className="flex min-h-44 flex-col items-center justify-center text-center"><FileText className="h-12 w-12 text-brand-600" /><p className="mt-3 font-semibold text-ink-900">{pendingUpload.file.name}</p><p className="mt-1 text-xs text-ink-500">PDF selected · open the original if you need to inspect individual pages.</p></div>
-            )}
-          </div>
-          <p className="mt-3 break-all text-xs text-ink-500">{pendingUpload.file.name} · {(pendingUpload.file.size / (1024 * 1024)).toFixed(1)} MB</p>
-          <div className="mt-5 flex gap-2"><button type="button" onClick={clearPendingUpload} disabled={uploadingType === pendingUpload.uploadKey} className="btn-secondary flex-1">Choose another</button><button type="button" onClick={submitPendingUpload} disabled={uploadingType === pendingUpload.uploadKey} className="btn-primary flex-1">{uploadingType === pendingUpload.uploadKey ? 'Submitting…' : 'Submit for review'}</button></div>
-        </Modal>
-      )}
     </div>
   );
 }
