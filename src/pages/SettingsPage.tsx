@@ -11,6 +11,7 @@ import { pinToPassword } from '@/lib/phoneAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { Modal } from '@/components/Modal';
+import { prepareChatImageUpload } from '@/lib/trustUpload';
 
 export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
@@ -23,6 +24,7 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [preparingAvatar, setPreparingAvatar] = useState(false);
   const [activeRelationships, setActiveRelationships] = useState(0);
   const [showAvailabilityWarning, setShowAvailabilityWarning] = useState(false);
   const [changingAvailability, setChangingAvailability] = useState(false);
@@ -71,39 +73,39 @@ export function SettingsPage() {
 
   const uploadAvatar = async (file: File) => {
     if (!user) return;
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast('Choose a JPG, PNG, or WebP image.', 'error');
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      toast('Profile photos must be smaller than 5 MB.', 'error');
-      return;
-    }
     setUploadingAvatar(true);
-    const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-    const path = `${user.id}/avatar-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true, contentType: file.type });
-    if (error) {
-      toast('Could not upload photo.', 'error');
+    try {
+      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const path = `${user.id}/avatar-${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from(AVATAR_BUCKET).upload(path, file, { upsert: true, contentType: file.type });
+      if (error) throw new Error('Could not upload photo: ' + error.message);
+      const { data: pub } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+      const { error: profileError } = await supabase.from('profiles').update({
+        avatar_url: pub.publicUrl,
+        avatar_pending_url: null,
+        avatar_upload_status: 'approved',
+        avatar_rejection_reason: null,
+      }).eq('id', user.id);
+      if (profileError) throw new Error('Could not update your profile photo: ' + profileError.message);
+      await refreshProfile();
+      toast('Profile photo updated.');
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The profile photo could not be uploaded. Check your connection and try again.', 'error');
+    } finally {
       setUploadingAvatar(false);
-      return;
     }
-    const { data: pub } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
-    const { error: profileError } = await supabase.from('profiles').update({
-      avatar_url: pub.publicUrl,
-      avatar_pending_url: null,
-      avatar_upload_status: 'approved',
-      avatar_rejection_reason: null,
-    }).eq('id', user.id);
-    if (profileError) {
-      toast('Could not submit photo: ' + profileError.message, 'error');
-      setUploadingAvatar(false);
-      return;
+  };
+
+  const prepareAndUploadAvatar = async (file: File) => {
+    setPreparingAvatar(true);
+    try {
+      const prepared = await prepareChatImageUpload(file);
+      await uploadAvatar(prepared);
+    } catch (error) {
+      toast('Could not prepare this phone photo: ' + (error instanceof Error ? error.message : 'Choose another image.'), 'error');
+    } finally {
+      setPreparingAvatar(false);
     }
-    await refreshProfile();
-    setUploadingAvatar(false);
-    toast('Profile photo updated.');
   };
 
   const applyAvailability = async (makeAvailable: boolean) => {
@@ -164,14 +166,14 @@ export function SettingsPage() {
             <div className="relative">
               <Avatar name={profile?.full_name || 'User'} src={profile?.avatar_url} size={72} verified={profile?.role === 'driver' && !!profile?.is_verified} />
               <label className="absolute -bottom-1 -right-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-brand-600 text-white shadow-md ring-2 ring-white transition-transform hover:scale-110">
-                <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadAvatar(f); e.target.value = ''; }} disabled={uploadingAvatar} />
-                {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                <input type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void prepareAndUploadAvatar(f); e.target.value = ''; }} disabled={uploadingAvatar || preparingAvatar} />
+                {uploadingAvatar || preparingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
               </label>
             </div>
             <div>
-              <p className="flex items-center gap-1 font-medium text-ink-900">{profile?.full_name} <VerifiedBadge verified={profile?.is_verified} size={13} /></p>
+              <p className="flex items-center gap-1 font-medium text-ink-900">{profile?.full_name} {profile?.role === 'driver' && <VerifiedBadge verified={profile?.is_verified} size={13} />}</p>
               <p className="text-xs capitalize text-ink-500">{profile?.role} · {profile?.phone}</p>
-              <p className="mt-0.5 text-xs text-ink-400">JPG, PNG, or WebP · maximum 5 MB</p>
+              <p className="mt-0.5 text-xs text-ink-400">Phone photos, HEIC, HEIF, JPG, PNG, or WebP · compressed before upload</p>
             </div>
           </div>
 

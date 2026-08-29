@@ -14,12 +14,14 @@ export function PlatePrivacyEditor({ file, onCancel, onUploadOriginal, onComplet
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [error, setError] = useState('');
   const [region, setRegion] = useState<Region>({ x: 55, y: 68, width: 30, height: 14 });
 
   useEffect(() => {
     const url = URL.createObjectURL(file);
     const nextImage = new Image();
     nextImage.onload = () => setImage(nextImage);
+    nextImage.onerror = () => setError('This photo preview could not be opened. Choose another photo or upload a screenshot.');
     nextImage.src = url;
     return () => URL.revokeObjectURL(url);
   }, [file]);
@@ -52,11 +54,12 @@ export function PlatePrivacyEditor({ file, onCancel, onUploadOriginal, onComplet
   const applyBlur = async () => {
     if (!image) return;
     setProcessing(true);
+    setError('');
     const output = document.createElement('canvas');
     output.width = image.naturalWidth;
     output.height = image.naturalHeight;
     const context = output.getContext('2d');
-    if (!context) { setProcessing(false); return; }
+    if (!context) { setError('Your browser could not prepare the blurred image.'); setProcessing(false); return; }
     context.drawImage(image, 0, 0);
     const x = output.width * region.x / 100;
     const y = output.height * region.y / 100;
@@ -72,7 +75,7 @@ export function PlatePrivacyEditor({ file, onCancel, onUploadOriginal, onComplet
 
     const mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
     const blob = await new Promise<Blob | null>((resolve) => output.toBlob(resolve, mimeType, 0.92));
-    if (!blob) { setProcessing(false); return; }
+    if (!blob) { setError('Your browser could not create the blurred image. Try uploading a screenshot instead.'); setProcessing(false); return; }
     const baseName = file.name.replace(/\.[^.]+$/, '');
     const extension = mimeType === 'image/png' ? 'png' : 'jpg';
     onComplete(new File([blob], `${baseName}-plate-hidden.${extension}`, { type: mimeType }));
@@ -86,6 +89,8 @@ export function PlatePrivacyEditor({ file, onCancel, onUploadOriginal, onComplet
           <button type="button" onClick={onCancel} className="btn-ghost p-2" aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
         <div className="mt-4 overflow-hidden rounded-xl bg-ink-100"><canvas ref={canvasRef} className="max-h-[52vh] w-full object-contain" /></div>
+        {!image && !error && <p className="mt-3 text-center text-sm text-ink-500"><Loader2 className="mr-2 inline h-4 w-4 animate-spin" />Preparing a phone-safe preview…</p>}
+        {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">{error}</p>}
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Range label="Move left / right" value={region.x} max={100 - region.width} onChange={(x) => setRegion({ ...region, x })} />
           <Range label="Move up / down" value={region.y} max={100 - region.height} onChange={(y) => setRegion({ ...region, y })} />

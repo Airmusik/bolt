@@ -11,6 +11,7 @@ import { useSiteSettings } from '@/lib/siteSettings';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { PlatePrivacyEditor } from '@/components/PlatePrivacyEditor';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { prepareChatImageUpload } from '@/lib/trustUpload';
 
 interface IssueDraft { id?: string; description: string; severity: 'minor' | 'moderate' | 'major' }
 const RIDE_HAILING_PLATFORMS: { value: Vehicle['registered_platforms'][number]; label: string }[] = [
@@ -40,6 +41,7 @@ export function VehicleFormPage() {
   const [issues, setIssues] = useState<IssueDraft[]>([]);
   const [photos, setPhotos] = useState<VehiclePhoto[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [preparingPhoto, setPreparingPhoto] = useState(false);
   const [photoForPrivacyReview, setPhotoForPrivacyReview] = useState<File | null>(null);
 
   useEffect(() => {
@@ -73,34 +75,38 @@ export function VehicleFormPage() {
 
   const uploadPhoto = async (file: File) => {
     if (!user) return;
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!allowedTypes.includes(file.type)) {
-      toast('Choose a JPG, PNG, or WebP vehicle photo.', 'error');
-      return;
-    }
-    if (file.size > 10 * 1024 * 1024) {
-      toast('Vehicle photos must be smaller than 10 MB.', 'error');
-      return;
-    }
     setUploading(true);
-    const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
-    const path = `${user.id}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
-    if (error) { toast('Upload failed: ' + error.message, 'error'); setUploading(false); return; }
-    const { data: pub } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
-    if (isEdit && id) {
-      const { data, error: photoError } = await supabase.from('vehicle_photos').insert({ vehicle_id: id, photo_url: pub.publicUrl, position: photos.length }).select().maybeSingle();
-      if (photoError) {
-        toast('Photo uploaded, but could not be attached to the vehicle: ' + photoError.message, 'error');
-        setUploading(false);
-        return;
+    try {
+      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const path = `${user.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, { contentType: file.type });
+      if (error) throw new Error('Upload failed: ' + error.message);
+      const { data: pub } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
+      if (isEdit && id) {
+        const { data, error: photoError } = await supabase.from('vehicle_photos').insert({ vehicle_id: id, photo_url: pub.publicUrl, position: photos.length }).select().maybeSingle();
+        if (photoError) throw new Error('Photo uploaded, but could not be attached to the vehicle: ' + photoError.message);
+        if (data) setPhotos((p) => [...p, data as VehiclePhoto]);
+      } else {
+        // Store the private upload locally until the listing itself is created.
+        setPhotos((p) => [...p, { id: 'temp-' + Date.now(), vehicle_id: '', photo_url: pub.publicUrl, position: p.length, approved: false, rejected: false, rejection_reason: null, created_at: '' }]);
       }
-      if (data) setPhotos((p) => [...p, data as VehiclePhoto]);
-    } else {
-      // store locally until vehicle is created
-      setPhotos((p) => [...p, { id: 'temp-' + Date.now(), vehicle_id: '', photo_url: pub.publicUrl, position: p.length, approved: false, rejected: false, rejection_reason: null, created_at: '' }]);
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The photo could not be uploaded. Check your connection and try again.', 'error');
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
+  };
+
+  const prepareVehiclePhoto = async (file: File) => {
+    setPreparingPhoto(true);
+    try {
+      const prepared = await prepareChatImageUpload(file);
+      setPhotoForPrivacyReview(prepared);
+    } catch (error) {
+      toast('Could not prepare this phone photo: ' + (error instanceof Error ? error.message : 'Choose another image.'), 'error');
+    } finally {
+      setPreparingPhoto(false);
+    }
   };
 
   const removePhoto = async (photo: VehiclePhoto) => {
@@ -213,19 +219,16 @@ export function VehicleFormPage() {
                 </button>
               </div>
             ))}
-            <label className={cn('flex h-24 w-32 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-ink-200 text-ink-400 hover:border-brand-400 hover:text-brand-600', uploading && 'opacity-50')}>
-              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => {
+            <label className={cn('flex h-24 w-32 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-ink-200 text-ink-400 hover:border-brand-400 hover:text-brand-600', (uploading || preparingPhoto) && 'pointer-events-none opacity-50')}>
+              <input type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) {
-                  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) toast('Choose a JPG, PNG, or WebP vehicle photo.', 'error');
-                  else if (file.size > 10 * 1024 * 1024) toast('Vehicle photos must be smaller than 10 MB.', 'error');
-                  else setPhotoForPrivacyReview(file);
-                }
+                if (file) void prepareVehiclePhoto(file);
                 e.target.value = '';
-              }} disabled={uploading} />
-              <div className="text-center"><Upload className="mx-auto h-5 w-5" /><span className="text-xs">{uploading ? 'Uploading…' : 'Add photo'}</span></div>
+              }} disabled={uploading || preparingPhoto} />
+              <div className="text-center"><Upload className="mx-auto h-5 w-5" /><span className="text-xs">{preparingPhoto ? 'Preparing preview…' : uploading ? 'Uploading…' : 'Add photo'}</span></div>
             </label>
           </div>
+          <p className="mt-3 text-xs text-ink-400">Phone photos, HEIC, HEIF, JPG, PNG, or WebP · compressed before preview · maximum 24 MB</p>
         </Card>
 
         {/* Basics */}
