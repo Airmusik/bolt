@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones } from 'lucide-react';
+import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
-import { cn, timeAgo, formatDateTime } from '@/lib/utils';
+import { cn, timeAgo, formatDate, formatDateTime } from '@/lib/utils';
 
 const SUSPEND_REASONS = [
   'Fake or misleading profile',
@@ -100,6 +100,7 @@ export function AdminPage() {
   const [viewingReport, setViewingReport] = useState<AdminReport | null>(null);
   const [carStatusFilter, setCarStatusFilter] = useState<'all' | 'live' | 'pending'>('all');
   const [memberRoleFilter, setMemberRoleFilter] = useState<'all' | 'driver' | 'owner'>('all');
+  const [suspensionReportId, setSuspensionReportId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, contactsResult] = await Promise.all([
@@ -141,28 +142,37 @@ export function AdminPage() {
   const pendingVehiclePhotos = vehicles.flatMap((v) => (v.photos || []).filter((photo) => !photo.approved && !photo.rejected).map((photo) => ({ ...photo, vehicle: v })));
   const pendingListings = vehicles.filter((vehicle) => vehicle.approval_status === 'pending');
   const newContactMessages = contactMessages.filter((message) => message.status === 'new');
+  const unsolvedReports = reports.filter((report) => report.status === 'open' || report.status === 'reviewing');
 
   const approveVerification = async (p: Profile) => {
+    const { count, error: historyError } = await supabase.from('driver_platform_history').select('id', { count: 'exact', head: true }).eq('driver_id', p.id).eq('approved', true);
+    if (historyError) { toast('Could not check platform history: ' + historyError.message, 'error'); return; }
+    if (!count) { toast('Approve at least one uploaded platform-history proof before approving this driver.', 'error'); return; }
     const { error } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', p.id);
     if (error) { toast('Update failed: ' + error.message, 'error'); return; }
-    await notifyUser(p.id, 'trust', 'Trust Passport approved', `Your Trust Passport is now approved on ${siteSettings.site_name}.`);
-    toast('Trust Passport approved.');
+    await notifyUser(p.id, 'trust', 'Platform history approved', `Your recent driver platform history is now approved on ${siteSettings.site_name}.`);
+    toast('Driver platform history approved.');
     load();
   };
   const rejectVerification = async (p: Profile) => {
     const { error } = await supabase.from('profiles').update({ is_verified: false, verification_status: 'rejected' }).eq('id', p.id);
     if (error) { toast('Update failed: ' + error.message, 'error'); return; }
-    toast('User rejected.');
+    toast('Driver platform history rejected.');
     load();
   };
   const suspend = async (p: Profile, reason: string) => {
     setSuspending(true);
-    const { error } = await supabase.from('profiles').update({ is_suspended: true, suspension_reason: reason, suspended_at: new Date().toISOString(), verification_status: 'rejected', is_verified: false }).eq('id', p.id);
+    const { error } = await supabase.from('profiles').update({ is_suspended: true, suspension_reason: reason, suspended_at: new Date().toISOString() }).eq('id', p.id);
     if (error) { toast('Suspend failed: ' + error.message, 'error'); setSuspending(false); return; }
     await notifyUser(p.id, 'suspension', 'Account suspended', `Your account has been suspended: ${reason}`);
-    toast('User suspended.');
+    if (suspensionReportId) {
+      const { error: reportError } = await supabase.from('reports').update({ status: 'resolved' }).eq('id', suspensionReportId);
+      if (reportError) toast('The user was suspended, but the report could not be marked solved: ' + reportError.message, 'error');
+    }
+    toast(suspensionReportId ? 'User suspended and report marked solved.' : 'User suspended.');
     setSuspendingUser(null);
     setSuspendReason('');
+    setSuspensionReportId(null);
     setSuspending(false);
     load();
   };
@@ -170,12 +180,13 @@ export function AdminPage() {
     const { error } = await supabase.from('profiles').update({ is_suspended: false, suspension_reason: null, suspended_at: null }).eq('id', p.id);
     if (error) { toast('Reinstate failed: ' + error.message, 'error'); return; }
     toast('User reinstated.');
+    setViewingUser(null);
     load();
   };
   const resolveReport = async (r: Report, status: 'resolved' | 'dismissed') => {
     const { error } = await supabase.from('reports').update({ status }).eq('id', r.id);
     if (error) { toast('Could not update report: ' + error.message, 'error'); return; }
-    toast('Report ' + status + '.');
+    toast(status === 'resolved' ? 'Report marked solved.' : 'Report dismissed.');
     load();
   };
 
@@ -212,7 +223,7 @@ export function AdminPage() {
   const issueReportWarning = async (report: AdminReport, message: string) => {
     const { data, error } = await supabase.rpc('admin_issue_report_warning', { p_report_id: report.id, p_message: message.trim() });
     if (error) { toast('Could not send warning: ' + error.message, 'error'); return false; }
-    toast(`Warning ${Number(data) || 1} sent with the report details.`);
+    toast(`Warning ${Number(data) || 1} sent. The report is now solved.`);
     setViewingReport(null);
     await load();
     return true;
@@ -358,7 +369,7 @@ export function AdminPage() {
     { label: 'Members', value: users.length, icon: Users },
     { label: 'Live listings', value: vehicles.filter((v) => v.status === 'active' && v.approval_status === 'approved').length, icon: Car },
     { label: 'Pending reviews', value: pendingListings.length + pendingVerifications.length + pendingDocs.length + pendingVehiclePhotos.length, icon: FileText },
-    { label: 'Open reports', value: reports.filter((r) => r.status === 'open').length, icon: Flag },
+    { label: 'Unsolved reports', value: unsolvedReports.length, icon: Flag },
   ];
 
   const tabs: { key: Tab; label: string; icon: LucideIcon; badge?: number }[] = [
@@ -366,7 +377,7 @@ export function AdminPage() {
     { key: 'members', label: 'Members', icon: Users, badge: users.length },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
-    { key: 'reports', label: 'Reports', icon: Flag, badge: reports.filter((r) => r.status === 'open').length },
+    { key: 'reports', label: 'Reports', icon: Flag, badge: unsolvedReports.length },
     { key: 'contact', label: 'Contact forms', icon: Mail, badge: newContactMessages.length },
     { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
     { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
@@ -396,7 +407,7 @@ export function AdminPage() {
         </div>
         <button type="button" onClick={() => setTab('overview')} className="btn-secondary px-3 py-2 text-xs"><TrendingUp className="h-4 w-4" /> Dashboard</button>
       </div>
-      <p className="mt-1 text-sm text-ink-500">Manage Trust Passports, upload approvals, listings, reports and member support.</p>
+      <p className="mt-1 text-sm text-ink-500">Manage driver platform-history reviews, upload approvals, listings, reports and member support.</p>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
@@ -454,7 +465,7 @@ export function AdminPage() {
               </div>
             </div>
             <div className="card p-5">
-              <h3 className="font-semibold text-ink-900">Pending Trust Passports</h3>
+              <h3 className="font-semibold text-ink-900">Pending platform-history reviews</h3>
               <div className="mt-3 space-y-2">
                 {pendingVerifications.slice(0, 5).map((p) => (
                   <div key={p.id} className="flex items-center justify-between">
@@ -462,7 +473,7 @@ export function AdminPage() {
                     <button onClick={() => setViewingUser(p)} className="btn-primary px-3 py-1 text-xs"><Eye className="h-3 w-3" /> Review</button>
                   </div>
                 ))}
-                {pendingVerifications.length === 0 && <p className="text-sm text-ink-400">No pending Trust Passports.</p>}
+                {pendingVerifications.length === 0 && <p className="text-sm text-ink-400">No platform-history reviews are pending.</p>}
               </div>
             </div>
             <div className="card p-5">
@@ -497,8 +508,9 @@ export function AdminPage() {
             {filteredUsers.map((member) => (
               <div key={member.id} className="card flex flex-wrap items-center gap-3 p-4">
                 <Avatar name={member.full_name} src={member.avatar_url} size={42} verified={member.is_verified} />
-                <div className="min-w-0 flex-1"><p className="font-medium text-ink-900">{member.full_name || 'Unnamed member'}</p><p className="truncate text-xs text-ink-500">{member.email || 'No email'} · {member.phone || 'No phone'} · <span className="capitalize">{member.role}</span></p></div>
+                <div className="min-w-0 flex-1"><p className="font-medium text-ink-900">{member.full_name || 'Unnamed member'}</p><p className="truncate text-xs text-ink-500">{member.email || 'No email'} · {member.phone || 'No phone'} · <span className="capitalize">{member.role}</span></p><p className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-700"><CalendarDays className="h-3.5 w-3.5" /> Joined {formatDate(member.created_at)}</p></div>
                 {member.is_suspended && <span className="badge-danger"><Ban className="h-3 w-3" /> Suspended</span>}
+                {member.is_suspended && <button onClick={() => unban(member)} className="btn-secondary px-3 py-2 text-sm text-success"><ShieldCheck className="h-4 w-4" /> Reinstate</button>}
                 <button onClick={() => setViewingUser(member)} className="btn-primary px-3 py-2 text-sm"><Eye className="h-4 w-4" /> Manage profile</button>
               </div>
             ))}
@@ -514,23 +526,23 @@ export function AdminPage() {
                 <Avatar name={u.full_name} src={u.avatar_url} size={40} verified={u.is_verified} />
                 <div className="flex-1">
                   <p className="flex items-center gap-1 font-medium text-ink-900">{u.full_name} <VerifiedBadge verified={u.is_verified} size={12} /></p>
-                  <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'} · {timeAgo(u.created_at)}</p>
+                  <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'}</p><p className="mt-0.5 text-xs font-medium text-brand-700">Joined {formatDate(u.created_at)} · {timeAgo(u.created_at)}</p>
                   {u.licence_number && <p className="text-xs text-ink-400">Licence: {u.licence_number} (exp. {u.licence_expiry || '—'})</p>}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {u.is_suspended && <span className="badge badge-danger"><Ban className="inline h-3 w-3" /> Suspended</span>}
-                  {!u.is_suspended && u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>}
-                  {!u.is_suspended && u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> Rejected</span>}
+                  {!u.is_suspended && u.verification_status === 'approved' && <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> History approved</span>}
+                  {!u.is_suspended && u.verification_status === 'rejected' && <span className="badge badge-danger"><XCircle className="inline h-3 w-3" /> History rejected</span>}
                   <button onClick={() => setViewingUser(u)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
-                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setViewingUser(u)} className="btn-primary px-3 py-1 text-xs">Approve</button>}
-                  {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject</button>}
+                  {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setViewingUser(u)} className="btn-primary px-3 py-1 text-xs">Approve history</button>}
+                  {!u.is_suspended && u.verification_status !== 'rejected' && <button onClick={() => rejectVerification(u)} className="btn-secondary px-3 py-1 text-xs">Reject history</button>}
                   <button onClick={() => setEditingUser(u)} aria-label={`Edit ${u.full_name}`} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
                   <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
                   <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
                   ) : (
-                    <button onClick={() => { setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
+                    <button onClick={() => { setSuspensionReportId(null); setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
                   )}
                   <button onClick={() => setDeletingUser(u)} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /> Delete</button>
                 </div>
@@ -548,7 +560,7 @@ export function AdminPage() {
                 <Avatar name={u.full_name} src={u.avatar_url} size={40} />
                 <div className="flex-1">
                   <p className="font-medium text-ink-900">{u.full_name}</p>
-                  <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'} · {timeAgo(u.created_at)}</p>
+                  <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'}</p><p className="mt-0.5 text-xs font-medium text-brand-700">Joined {formatDate(u.created_at)} · {timeAgo(u.created_at)}</p>
                   <p className="text-xs text-ink-400">{vehicles.filter((v) => v.owner_id === u.id).length} car(s) listed</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -560,7 +572,7 @@ export function AdminPage() {
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
                   ) : (
-                    <button onClick={() => { setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
+                    <button onClick={() => { setSuspensionReportId(null); setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
                   )}
                   <button onClick={() => setDeletingUser(u)} className="btn-ghost text-danger text-sm"><Trash2 className="h-4 w-4" /> Delete</button>
                 </div>
@@ -685,7 +697,7 @@ export function AdminPage() {
               <div key={r.id} className="card p-4">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div><p className="font-medium text-ink-900">{r.reason} <span className="capitalize text-ink-400">({r.target_type})</span></p><p className="mt-0.5 text-xs text-ink-500">Reported: {r.reported?.full_name || 'Unknown user'} · By: {r.reporter?.full_name || 'Unknown reporter'}</p></div>
-                  <span className={cn('badge capitalize', r.status === 'open' && 'badge-warning', r.status === 'resolved' && 'badge-brand', r.status === 'dismissed' && 'badge-neutral')}>{r.status}</span>
+                  <span className={cn('badge capitalize', ['open', 'reviewing'].includes(r.status) && 'badge-warning', r.status === 'resolved' && 'badge-success', r.status === 'dismissed' && 'badge-neutral')}>{r.status === 'resolved' ? 'Solved' : r.status}</span>
                 </div>
                 {r.description && <p className="mt-2 line-clamp-2 text-sm text-ink-600">{r.description}</p>}
                 <p className="mt-1 text-xs text-ink-400">{timeAgo(r.created_at)}</p>
@@ -749,7 +761,7 @@ export function AdminPage() {
 
       {/* Suspend user modal */}
       {suspendingUser && (
-        <Modal title={`Suspend ${suspendingUser.full_name}`} onClose={() => { setSuspendingUser(null); setSuspendReason(''); }}>
+        <Modal title={`Suspend ${suspendingUser.full_name}`} onClose={() => { setSuspendingUser(null); setSuspendReason(''); setSuspensionReportId(null); }}>
           <p className="text-sm text-ink-600">This user will be immediately logged out and shown a suspension message. They will not be able to use {siteSettings.site_name} until reinstated.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             {SUSPEND_REASONS.map((r) => (
@@ -770,7 +782,7 @@ export function AdminPage() {
             className="input mt-3"
           />
           <div className="mt-4 flex gap-2">
-            <button onClick={() => { setSuspendingUser(null); setSuspendReason(''); }} className="btn-secondary flex-1">Cancel</button>
+            <button onClick={() => { setSuspendingUser(null); setSuspendReason(''); setSuspensionReportId(null); }} className="btn-secondary flex-1">Cancel</button>
             <button onClick={() => suspend(suspendingUser, suspendReason.trim() || 'Violation of platform rules.')} disabled={suspending} className="btn flex-1 bg-danger text-white hover:bg-red-700">
               {suspending ? 'Suspending…' : 'Suspend user'}
             </button>
@@ -802,7 +814,8 @@ export function AdminPage() {
           onClose={() => setViewingUser(null)}
           onApprove={() => { approveVerification(viewingUser); setViewingUser(null); }}
           onReject={() => { rejectVerification(viewingUser); setViewingUser(null); }}
-          onSuspend={() => { setSuspendingUser(viewingUser); setSuspendReason(''); setViewingUser(null); }}
+          onSuspend={() => { setSuspensionReportId(null); setSuspendingUser(viewingUser); setSuspendReason(''); setViewingUser(null); }}
+          onReinstate={() => unban(viewingUser)}
           onViewDoc={async (doc: DocumentRow) => {
             const { data } = await supabase.from('documents').select('*').eq('user_id', viewingUser.id).eq('type', doc.type).maybeSingle();
             if (data) setViewingDoc(data as DocumentRow);
@@ -848,10 +861,12 @@ export function AdminPage() {
               if (!reason?.trim()) return;
               const { error } = await supabase.from('driver_platform_history').update({ approved: false, proof_url: null }).eq('id', viewingHistory.id);
               if (error) { toast('Could not reject platform history: ' + error.message, 'error'); return; }
+              const { count } = await supabase.from('driver_platform_history').select('id', { count: 'exact', head: true }).eq('driver_id', viewingHistory.driver_id).eq('approved', true);
+              if (count === 0) await supabase.from('profiles').update({ is_verified: false, verification_status: 'rejected' }).eq('id', viewingHistory.driver_id);
               await notifyUser(viewingHistory.driver_id, 'trust', 'Platform history rejected', reason.trim());
               toast('Platform history rejected.'); setViewingHistory(null); load();
             }} className="btn-secondary"><X className="h-4 w-4" /> Reject</button>
-            <button onClick={async () => { const { error } = await supabase.from('driver_platform_history').update({ approved: true }).eq('id', viewingHistory.id); if (error) { toast('Could not approve platform history: ' + error.message, 'error'); return; } toast('Platform history approved.'); setViewingHistory(null); load(); }} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
+            <button onClick={async () => { const { error } = await supabase.from('driver_platform_history').update({ approved: true }).eq('id', viewingHistory.id); if (error) { toast('Could not approve platform history: ' + error.message, 'error'); return; } const { error: profileError } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', viewingHistory.driver_id); if (profileError) { toast('History was approved, but the driver signal could not be updated: ' + profileError.message, 'error'); return; } await notifyUser(viewingHistory.driver_id, 'trust', 'Platform history approved', `Your recent ${viewingHistory.platform} history is now approved on ${siteSettings.site_name}.`); toast('Platform history approved and public signal updated.'); setViewingHistory(null); load(); }} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
           </div>
         </Modal>
       )}
@@ -893,6 +908,7 @@ export function AdminPage() {
           }}
           onSuspend={() => {
             if (viewingReport.reported) {
+              setSuspensionReportId(viewingReport.id);
               setSuspendingUser(viewingReport.reported);
               setSuspendReason(`Report: ${viewingReport.reason}${viewingReport.description ? ` — ${viewingReport.description}` : ''}`);
             }
@@ -944,7 +960,7 @@ function ReportReviewModal({ report, onClose, onWarn, onContact, onOpenConversat
     <Modal title={`Report: ${report.reason}`} onClose={onClose} size="xl">
       <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
         <div className="grid gap-3 rounded-xl bg-ink-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
-          <InfoRow label="Status" value={<span className="capitalize">{report.status}</span>} />
+          <InfoRow label="Status" value={<span className="capitalize">{report.status === 'resolved' ? 'Solved' : report.status}</span>} />
           <InfoRow label="Target" value={<span className="capitalize">{report.target_type}</span>} />
           <InfoRow label="Submitted" value={formatDateTime(report.created_at)} />
           <InfoRow label="Target ID" value={report.target_id || 'Not supplied'} />
@@ -1320,7 +1336,7 @@ function EditUserModal({ user, onClose, onDone, toast }: { user: Profile; onClos
         <Field label="Phone"><input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="input" /></Field>
         <Field label="Location"><PlaceAutocomplete value={form.location} onChange={(location) => setForm({ ...form, location })} /></Field>
         <Field label="Availability"><select value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} className="input"><option value="available">Available</option><option value="busy">Busy</option><option value="unavailable">Unavailable</option></select></Field>
-        {user.role === 'driver' && <Field label="Trust Passport status"><select value={form.verification_status} onChange={(e) => setForm({ ...form, verification_status: e.target.value as VerificationStatus, is_verified: e.target.value === 'approved' })} className="input"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>}
+        {user.role === 'driver' && <Field label="Platform-history review"><select value={form.verification_status} onChange={(e) => setForm({ ...form, verification_status: e.target.value as VerificationStatus, is_verified: e.target.value === 'approved' })} className="input"><option value="pending">Pending</option><option value="approved">Approved</option><option value="rejected">Rejected</option></select></Field>}
       </div>
       <button onClick={save} disabled={saving} className="btn-primary mt-4 w-full">{saving ? 'Saving…' : 'Save changes'}</button>
     </Modal>
@@ -1337,12 +1353,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 // ---------- View User Modal ----------
-function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDoc, onChangePin, onDelete, onMessage, onEdit }: {
+function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onReinstate, onViewDoc, onChangePin, onDelete, onMessage, onEdit }: {
   user: Profile;
   onClose: () => void;
   onApprove: () => void;
   onReject: () => void;
   onSuspend: () => void;
+  onReinstate: () => void;
   onViewDoc: (doc: DocumentRow) => void;
   onChangePin: () => void;
   onDelete: () => void;
@@ -1384,8 +1401,13 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
           </div>
         </div>
 
+        <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-brand-50 to-sky-50 p-4 ring-1 ring-brand-100 dark:from-brand-950/20 dark:to-sky-950/20">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-brand-700 shadow-sm dark:bg-[#1d1d20]"><CalendarDays className="h-5 w-5" /></span>
+          <div><p className="text-xs font-semibold uppercase tracking-wide text-brand-600">Platform member since</p><p className="font-display text-lg font-bold text-ink-900">{formatDate(user.created_at)}</p><p className="text-xs text-ink-500">Joined {timeAgo(user.created_at)}</p></div>
+        </div>
+
         <div className="grid grid-cols-2 gap-3 text-sm">
-          {user.role === 'driver' && <InfoRow label="Trust Passport" value={<span className="capitalize">{user.verification_status}</span>} />}
+          {user.role === 'driver' && <InfoRow label="Platform-history review" value={<span className="capitalize">{user.verification_status}</span>} />}
           <InfoRow label="Suspended" value={user.is_suspended ? 'Yes' : 'No'} />
           <InfoRow label="Rating" value={user.rating > 0 ? `${user.rating.toFixed(1)} (${user.rating_count})` : 'No ratings'} />
           <InfoRow label="Availability" value={<span className="capitalize">{user.availability}</span>} />
@@ -1439,7 +1461,7 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
               {(['open', 'reviewing', 'resolved', 'dismissed'] as const).map((status) => {
                 const grouped = profileReports.filter((report) => report.status === status);
                 if (grouped.length === 0) return null;
-                return <section key={status}><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">{status} ({grouped.length})</p><div className="space-y-2">{grouped.map((report) => <div key={report.id} className="rounded-xl border border-ink-100 p-3"><div className="flex items-start justify-between gap-2"><p className="text-sm font-semibold text-ink-800">{report.reason}</p>{(report.warnings || []).length > 0 && <span className="badge-warning">Warned</span>}</div><p className="mt-1 text-xs text-ink-600">{report.description || 'No additional details.'}</p><p className="mt-1 text-[11px] capitalize text-ink-400">{report.target_type} · {formatDateTime(report.created_at)}</p></div>)}</div></section>;
+                return <section key={status}><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">{status === 'resolved' ? 'Solved' : status} ({grouped.length})</p><div className="space-y-2">{grouped.map((report) => <div key={report.id} className="rounded-xl border border-ink-100 p-3"><div className="flex items-start justify-between gap-2"><p className="text-sm font-semibold text-ink-800">{report.reason}</p>{(report.warnings || []).length > 0 && <span className="badge-warning">Warned</span>}</div><p className="mt-1 text-xs text-ink-600">{report.description || 'No additional details.'}</p><p className="mt-1 text-[11px] capitalize text-ink-400">{report.target_type} · {formatDateTime(report.created_at)}</p></div>)}</div></section>;
               })}
             </div>
           )}
@@ -1453,14 +1475,14 @@ function ViewUserModal({ user, onClose, onApprove, onReject, onSuspend, onViewDo
         <button onClick={onMessage} className="btn-secondary"><MessageSquare className="h-4 w-4" /> Message</button>
         <button onClick={onEdit} className="btn-secondary"><Pencil className="h-4 w-4" /> Edit profile</button>
         {user.role === 'driver' && !user.is_suspended && user.verification_status !== 'approved' && (
-          <button onClick={onApprove} className="btn-primary"><Check className="h-4 w-4" /> Approve</button>
+          <button onClick={onApprove} className="btn-primary"><Check className="h-4 w-4" /> Approve history</button>
         )}
         {user.role === 'driver' && !user.is_suspended && user.verification_status !== 'rejected' && (
-          <button onClick={onReject} className="btn-secondary"><X className="h-4 w-4" /> Reject</button>
+          <button onClick={onReject} className="btn-secondary"><X className="h-4 w-4" /> Reject history</button>
         )}
         <button onClick={onChangePin} className="btn-secondary"><KeyRound className="h-4 w-4" /> Change password</button>
         {user.is_suspended ? (
-          <button onClick={onSuspend} className="btn-secondary"><ShieldCheck className="h-4 w-4" /> Manage suspension</button>
+          <button onClick={onReinstate} className="btn-primary"><ShieldCheck className="h-4 w-4" /> Reinstate account</button>
         ) : (
           <button onClick={onSuspend} className="btn-secondary text-danger"><Ban className="h-4 w-4" /> Suspend</button>
         )}
@@ -1491,6 +1513,8 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
   const [joinedConversationIds, setJoinedConversationIds] = useState<Set<string>>(new Set());
   const [joining, setJoining] = useState(false);
   const [confirmCloseChat, setConfirmCloseChat] = useState(false);
+  const [confirmLeaveChat, setConfirmLeaveChat] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -1605,6 +1629,22 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
     loadConversations();
   };
 
+  const leaveConversation = async () => {
+    if (!active) return;
+    setLeaving(true);
+    const { error } = await supabase.rpc('admin_leave_conversation', { p_conversation_id: active.id });
+    setLeaving(false);
+    setConfirmLeaveChat(false);
+    if (error) { toast('Could not leave conversation: ' + error.message, 'error'); return; }
+    setJoinedConversationIds((current) => {
+      const next = new Set(current);
+      next.delete(active.id);
+      return next;
+    });
+    toast('You left the conversation. Its history remains available to admins.');
+    await Promise.all([loadMessages(), loadConversations()]);
+  };
+
   const closeMemberChat = async () => {
     if (!active) return;
     const { data, error } = await supabase.rpc('admin_close_conversation_chat', { p_conversation_id: active.id });
@@ -1631,6 +1671,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
   const other = active?.driver || active?.owner;
   const activeJoined = Boolean(active && (active.admin_id === user?.id || joinedConversationIds.has(active.id)));
   const supportSessionActive = Boolean(active?.support_reopened_at && !active.support_resolved_at && !active.closed_at);
+  const canLeaveLiveChat = Boolean(active && active.driver && active.owner && !active.closed_at && !supportSessionActive && active.admin_id !== user?.id && joinedConversationIds.has(active.id));
 
   return (
     <div className="grid h-[70vh] gap-4 lg:grid-cols-[300px_1fr]">
@@ -1642,8 +1683,8 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
             <button key={c.id} onClick={() => setActiveId(c.id)} className={cn('flex w-full items-center gap-3 border-b border-ink-50 p-3 text-left hover:bg-ink-50', activeId === c.id && 'bg-brand-50')}>
               <Avatar name={u?.full_name || 'User'} src={u?.avatar_url} size={44} verified={u?.is_verified} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold text-ink-900">{c.driver && c.owner ? `${c.driver.full_name} ↔ ${c.owner.full_name}` : u?.full_name}</p>
-                <p className="text-xs capitalize text-ink-500">{c.driver && c.owner ? 'Member conversation' : `${u?.role || 'member'} support`}</p>
+                <p className="truncate text-sm font-semibold text-ink-900">{c.driver && c.owner ? `Driver: ${c.driver.full_name} ↔ Car owner: ${c.owner.full_name}` : u?.full_name}</p>
+                <p className="text-xs text-ink-500">{c.driver && c.owner ? 'Driver and car-owner conversation' : `${u?.role === 'owner' ? 'Car owner' : u?.role === 'driver' ? 'Driver' : 'Member'} · direct support`}</p>
                 <p className="mt-0.5 text-[10px] text-ink-400">{formatDateTime(c.last_message_at || c.created_at)}</p>
               </div>
               <div className="text-right">{c.support_reopened_at && !c.support_resolved_at && !c.closed_at ? <span className="badge bg-violet-100 text-[10px] text-violet-700">Support open</span> : joined && <span className="badge badge-success text-[10px]">Joined</span>}{c.last_message_at && <span className="mt-1 block text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}</div>
@@ -1657,12 +1698,12 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
           <>
             <div className="flex items-center gap-3 border-b border-ink-100 p-4">
               <button onClick={() => setActiveId(null)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-100"><ArrowLeft className="h-4 w-4" /> Back</button>
-              <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.is_verified} />
+              <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.role === 'driver' && other.is_verified} />
               <div>
-                <p className="font-semibold text-ink-900">{active.driver && active.owner ? `${active.driver.full_name} ↔ ${active.owner.full_name}` : other.full_name}</p>
-                <p className="text-xs capitalize text-brand-600">{active.closed_at ? 'Ended · preserved history' : supportSessionActive ? 'Reopened support session · members can chat' : active.driver && active.owner ? 'Active member chat' : `${other.role} support`}</p>
+                <p className="font-semibold text-ink-900">{active.driver && active.owner ? `Driver: ${active.driver.full_name} ↔ Car owner: ${active.owner.full_name}` : other.full_name}</p>
+                <p className="text-xs text-brand-600">{active.closed_at ? 'Ended · preserved history' : supportSessionActive ? 'Reopened support session · members can chat' : active.driver && active.owner ? 'Active driver and car-owner chat' : `${other.role === 'owner' ? 'Car owner' : 'Driver'} · direct support`}</p>
               </div>
-              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{active.closed_at ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><Headphones className="h-4 w-4" /> {joining ? 'Reopening…' : 'Reopen with support'}</button> : !activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}{active.driver && active.owner && !active.closed_at && <button onClick={() => setConfirmCloseChat(true)} className="btn-secondary text-xs"><LockKeyhole className="h-4 w-4" /> {supportSessionActive ? 'End support chat' : 'Close chat'}</button>}</div>
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{active.closed_at ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><Headphones className="h-4 w-4" /> {joining ? 'Reopening…' : 'Reopen with support'}</button> : !activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}{canLeaveLiveChat && <button onClick={() => setConfirmLeaveChat(true)} disabled={leaving} className="btn-secondary text-xs"><UserMinus className="h-4 w-4" /> Leave chat</button>}{active.driver && active.owner && !active.closed_at && <button onClick={() => setConfirmCloseChat(true)} className="btn-secondary text-xs"><LockKeyhole className="h-4 w-4" /> {supportSessionActive ? 'End support chat' : 'Close chat'}</button>}</div>
             </div>
             <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-ink-50/50 p-4">
               {messages.map((m) => {
@@ -1693,6 +1734,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
         )}
       </div>
       {confirmCloseChat && <ConfirmDialog title={supportSessionActive ? 'End this support session?' : 'Close this member chat?'} message={supportSessionActive ? 'Both members will lose the ability to send new messages again. The complete history will remain saved and readable.' : 'Both members will immediately lose the ability to send new messages in this chat. This does not delete the history.'} confirmLabel={supportSessionActive ? 'End support chat' : 'Close chat'} danger={!supportSessionActive} onConfirm={closeMemberChat} onClose={() => setConfirmCloseChat(false)} />}
+      {confirmLeaveChat && <ConfirmDialog title="Leave this live chat?" message="You will stop participating in this conversation. The members can keep chatting, the full history remains saved, and you can join again later." confirmLabel={leaving ? 'Leaving…' : 'Leave chat'} onConfirm={leaveConversation} onClose={() => { if (!leaving) setConfirmLeaveChat(false); }} />}
     </div>
   );
 }

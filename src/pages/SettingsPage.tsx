@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, LogOut, Camera, Loader2, Check, ToggleLeft, ToggleRight, Lock, KeyRound, Palette, Mail, AlertTriangle, MessageSquare } from 'lucide-react';
+import { User, Shield, Bell, LogOut, Camera, Loader2, Check, ToggleLeft, ToggleRight, Lock, KeyRound, Palette, Mail, AlertTriangle, MessageSquare, Trash2 } from 'lucide-react';
 import { supabase, AVATAR_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -26,6 +26,9 @@ export function SettingsPage() {
   const [activeRelationships, setActiveRelationships] = useState(0);
   const [showAvailabilityWarning, setShowAvailabilityWarning] = useState(false);
   const [changingAvailability, setChangingAvailability] = useState(false);
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -127,6 +130,26 @@ export function SettingsPage() {
     applyAvailability(true);
   };
 
+  const deleteAccount = async () => {
+    if (!user?.email || !deletePassword) return;
+    setDeletingAccount(true);
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: user.email, password: pinToPassword(deletePassword) });
+    if (signInError) {
+      setDeletingAccount(false);
+      toast('Password is incorrect. Your account was not deleted.', 'error');
+      return;
+    }
+    const { error } = await supabase.rpc('delete_my_account');
+    if (error) {
+      setDeletingAccount(false);
+      toast('Could not delete your account: ' + error.message, 'error');
+      return;
+    }
+    await signOut().catch(() => undefined);
+    navigate('/', { replace: true });
+    toast('Your account and platform data have been permanently deleted.');
+  };
+
   return (
     <div className="container-content py-8">
       <BackButton to="/dashboard" />
@@ -196,11 +219,11 @@ export function SettingsPage() {
         </div>
 
         {profile?.role === 'driver' && <div className="card p-5">
-          <h2 className="flex items-center gap-2 font-semibold text-ink-900"><Shield className="h-5 w-5" /> Trust Passport</h2>
+          <h2 className="flex items-center gap-2 font-semibold text-ink-900"><Shield className="h-5 w-5" /> Driver platform history</h2>
           <p className="mt-2 text-sm text-ink-600">
             Review status: <span className="capitalize font-medium">{profile?.verification_status}</span>
           </p>
-          <button onClick={() => navigate('/onboarding')} className="btn-secondary mt-3">Manage Trust Passport</button>
+          <button onClick={() => navigate('/onboarding')} className="btn-secondary mt-3">Manage platform history</button>
         </div>}
 
         {/* Change password */}
@@ -213,7 +236,7 @@ export function SettingsPage() {
         {/* Danger */}
         <div className="card p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink-900"><LogOut className="h-5 w-5" /> Account</h2>
-          <button onClick={async () => { await signOut(); navigate('/'); }} className="btn-ghost mt-3 text-danger">Sign out</button>
+          <div className="mt-3 flex flex-wrap gap-2"><button onClick={async () => { await signOut(); navigate('/'); }} className="btn-ghost">Sign out</button><button onClick={() => setShowDeleteAccount(true)} className="btn-secondary text-danger"><Trash2 className="h-4 w-4" /> Delete account</button></div>
         </div>
       </div>
 
@@ -226,6 +249,14 @@ export function SettingsPage() {
           </div>
           <p className="mt-3 flex items-start gap-2 text-xs text-ink-500"><MessageSquare className="mt-0.5 h-4 w-4 shrink-0" />The complete conversation will remain stored and readable for history, support, and dispute resolution.</p>
           <div className="mt-5 flex gap-2"><button type="button" onClick={() => setShowAvailabilityWarning(false)} className="btn-secondary flex-1">Keep connection</button><button type="button" onClick={() => applyAvailability(true)} disabled={changingAvailability} className="btn-primary flex-1">{changingAvailability ? 'Ending…' : 'End & become available'}</button></div>
+        </Modal>
+      )}
+      {showDeleteAccount && (
+        <Modal title="Permanently delete your account?" onClose={() => { if (!deletingAccount) { setShowDeleteAccount(false); setDeletePassword(''); } }}>
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-red-900 dark:bg-red-950/20 dark:text-red-100"><AlertTriangle className="h-6 w-6" /><p className="mt-3 font-semibold">This cannot be undone.</p><p className="mt-2 text-sm leading-6">Your profile will disappear, your listings and applications will be removed, active connections will end, and your platform records, messages, reviews, reports, and uploaded evidence linked to the account will be deleted.</p></div>
+          <label className="label mt-4" htmlFor="delete-account-password">Enter your current password to confirm</label>
+          <input id="delete-account-password" type="password" autoComplete="current-password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} placeholder="Current password" className="input" />
+          <div className="mt-5 flex gap-2"><button type="button" onClick={() => { setShowDeleteAccount(false); setDeletePassword(''); }} disabled={deletingAccount} className="btn-secondary flex-1">Keep my account</button><button type="button" onClick={deleteAccount} disabled={deletingAccount || !deletePassword} className="btn flex-1 bg-danger text-white hover:bg-red-700 disabled:opacity-50">{deletingAccount ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting…</> : <><Trash2 className="h-4 w-4" /> Delete forever</>}</button></div>
         </Modal>
       )}
     </div>

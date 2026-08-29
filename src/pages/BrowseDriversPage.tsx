@@ -64,7 +64,7 @@ export function BrowseDriversPage() {
         </select>
         <label className="flex items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm text-ink-700 ring-1 ring-ink-200 dark:bg-[#141416]">
           <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" />
-          Verified only
+          Approved history only
         </label>
       </div>
 
@@ -110,7 +110,7 @@ export function BrowseDriversPage() {
         ) : (
           <EmptyState
             title={(location || platform || verifiedOnly) ? 'No drivers match your filters' : 'No driver profiles are available yet'}
-            description={(location || platform || verifiedOnly) ? 'Try adjusting your filters.' : 'Approved and unverified driver profiles will appear here after registration.'}
+            description={(location || platform || verifiedOnly) ? 'Try adjusting your filters.' : 'Drivers with approved or pending platform history will appear here after they complete their profile.'}
           />
         )}
       </div>

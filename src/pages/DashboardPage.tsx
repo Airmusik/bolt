@@ -137,7 +137,7 @@ export function DashboardPage() {
           <p className="mt-1 text-sm text-ink-500">Welcome back, {profile.full_name.split(' ')[0]}.</p>
         </div>
         {isOwner && <Link to="/vehicles/new" className="btn-primary"><Plus className="h-4 w-4" /> Add vehicle</Link>}
-        {isDriver && !profile.is_verified && <Link to="/onboarding" className="btn-primary"><BadgeCheck className="h-4 w-4" /> Complete verification</Link>}
+        {isDriver && !profile.is_verified && <Link to="/onboarding" className="btn-primary"><BadgeCheck className="h-4 w-4" /> Submit platform history</Link>}
       </div>
 
       {/* Stats */}
@@ -194,16 +194,16 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
     <div className="space-y-6">
       <div className="grid gap-6 lg:grid-cols-2">
         {!isOwner && <div className="card p-5">
-          <h3 className="font-semibold text-ink-900">Trust Passport</h3>
+          <h3 className="font-semibold text-ink-900">Driver platform history</h3>
           <div className="mt-3 flex items-center gap-2">
             {profile.is_verified ? (
-              <><VerifiedBadge verified size={18} showLabel /><span className="text-sm text-ink-700">Your Trust Passport is approved.</span></>
+              <><VerifiedBadge verified size={18} showLabel /><span className="text-sm text-ink-700">Your recent platform history has been approved.</span></>
             ) : (
-              <><Clock className="h-5 w-5 text-amber-500" /><span className="text-sm text-amber-700">{profile.verification_status === 'pending' ? 'Trust Passport under review.' : 'Trust Passport not reviewed yet.'}</span></>
+              <><Clock className="h-5 w-5 text-amber-500" /><span className="text-sm text-amber-700">{profile.verification_status === 'pending' ? 'Platform history under review.' : 'Platform history not reviewed yet.'}</span></>
             )}
           </div>
           {!profile.is_verified && (
-            <Link to="/onboarding" className="btn-secondary mt-4">Build your Trust Passport</Link>
+            <Link to="/onboarding" className="btn-secondary mt-4">Manage platform history</Link>
           )}
         </div>}
         <div className="card p-5">
@@ -585,6 +585,7 @@ function ChatsTab({ conversations, loading, currentUserId }: { conversations: Co
 
 export function ReviewModal({ application, onClose, onDone }: { application: Application; revieweeId: string; onClose: () => void; onDone: () => void }) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [rating, setRating] = useState(5);
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
@@ -597,7 +598,11 @@ export function ReviewModal({ application, onClose, onDone }: { application: App
       p_rating: rating,
       p_content: content,
     });
-    if (error) { setLoading(false); return; }
+    if (error) {
+      setLoading(false);
+      toast(error.message.toLowerCase().includes('duplicate') ? 'You have already reviewed this connection.' : `Could not submit review: ${error.message}`, 'error');
+      return;
+    }
     setLoading(false);
     onDone();
   };
@@ -611,6 +616,7 @@ export function ReviewModal({ application, onClose, onDone }: { application: App
           </button>
         ))}
       </div>
+      <p className="mt-2 text-center text-xs font-medium text-ink-500">{rating} out of 5 stars selected</p>
       <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} placeholder="Share your experience…" className="input mt-4" />
       <button onClick={submit} disabled={loading} className="btn-primary mt-4 w-full">{loading ? 'Submitting…' : 'Submit review'}</button>
     </Modal>

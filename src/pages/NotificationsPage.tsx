@@ -103,7 +103,7 @@ export function NotificationsPage() {
 
       <div className="mt-6 space-y-2">
         {loading ? <div className="card h-32 animate-pulse" /> : notifications.length === 0 ? (
-          <EmptyState title="No notifications" description="You'll see updates here when drivers apply, messages arrive, or your verification status changes." />
+          <EmptyState title="No notifications" description="You'll see updates here when drivers apply, messages arrive, or your platform-history review changes." />
         ) : (
           notifications.map((n) => (
             <div key={n.id} className={cn('card flex items-start gap-3 overflow-hidden p-2 transition hover:-translate-y-0.5 hover:shadow-card-hover', !n.read && 'ring-brand-200')}>

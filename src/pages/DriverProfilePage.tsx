@@ -60,14 +60,15 @@ export function DriverProfilePage() {
           {/* Header card */}
           <div className="card p-6">
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-              <Avatar name={profile.full_name} src={profile.avatar_url} size={88} verified={profile.is_verified} />
+              <Avatar name={profile.full_name} src={profile.avatar_url} size={88} verified={!isOwner && profile.is_verified} />
               <div className="flex-1">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-700">{profile.role} profile</p>
                 <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink-900">
-                  {profile.full_name} <VerifiedBadge verified={profile.is_verified} size={18} showLabel />
+                  {profile.full_name} {!isOwner && <VerifiedBadge verified={profile.is_verified} size={18} showLabel />}
                 </h1>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
                   <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {profile.location || 'Location not provided'}</span>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 font-medium text-brand-700 ring-1 ring-brand-100"><CalendarDays className="h-4 w-4" /> Member since {new Date(profile.created_at).toLocaleDateString('en-KE', { month: 'long', year: 'numeric' })}</span>
                   {user?.id === profile.id && profile.email && <span className="inline-flex items-center gap-1"><Mail className="h-4 w-4" /> {profile.email} <span className="text-xs">(only you can see this)</span></span>}
                   {!isOwner && profile.age && <span>{profile.age} years old</span>}
                   {!isOwner && <span className="inline-flex items-center gap-1"><Briefcase className="h-4 w-4" /> {profile.driving_experience_years} {profile.driving_experience_years === 1 ? 'year' : 'years'} experience</span>}
@@ -126,7 +127,6 @@ export function DriverProfilePage() {
               <p className="mb-3 text-sm text-ink-500">Trust is based on transparent activity and admin-approved evidence—not identity documents.</p>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <TrustSignal icon={<Award className="h-4 w-4" />} label="Trust level" value={titleCase(trustPassport?.trust_level || 'new')} />
-                <TrustSignal icon={<CalendarDays className="h-4 w-4" />} label="Member since" value={new Date(trustPassport?.account_created_at || profile.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })} />
                 <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Approved evidence" value={String(trustPassport?.approved_evidence ?? 0)} />
                 <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Account standing" value={trustPassport?.account_standing === 'restricted' ? 'Restricted' : 'Good standing'} />
               </div>

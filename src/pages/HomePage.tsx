@@ -263,7 +263,7 @@ export function HomePage() {
             <ul className="mt-6 space-y-3">
               {[
                 'Transparent driver Trust Passport and account standing',
-                'Vehicle photos and trust evidence reviewed by admins',
+                'Vehicle listings and driver platform history reviewed by admins',
                 'Insurance type and expiry visible on every listing',
                 'Known vehicle issues disclosed by the owner',
                 'Approved platform history and evidence shown as counts',
