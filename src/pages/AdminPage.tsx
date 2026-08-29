@@ -982,6 +982,7 @@ export function AdminPage() {
           }}
           onOpenConversation={viewingReport.target_type === 'conversation' && viewingReport.target_id ? () => {
             const conversationId = viewingReport.target_id!;
+            sessionStorage.setItem('admin-open-conversation', conversationId);
             setViewingReport(null);
             setTab('chat');
             window.setTimeout(() => window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: conversationId })), 50);
@@ -1585,8 +1586,10 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
   const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
+  const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
   const [joinedConversationIds, setJoinedConversationIds] = useState<Set<string>>(new Set());
+  const [supportRequestedIds, setSupportRequestedIds] = useState<Set<string>>(new Set());
   const [joining, setJoining] = useState(false);
   const [confirmCloseChat, setConfirmCloseChat] = useState(false);
   const [confirmLeaveChat, setConfirmLeaveChat] = useState(false);
@@ -1597,18 +1600,31 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
-    const [{ data }, { data: memberships }] = await Promise.all([
+    const [{ data }, { data: memberships }, { data: supportRequests }] = await Promise.all([
       supabase.from('conversations').select(`*, driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('last_message_at', { ascending: false, nullsFirst: false }),
       supabase.from('conversation_admins').select('conversation_id').eq('admin_id', user.id),
+      supabase.from('reports').select('target_id').eq('target_type', 'conversation').eq('reason', 'Support requested').in('status', ['open', 'reviewing']),
     ]);
-    setConversations((data as (Conversation & { driver?: Profile; owner?: Profile })[]) || []);
+    const supportIds = new Set<string>((supportRequests || []).map((request) => request.target_id).filter((id): id is string => Boolean(id)));
+    const nextConversations = ((data as (Conversation & { driver?: Profile; owner?: Profile })[]) || []).sort((a, b) => {
+      const supportPriority = Number(supportIds.has(b.id)) - Number(supportIds.has(a.id));
+      if (supportPriority !== 0) return supportPriority;
+      return new Date(b.last_message_at || b.created_at).getTime() - new Date(a.last_message_at || a.created_at).getTime();
+    });
+    setConversations(nextConversations);
     setJoinedConversationIds(new Set((memberships || []).map((membership) => membership.conversation_id)));
+    setSupportRequestedIds(supportIds);
     setLoading(false);
   }, [user]);
 
   useEffect(() => { loadConversations(); }, [loadConversations]);
 
   useEffect(() => {
+    const pendingConversationId = sessionStorage.getItem('admin-open-conversation');
+    if (pendingConversationId) {
+      setActiveId(pendingConversationId);
+      sessionStorage.removeItem('admin-open-conversation');
+    }
     const handler = (event: Event) => {
       const detail = (event as CustomEvent<string | { conversationId: string; prefill?: string }>).detail;
       if (typeof detail === 'string') {
@@ -1653,10 +1669,12 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
 
   const send = async () => {
-    if (!user || !activeId || !text.trim()) return;
+    if (!user || !activeId || !text.trim() || sending) return;
     if (!active || (active.admin_id !== user.id && !joinedConversationIds.has(active.id))) { toast('Join this conversation before sending a message.', 'error'); return; }
     const content = text.trim();
+    setSending(true);
     const { error } = await supabase.rpc('send_message', { p_conversation_id: activeId, p_content: content });
+    setSending(false);
     if (error) { toast('Could not send message: ' + error.message, 'error'); return; }
     setText('');
     await loadMessages();
@@ -1701,8 +1719,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
     if (error) { toast('Could not join conversation: ' + error.message, 'error'); return; }
     setJoinedConversationIds((current) => new Set(current).add(conversationId));
     toast(wasClosed ? 'Support session opened. Both members can message again.' : 'You joined the conversation. Both members were notified in chat.');
-    await loadMessages();
-    loadConversations();
+    await Promise.all([loadMessages(), loadConversations()]);
   };
 
   const leaveConversation = async () => {
@@ -1763,7 +1780,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
                 <p className="text-xs text-ink-500">{c.driver && c.owner ? 'Driver and car-owner conversation' : `${u?.role === 'owner' ? 'Car owner' : u?.role === 'driver' ? 'Driver' : 'Member'} · direct support`}</p>
                 <p className="mt-0.5 text-[10px] text-ink-400">{formatDateTime(c.last_message_at || c.created_at)}</p>
               </div>
-              <div className="text-right">{c.support_reopened_at && !c.support_resolved_at && !c.closed_at ? <span className="badge bg-violet-100 text-[10px] text-violet-700">Support open</span> : joined && <span className="badge badge-success text-[10px]">Joined</span>}{c.last_message_at && <span className="mt-1 block text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}</div>
+              <div className="text-right">{supportRequestedIds.has(c.id) && !(c.support_reopened_at && !c.support_resolved_at && !c.closed_at) ? <span className="badge bg-amber-100 text-[10px] text-amber-800">Support requested</span> : c.support_reopened_at && !c.support_resolved_at && !c.closed_at ? <span className="badge bg-violet-100 text-[10px] text-violet-700">Support open</span> : joined && <span className="badge badge-success text-[10px]">Joined</span>}{c.last_message_at && <span className="mt-1 block text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}</div>
             </button>
           );
         })}
@@ -1799,8 +1816,8 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
             {activeJoined && !active.closed_at ? <div className="flex items-center gap-2 border-t border-ink-100 p-3">
               <input ref={imageInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadChatImage(file); }} />
               <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Send an image" title="Send an image" className="rounded-full p-2 text-ink-500 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
-              <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="Type a message…" className="input flex-1" />
-              <button onClick={send} disabled={!text.trim()} aria-label="Send message" className="btn-primary px-3"><Send className="h-4 w-4" /></button>
+              <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !sending) { e.preventDefault(); send(); } }} placeholder="Type a message…" className="input flex-1" disabled={sending} />
+              <button onClick={send} disabled={sending || !text.trim()} aria-label="Send message" className="btn-primary px-3">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button>
             </div> : <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><LockKeyhole className="h-4 w-4" />This history is read-only. Click Reopen with support to let both members and support message again.</div>}
           </>
         ) : (

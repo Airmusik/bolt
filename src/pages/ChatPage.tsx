@@ -19,6 +19,7 @@ import { prepareChatImageUpload } from '@/lib/trustUpload';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
+const SUPPORT_REQUEST_MIN_LENGTH = 10;
 
 type BlockStatus = {
   i_blocked_other: boolean;
@@ -399,11 +400,16 @@ export function ChatPage() {
   };
 
   const contactSupport = async () => {
-    if (!active || supportRequest.trim().length < 10) return;
+    if (!active) return;
+    const message = supportRequest.trim();
+    if (message.length < SUPPORT_REQUEST_MIN_LENGTH) {
+      toast(`Please add ${SUPPORT_REQUEST_MIN_LENGTH - message.length} more character${SUPPORT_REQUEST_MIN_LENGTH - message.length === 1 ? '' : 's'} so support can understand the issue.`, 'error');
+      return;
+    }
     setRequestingSupport(true);
     const { error } = await supabase.rpc('request_conversation_support', {
       p_conversation_id: active.id,
-      p_message: supportRequest.trim(),
+      p_message: message,
     });
     setRequestingSupport(false);
     if (error) { toast('Could not contact support: ' + error.message, 'error'); return; }
@@ -598,13 +604,22 @@ export function ChatPage() {
       )}
       {showSupportRequest && active && (
         <Modal title="Contact support about this chat" onClose={() => setShowSupportRequest(false)}>
-          <div className="rounded-xl bg-violet-50 p-3 text-sm text-violet-900 ring-1 ring-violet-100 dark:bg-violet-950/25 dark:text-violet-100">
-            Your request is private. Support will receive a link to this exact conversation and can reopen an ended chat while helping resolve the issue.
-          </div>
-          <label className="label mt-4" htmlFor="support-request-message">What help do you need?</label>
-          <textarea id="support-request-message" value={supportRequest} onChange={(event) => setSupportRequest(event.target.value)} rows={4} maxLength={1000} className="input" placeholder="Explain the issue and what you would like support to help with…" />
-          <div className="mt-1 text-right text-xs text-ink-400">{supportRequest.length}/1000</div>
-          <button type="button" onClick={contactSupport} disabled={requestingSupport || supportRequest.trim().length < 10} className="btn-primary mt-4 w-full"><Headphones className="h-4 w-4" /> {requestingSupport ? 'Sending request…' : 'Send to support'}</button>
+          <form onSubmit={(event) => { event.preventDefault(); void contactSupport(); }}>
+            <div className="rounded-xl bg-violet-50 p-3 text-sm text-violet-900 ring-1 ring-violet-100 dark:bg-violet-950/25 dark:text-violet-100">
+              Your request is private. Support will receive a link to this exact conversation and can reopen an ended chat while helping resolve the issue.
+            </div>
+            <label className="label mt-4" htmlFor="support-request-message">What help do you need?</label>
+            <textarea id="support-request-message" value={supportRequest} onChange={(event) => setSupportRequest(event.target.value)} rows={4} maxLength={1000} className="input" placeholder="Explain the issue and what you would like support to help with…" autoFocus />
+            <div className="mt-1 flex items-center justify-between gap-3 text-xs">
+              <span className={supportRequest.trim().length > 0 && supportRequest.trim().length < SUPPORT_REQUEST_MIN_LENGTH ? 'font-semibold text-amber-600' : 'text-ink-400'}>
+                {supportRequest.trim().length > 0 && supportRequest.trim().length < SUPPORT_REQUEST_MIN_LENGTH
+                  ? `${SUPPORT_REQUEST_MIN_LENGTH - supportRequest.trim().length} more character${SUPPORT_REQUEST_MIN_LENGTH - supportRequest.trim().length === 1 ? '' : 's'} required`
+                  : `Minimum ${SUPPORT_REQUEST_MIN_LENGTH} characters`}
+              </span>
+              <span className="text-ink-400">{supportRequest.length}/1000</span>
+            </div>
+            <button type="submit" disabled={requestingSupport || supportRequest.trim().length === 0} className="btn-primary mt-4 w-full"><Headphones className="h-4 w-4" /> {requestingSupport ? 'Sending request…' : 'Send to support'}</button>
+          </form>
         </Modal>
       )}
       {confirmSafetyAction && !isDirectSupportConversation && (
