@@ -5,8 +5,11 @@ import { formatDateTime, formatMoney } from '@/lib/utils';
 import { promotionError, promotionStatus, promotionTitle, type PromotionRequest, type PromotionSettings } from '@/lib/promotions';
 import { useToast } from './useToast';
 import { Modal } from './Modal';
+import { PromotionAnalytics } from './PromotionAnalytics';
+import { usePromotionLive } from '@/lib/promotionLive';
 
 export function AdminPromotions() {
+  usePromotionLive();
   const { toast } = useToast();
   const [settings, setSettings] = useState<PromotionSettings | null>(null);
   const [draft, setDraft] = useState({ listing_price: '', profile_price: '', duration_days: '' });
@@ -52,6 +55,7 @@ export function AdminPromotions() {
     } catch (e) { toast(promotionError(e), 'error'); } finally { setSaving(false); }
   };
   return <div className="space-y-5">
+    <PromotionAnalytics admin />
     {error && <p role="alert" className="text-sm text-danger">{error} <button type="button" className="underline" onClick={() => void load()}>Retry</button></p>}
     {!settings && !error && <p>Loading promotion settings…</p>}
     {settings && <section className="card p-4 sm:p-6">

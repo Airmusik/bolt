@@ -1,5 +1,7 @@
+import { PromotionLink as Link, PromotionBadge } from '@/components/PromotionLink';
+import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { MapPin, Languages, Briefcase } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
@@ -17,9 +19,11 @@ import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras'];
 
 export function BrowseDriversPage() {
+  const { revision } = usePromotionLive();
   const { toast } = useToast();
   const [params] = useSearchParams();
-  const [drivers, setDrivers] = useState<Profile[]>([]);
+  const [driversRaw, setDrivers] = useState<Profile[]>([]);
+  const drivers = usePromotionRanking(driversRaw, 'profile');
   const [loading, setLoading] = useState(true);
   const [location, setLocation] = useState(() => params.get('location') || '');
   const [platform, setPlatform] = useState('');
@@ -32,7 +36,7 @@ export function BrowseDriversPage() {
       setDrivers((data as Profile[]) || []);
       setLoading(false);
     })();
-  }, [toast]);
+  }, [toast, revision]);
 
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
@@ -78,7 +82,7 @@ export function BrowseDriversPage() {
                       <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
                     </div>
                     <AvailabilityBadge availability={d.availability} profile={d} />
-                    {d.sponsored && <span className="badge-accent">Sponsored</span>}
+                    <PromotionBadge kind="profile" id={d.id} />
                   </div>
                   <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-3" />
                   <div className="mt-3 space-y-1.5 text-xs text-ink-500">

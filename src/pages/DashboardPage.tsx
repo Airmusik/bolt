@@ -1,5 +1,8 @@
+import { PromotionLink as Link, PromotionBadge, PromoteListingLink } from '@/components/PromotionLink';
+import { PromotionAnalytics } from '@/components/PromotionAnalytics';
+import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useEffect, useState, useCallback } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Pause, Play } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -30,6 +33,7 @@ type OutgoingConnection = Connection & { recipient?: Profile };
 type ToastFn = (message: string, type?: ToastType) => void;
 
 export function DashboardPage() {
+  const { revision } = usePromotionLive();
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const { settings } = useSiteSettings();
@@ -42,8 +46,10 @@ export function DashboardPage() {
   const [applications, setApplications] = useState<OwnerApplication[]>([]);
   const [myApplications, setMyApplications] = useState<DriverApplication[]>([]);
   const [conversations, setConversations] = useState<ConversationWithRelations[]>([]);
-  const [drivers, setDrivers] = useState<Profile[]>([]);
-  const [availableCars, setAvailableCars] = useState<VehicleWithRelations[]>([]);
+  const [driversRaw, setDrivers] = useState<Profile[]>([]);
+  const drivers = usePromotionRanking(driversRaw, 'profile');
+  const [availableCarsRaw, setAvailableCars] = useState<VehicleWithRelations[]>([]);
+  const availableCars = usePromotionRanking(availableCarsRaw, 'listing');
   const [incomingConnections, setIncomingConnections] = useState<IncomingConnection[]>([]);
   const [outgoingConnections, setOutgoingConnections] = useState<OutgoingConnection[]>([]);
   const [loading, setLoading] = useState(true);
@@ -106,7 +112,7 @@ export function DashboardPage() {
     setLoading(false);
   }, [user, profile, toast]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => { load(); }, [load, revision]);
 
   if (!profile) return null;
   const isOwner = profile.role === 'owner';
@@ -159,6 +165,7 @@ export function DashboardPage() {
 
   return (
     <div className={cn('container-content py-2 sm:py-5', tab === 'overview' && 'overview-motion')} data-motion-paused={motionPaused ? 'true' : undefined}>
+      {(tab === 'overview' || tab === 'vehicles') && <PromotionAnalytics compact />}
       {tab === 'overview' && <>
       <section className="dashboard-panel overview-welcome relative isolate mt-3 overflow-hidden">
         <span aria-hidden="true" className="overview-ambient pointer-events-none absolute -right-8 -top-12 h-44 w-64 rounded-full" />
@@ -281,7 +288,7 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
                     <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
                   </div>
                   <AvailabilityBadge availability={d.availability} profile={d} />
-                  {d.sponsored && <span className="badge-accent">Sponsored</span>}
+                  <PromotionBadge kind="profile" id={d.id} />
                 </div>
                 <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-2" />
                 <div className="mt-2 flex items-center gap-1 text-xs text-ink-500"><Briefcase className="h-3 w-3" /> {Math.max(1, d.driving_experience_years || 1)} {d.driving_experience_years === 1 ? 'year' : 'years'}</div>
@@ -323,7 +330,7 @@ function DriversTab({ users, loading, siteName }: { users: Profile[]; loading: b
                 <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
               </div>
               <AvailabilityBadge availability={d.availability} profile={d} />
-              {d.sponsored && <span className="badge-accent">Sponsored</span>}
+              <PromotionBadge kind="profile" id={d.id} />
             </div>
             <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-3" />
             <div className="mt-2 flex flex-wrap gap-1">
@@ -348,7 +355,7 @@ function AvailableCarsTab({ vehicles, loading }: { vehicles: VehicleWithRelation
 function VehiclesTab({ vehicles, loading, onDeleted }: { vehicles: VehicleWithRelations[]; loading: boolean; onDeleted: () => void }) {
   if (loading) return <div className="card h-48 animate-pulse" />;
   if (vehicles.length === 0) return <EmptyState title="No vehicles yet" description="Add your first vehicle to start receiving applications." action={<Link to="/vehicles/new" className="btn-primary">Add vehicle</Link>} />;
-  return <div><div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">New listings require admin approval. Published listings can be edited at any time; rejected listings must be corrected and resubmitted.</div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <div key={v.id} className="space-y-2"><VehicleCard vehicle={v} showOwner={false} showApprovalStatus /><Link to={`/vehicles/${v.id}/edit`} className="btn-secondary w-full"><Pencil className="h-4 w-4" /> {v.approval_status === 'rejected' ? 'Edit & resubmit listing' : v.approval_status === 'approved' ? 'Edit published listing' : 'Edit submission'}</Link>{v.approval_status === 'approved' && v.status === 'active' && <Link to={`/promotions?vehicle=${v.id}`} className="btn-ghost w-full">Promote listing</Link>}<DeleteListingButton id={v.id} onDeleted={onDeleted} /></div>)}</div></div>;
+  return <div><div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">New listings require admin approval. Published listings can be edited at any time; rejected listings must be corrected and resubmitted.</div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <div key={v.id} className="space-y-2"><VehicleCard vehicle={v} showOwner={false} showApprovalStatus /><Link to={`/vehicles/${v.id}/edit`} className="btn-secondary w-full"><Pencil className="h-4 w-4" /> {v.approval_status === 'rejected' ? 'Edit & resubmit listing' : v.approval_status === 'approved' ? 'Edit published listing' : 'Edit submission'}</Link>{v.approval_status === 'approved' && v.status === 'active' && <PromoteListingLink id={v.id} ownerId={v.owner_id} />}<DeleteListingButton id={v.id} onDeleted={onDeleted} /></div>)}</div></div>;
 }
 
 function OwnerApplicationsTab({ applications, onAction, toast }: { applications: OwnerApplication[]; onAction: () => void; toast: ToastFn }) {

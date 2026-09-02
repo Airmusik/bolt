@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Megaphone } from 'lucide-react';
+import { PromotionAnalytics } from '@/components/PromotionAnalytics';
+import { usePromotionLive, matchingPromotions } from '@/lib/promotionLive';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -9,6 +11,7 @@ import { formatDateTime, formatMoney } from '@/lib/utils';
 import { promotionError, promotionStatus, promotionTitle, type PromotionRequest, type PromotionSettings } from '@/lib/promotions';
 
 export function PromotionsPage() {
+  const { campaigns } = usePromotionLive();
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [params] = useSearchParams();
@@ -18,6 +21,7 @@ export function PromotionsPage() {
   const [target, setTarget] = useState(params.get('vehicle') || 'profile');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const promoted = matchingPromotions(campaigns, target === 'profile' ? 'profile' : 'listing', target === 'profile' ? user?.id || '' : target, user?.id).length > 0;
   const load = useCallback(async () => {
     if (!user) return;
     try {
@@ -54,10 +58,11 @@ export function PromotionsPage() {
         <p className="mt-2 text-xs text-ink-500">Driver profiles appear higher in driver results. An owner-profile promotion highlights their approved cars; a listing promotion highlights one car. Visibility is subject to availability and search filters.</p>
         <p className="mt-4 text-lg font-bold">{formatMoney(target === 'profile' ? settings.profile_price : settings.listing_price)} <span className="text-sm font-normal text-ink-500">for {settings.duration_days} days</span></p>
         <p className="mt-2 whitespace-pre-wrap break-words text-sm text-ink-600">{settings.terms}</p>
-        <button type="button" disabled={busy} onClick={() => void create()} className="btn-primary mt-4">{busy ? 'Preparing quote…' : 'Get quote & payment instructions'}</button>
+        <button type="button" disabled={busy || promoted} onClick={() => void create()} className="btn-primary mt-4">{promoted ? 'Promoted · Analytics below' : busy ? 'Preparing quote…' : 'Get quote & payment instructions'}</button>
         <p className="mt-2 text-xs text-ink-500">No charge on this button. Check the saved quote, pay using its instructions, then submit your transaction reference. Never share a payment PIN or password.</p>
       </>}
     </div>}
+    <PromotionAnalytics />
     <h2 className="mt-7 font-display text-lg font-bold">My promotion history</h2>
     {settings && requests.length === 0 && <p className="mt-3 text-sm text-ink-500">No promotion requests yet.</p>}
     <div className="mt-3 space-y-4">{requests.map(r => <PromotionRequestCard key={r.id} request={r} refresh={load} />)}</div>

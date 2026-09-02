@@ -1,3 +1,4 @@
+import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, Search, MapPin } from 'lucide-react';
@@ -25,9 +26,11 @@ interface Filters {
 }
 
 export function BrowseCarsPage() {
+  const { revision } = usePromotionLive();
   const { toast } = useToast();
   const [params] = useSearchParams();
-  const [vehicles, setVehicles] = useState<VehicleWithRelations[]>([]);
+  const [vehiclesRaw, setVehicles] = useState<VehicleWithRelations[]>([]);
+  const vehicles = usePromotionRanking(vehiclesRaw, 'listing');
   const [loading, setLoading] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -50,7 +53,7 @@ export function BrowseCarsPage() {
       setVehicles((data as VehicleWithRelations[]) || []);
       setLoading(false);
     })();
-  }, [toast]);
+  }, [toast, revision]);
 
   const filtered = useMemo(() => {
     return vehicles.filter((v) => {

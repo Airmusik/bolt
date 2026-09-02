@@ -1,5 +1,7 @@
+import { PromotionLink as Link, PromotionBadge } from '@/components/PromotionLink';
+import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   Search, MapPin, ShieldCheck, Car, Users, Star, ArrowRight,
   CheckCircle2, MessageSquare, Bell, BadgeCheck, TrendingUp, ChevronLeft, ChevronRight, Pause, Play,
@@ -17,14 +19,17 @@ import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { buildDiscoveryUrl, type DiscoveryIntent } from '@/lib/discoverySearch';
 
 export function HomePage() {
+  const { revision } = usePromotionLive();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { settings } = useSiteSettings();
   const [query, setQuery] = useState('');
   const [searchIntent, setSearchIntent] = useState<DiscoveryIntent>('car');
   const [location, setLocation] = useState('');
-  const [featured, setFeatured] = useState<VehicleWithRelations[]>([]);
-  const [drivers, setDrivers] = useState<Profile[]>([]);
+  const [featuredRaw, setFeatured] = useState<VehicleWithRelations[]>([]);
+  const featured = usePromotionRanking(featuredRaw, 'listing');
+  const [driversRaw, setDrivers] = useState<Profile[]>([]);
+  const drivers = usePromotionRanking(driversRaw, 'profile');
   const [loading, setLoading] = useState(true);
   const [featuredPaused, setFeaturedPaused] = useState(false);
   const [featuredInteracting, setFeaturedInteracting] = useState(false);
@@ -40,7 +45,7 @@ export function HomePage() {
       setDrivers((d as Profile[]) || []);
       setLoading(false);
     })();
-  }, []);
+  }, [revision]);
 
   const scrollFeatured = useCallback((direction: 1 | -1) => {
     const track = featuredTrackRef.current;
@@ -249,7 +254,7 @@ export function HomePage() {
                   <Avatar name={d.full_name} src={d.avatar_url} size={72} verified className="mx-auto" />
                   <p className="mt-3 flex items-center justify-center gap-1 font-semibold text-ink-900">
                     {d.full_name}
-                    {d.sponsored && <span className="badge-accent ml-2">Sponsored</span>}
+                    <PromotionBadge kind="profile" id={d.id} />
                   </p>
                   <p className="text-xs text-ink-500">{d.location || 'Location not provided'}</p>
                   <div className="mt-1"><VerifiedBadge verified={d.platform_history_approved} size={11} showLabel /></div>

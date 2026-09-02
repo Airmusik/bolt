@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { PromotionLink as Link, PromotionBadge } from './PromotionLink';
 import { MapPin, Fuel, Settings2, Wallet, ShieldCheck, AlertTriangle } from 'lucide-react';
 import type { VehicleWithRelations } from '@/lib/types';
 import { formatKES, formatDate, timeAgo, expiryStatus, titleCase, cn } from '@/lib/utils';
@@ -22,6 +22,7 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
 
   return (
     <Link
+      ownerId={vehicle.owner_id}
       to={`/vehicles/${vehicle.id}`}
       className="card card-hover group block overflow-hidden"
     >
@@ -43,7 +44,7 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
           {showApprovalStatus && vehicle.approval_status === 'pending' && <span className="badge-warning">Pending admin approval</span>}
           {showApprovalStatus && vehicle.approval_status === 'approved' && <span className="badge-success">Approved</span>}
           {showApprovalStatus && vehicle.approval_status === 'rejected' && <span className="badge-danger">Changes required</span>}
-          {vehicle.sponsored ? <span className="badge-accent">Sponsored</span> : vehicle.featured && <span className="badge-accent">Featured</span>}
+          <PromotionBadge kind="listing" id={vehicle.id} ownerId={vehicle.owner_id} featured={vehicle.featured} />
           {vehicle.availability === 'available' && <span className="badge-brand">Available</span>}
           {vehicle.availability !== 'available' && <span className="badge-neutral">Taken</span>}
         </div>

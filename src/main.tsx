@@ -7,6 +7,7 @@ import App from './App';
 import './index.css';
 import { getInitialTheme, applyTheme } from '@/lib/theme';
 import { SiteSettingsProvider } from '@/lib/siteSettings';
+import { PromotionLiveProvider } from '@/lib/promotionLive';
 
 applyTheme(getInitialTheme());
 
@@ -14,7 +15,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <ToastProvider>
-        <SiteSettingsProvider><AuthProvider><App /></AuthProvider></SiteSettingsProvider>
+        <SiteSettingsProvider><AuthProvider><PromotionLiveProvider><App /></PromotionLiveProvider></AuthProvider></SiteSettingsProvider>
       </ToastProvider>
     </BrowserRouter>
   </StrictMode>
