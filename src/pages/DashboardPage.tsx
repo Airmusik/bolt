@@ -199,7 +199,7 @@ export function DashboardPage() {
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex">
-            <Link to="/settings" className="btn-secondary px-3 py-2 text-xs"><Pencil className="h-4 w-4" /> Settings</Link>
+            <Link to="/settings" className={cn('btn-secondary px-3 py-2 text-xs', isDriver && profile.is_verified && 'col-span-2 sm:col-auto')}><Pencil className="h-4 w-4" /> Settings</Link>
             {isOwner && <Link to="/vehicles/new" className="btn-primary px-3 py-2 text-xs"><Plus className="h-4 w-4" /> Add vehicle</Link>}
             {isDriver && !profile.is_verified && <Link to="/onboarding" className="btn bg-accent-500 text-white hover:-translate-y-0.5 hover:bg-accent-600"><BadgeCheck className="h-4 w-4" /> Platform history</Link>}
           </div>
@@ -219,12 +219,12 @@ export function DashboardPage() {
           s.tab ? (
             <button key={s.label} onClick={() => setTab(s.tab!)} className="card group flex min-w-0 items-center gap-3 p-3 text-left hover:-translate-y-0.5 hover:shadow-card-hover hover:ring-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-400 sm:p-4">
               <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', index === 0 ? 'bg-emerald-50 text-emerald-700' : index === 1 ? 'bg-amber-50 text-amber-700' : index === 2 ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700')}><s.icon className="h-4 w-4" /></span>
-              <span className="min-w-0 flex-1"><span className="metric-value block font-display text-xl font-bold leading-none text-ink-900">{s.value}</span><span className="mt-1 block truncate text-[11px] text-ink-500 sm:text-xs">{s.label}</span></span><ChevronRight className="hidden h-4 w-4 text-ink-300 transition group-hover:translate-x-1 group-hover:text-ink-600 sm:block" />
+              <span className="min-w-0 flex-1"><span className="metric-value block font-display text-xl font-bold leading-none text-ink-900">{s.value}</span><span className="mt-1 block text-[11px] leading-tight text-ink-500 sm:text-xs">{s.label}</span></span><ChevronRight className="hidden h-4 w-4 text-ink-300 transition group-hover:translate-x-1 group-hover:text-ink-600 sm:block" />
             </button>
           ) : (
             <div key={s.label} className="card flex min-w-0 items-center gap-3 p-3 sm:p-4">
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><s.icon className="h-4 w-4" /></span>
-              <span className="min-w-0"><span className="metric-value block font-display text-xl font-bold leading-none text-ink-900">{s.value}</span><span className="mt-1 block truncate text-[11px] text-ink-500 sm:text-xs">{s.label}</span></span>
+              <span className="min-w-0"><span className="metric-value block font-display text-xl font-bold leading-none text-ink-900">{s.value}</span><span className="mt-1 block text-[11px] leading-tight text-ink-500 sm:text-xs">{s.label}</span></span>
             </div>
           )
         ))}
