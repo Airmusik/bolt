@@ -5,6 +5,8 @@ export interface AuthContextValue {
   user: { id: string; email: string } | null;
   profile: Profile | null;
   loading: boolean;
+  registrationRequired: boolean;
+  profileError: string | null;
   signUp: (phone: string, password: string, fullName: string, role: Role, email: string, location: string, languages: string[], acceptedTermsVersion: string | null) => Promise<{ error: string | null; requiresEmailConfirmation?: boolean }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;

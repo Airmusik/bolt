@@ -6,15 +6,18 @@ import { useToast } from '@/components/useToast';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { SiteLogo } from '@/components/SiteLogo';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { googleAuthDestination } from '@/lib/googleAuth';
 
 export function LoginPage() {
-  const { signIn, user, resetPin } = useAuth();
+  const { signIn, user, profile, loading: authLoading, registrationRequired, resetPin } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [showReset, setShowReset] = useState(() => new URLSearchParams(window.location.search).get('forgot') === '1');
@@ -50,10 +53,10 @@ export function LoginPage() {
   };
 
   useEffect(() => {
-    if (user && !legacyResetMode) {
-      navigate('/dashboard', { replace: true });
+    if (user && !authLoading && (profile || registrationRequired) && !legacyResetMode) {
+      navigate(googleAuthDestination(profile, registrationRequired), { replace: true });
     }
-  }, [user, legacyResetMode, navigate]);
+  }, [user, authLoading, profile, registrationRequired, legacyResetMode, navigate]);
 
   if (legacyResetMode) return <ResetPasswordPage />;
 
@@ -98,7 +101,7 @@ export function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (loading || googleBusy) return;
     setError(null);
     setLoading(true);
     try {
@@ -130,6 +133,7 @@ export function LoginPage() {
           {error && (
             <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
           )}
+          <GoogleSignInButton disabled={loading} onBusyChange={setGoogleBusy} onError={setError} />
           <div>
             <label htmlFor="login-email" className="label">Email address <span className="text-danger">*</span></label>
             <div className="relative">
@@ -169,7 +173,7 @@ export function LoginPage() {
             </div>
             <p id="login-password-hint" className="auth-hint">Passwords are case-sensitive.</p>
           </div>
-          <button type="submit" disabled={loading} className="btn-primary mt-6 min-h-12 w-full">
+          <button type="submit" disabled={loading || googleBusy} className="btn-primary mt-6 min-h-12 w-full">
             {loading ? 'Signing in…' : 'Sign in'} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
           </button>
           <button type="button" disabled={loading} onClick={() => { setResetEmail(email); setShowReset(true); setResetError(null); setResetSent(false); }} className="btn-ghost mt-2 w-full font-medium">Forgot your password?</button>

@@ -10,6 +10,7 @@ const HomePage = lazy(() => import('@/pages/HomePage').then((module) => ({ defau
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((module) => ({ default: module.LoginPage })));
 const ResetPasswordPage = lazy(() => import('@/pages/ResetPasswordPage').then((module) => ({ default: module.ResetPasswordPage })));
 const RegisterPage = lazy(() => import('@/pages/RegisterPage').then((module) => ({ default: module.RegisterPage })));
+const AuthCallbackPage = lazy(() => import('@/pages/AuthCallbackPage').then((module) => ({ default: module.AuthCallbackPage })));
 const BrowseCarsPage = lazy(() => import('@/pages/BrowseCarsPage').then((module) => ({ default: module.BrowseCarsPage })));
 const BrowseDriversPage = lazy(() => import('@/pages/BrowseDriversPage').then((module) => ({ default: module.BrowseDriversPage })));
 const VehicleDetailsPage = lazy(() => import('@/pages/VehicleDetailsPage').then((module) => ({ default: module.VehicleDetailsPage })));
@@ -37,7 +38,7 @@ export default function App() {
   const { profile } = useAuth();
   const { settings, loading } = useSiteSettings();
   const path = window.location.pathname;
-  const adminAllowed = path.startsWith('/admin') || profile?.role === 'admin';
+  const adminAllowed = path.startsWith('/admin') || path === '/auth/callback' || profile?.role === 'admin';
 
   if (!loading && settings.maintenance_mode === 'true' && !adminAllowed) {
     return (
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/browse-cars" element={<BrowseCarsPage />} />
         <Route path="/browse-drivers" element={<BrowseDriversPage />} />
         <Route path="/vehicles/:id" element={<VehicleDetailsPage />} />

@@ -1,4 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
+import { googleCallbackError } from './googleAuth';
+
+// Capture a safe message before Auth consumes/removes the callback fragment.
+export const initialGoogleCallbackError = window.location.pathname === '/auth/callback'
+  ? googleCallbackError(window.location.search, window.location.hash) : null;
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;

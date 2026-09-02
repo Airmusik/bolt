@@ -254,6 +254,7 @@ export function SettingsPage() {
           <h2 className="flex items-center gap-2 font-semibold text-ink-900"><KeyRound className="h-5 w-5" /> Change password</h2>
           <p className="mt-1 text-sm text-ink-500">Use at least 10 characters with uppercase, lowercase, and a number.</p>
           <ChangePinSection />
+          <EmailPasswordHelp />
         </div>
 
         {/* Danger */}
@@ -281,11 +282,31 @@ export function SettingsPage() {
           <label className="label mt-4" htmlFor="delete-account-password">Enter your current password to confirm</label>
           <input id="delete-account-password" type="password" autoComplete="current-password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} placeholder="Current password" className="input" />
           <p className="mt-1.5 text-xs text-ink-400">Required to prove that you own this account before permanent deletion.</p>
+          <EmailPasswordHelp />
           <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => { setShowDeleteAccount(false); setDeletePassword(''); }} disabled={deletingAccount} className="btn-secondary w-full">Keep my account</button><button type="button" onClick={deleteAccount} disabled={deletingAccount || !deletePassword} className="btn w-full bg-danger text-white hover:bg-red-700 disabled:opacity-50">{deletingAccount ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting…</> : <><Trash2 className="h-4 w-4" /> Delete forever</>}</button></div>
         </Modal>
       )}
     </div>
   );
+}
+
+function EmailPasswordHelp() {
+  const { user, resetPin } = useAuth();
+  const [sending, setSending] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const send = async () => {
+    if (!user?.email || sending) return;
+    setSending(true);
+    try {
+      const result = await resetPin(user.email);
+      setMessage(result.error || 'Check your registered email for a link to set a platform password.');
+    } finally { setSending(false); }
+  };
+  return <div className="mt-4 rounded-lg bg-ink-50 p-3 text-xs leading-5 text-ink-600">
+    <p>Joined with Google and have no platform password? Set one using your registered email first. Never enter your Google password here.</p>
+    <button type="button" onClick={() => void send()} disabled={sending} className="mt-1 min-h-11 font-semibold underline">{sending ? 'Sending link…' : 'Email me a password-setup link'}</button>
+    {message && <p role="status">{message}</p>}
+  </div>;
 }
 
 function ChangePinSection() {

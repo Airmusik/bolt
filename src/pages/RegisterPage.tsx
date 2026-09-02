@@ -4,19 +4,23 @@ import { Phone, Lock, Eye, EyeOff, ArrowRight, Check, Mail, Languages, UserRound
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
-import type { Role } from '@/lib/types';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { SiteLogo } from '@/components/SiteLogo';
-import { hasValidNameFields, normalizePersonName, parseLanguages } from '@/lib/profileValidation';
+import { hasValidNameFields, normalizePersonName, parseLanguages, splitPersonName } from '@/lib/profileValidation';
 import { PersonNameFields } from '@/components/PersonNameFields';
 import { Modal } from '@/components/Modal';
 import { TermsContent } from '@/components/TermsContent';
 import { MemberSafetyNotice } from '@/components/MemberSafetyNotice';
 import { TERMS_VERSION } from '@/lib/legal';
+import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { GOOGLE_ROLE_KEY, googleAuthDestination, googleSetupError } from '@/lib/googleAuth';
+import { supabase } from '@/lib/supabase';
+import { isValidPhone, normalizePhone } from '@/lib/phoneAuth';
 
 export function RegisterPage() {
-  const { signUp, user } = useAuth();
+  const { signUp, user, profile, registrationRequired, loading: authLoading, refreshProfile, signOut, profileError } = useAuth();
+  const completingGoogle = Boolean(user && registrationRequired);
   const { toast } = useToast();
   const navigate = useNavigate();
   const { settings } = useSiteSettings();
@@ -28,31 +32,63 @@ export function RegisterPage() {
   const [languages, setLanguages] = useState('');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
-  const [role, setRole] = useState<Role>('driver');
+  const [role, setRole] = useState<'driver' | 'owner'>(() => {
+    try { return sessionStorage.getItem(GOOGLE_ROLE_KEY) === 'owner' ? 'owner' : 'driver'; } catch { return 'driver'; }
+  });
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleBusy, setGoogleBusy] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (user) navigate('/dashboard', { replace: true });
-  }, [user, navigate]);
+    if (user && !authLoading && profile) navigate(googleAuthDestination(profile, false), { replace: true });
+  }, [user, authLoading, profile, navigate]);
+
+  useEffect(() => {
+    if (!completingGoogle || !user) return;
+    setEmail(user.email);
+    let active = true;
+    void supabase.auth.getUser().then(({ data }) => {
+      if (!active || data.user?.id !== user.id) return;
+      const suppliedName = data.user.user_metadata.full_name;
+      if (typeof suppliedName !== 'string') return;
+      const names = splitPersonName(suppliedName);
+      setFirstName(current => current || names.firstName);
+      setSecondName(current => current || names.secondName);
+    }).catch(() => { /* Name fields remain editable if this lookup fails. */ });
+    return () => { active = false; };
+  }, [completingGoogle, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading) return;
+    if (loading || googleBusy || authLoading) return;
     setError(null);
     if (!acceptedTerms) { setError('Read and accept the Terms of Service before creating an account.'); return; }
     const fullName = normalizePersonName(`${firstName} ${secondName}`);
     if (!hasValidNameFields(firstName, secondName)) { setError('Enter both your first name and second name.'); return; }
-    if (pin !== confirmPin) { setError('Passwords do not match. Please re-enter.'); return; }
+    if (!completingGoogle && pin !== confirmPin) { setError('Passwords do not match. Please re-enter.'); return; }
+    if (!isValidPhone(phone)) { setError('Enter a valid Kenyan phone number, e.g. 0712 345 678.'); return; }
     if (!email.trim()) { setError('Email address is required.'); return; }
     if (!location.trim()) { setError('Town or neighbourhood is required.'); return; }
     const selectedLanguages = parseLanguages(languages);
     if (selectedLanguages.length < 2) { setError('Add at least two languages you speak, separated with commas.'); return; }
     setLoading(true);
     try {
+      if (completingGoogle) {
+        const { error: setupError } = await supabase.rpc('complete_google_registration', {
+          p_role: role, p_full_name: fullName, p_phone: normalizePhone(phone),
+          p_location: location.trim(), p_languages: selectedLanguages,
+          p_terms_version: TERMS_VERSION, p_accept_terms: acceptedTerms,
+        });
+        if (setupError) { setError(googleSetupError(setupError)); return; }
+        try { sessionStorage.removeItem(GOOGLE_ROLE_KEY); } catch { /* Optional convenience only. */ }
+        await refreshProfile();
+        toast(role === 'driver' ? 'Account ready. Complete About You before your driver profile becomes public.' : `Welcome to ${settings.site_name}.`);
+        navigate('/dashboard', { replace: true });
+        return;
+      }
       const result = await signUp(phone, pin, fullName, role, email, location, selectedLanguages, acceptedTerms ? TERMS_VERSION : null);
       if (result.error) {
         setError(result.error);
@@ -70,6 +106,12 @@ export function RegisterPage() {
     }
   };
 
+  if (authLoading || (user && !registrationRequired && !profile)) return (
+    <div className="auth-page"><div className="auth-card w-full max-w-md text-center">
+      {profileError ? <><p role="alert" className="text-ink-600">{profileError}</p><button type="button" onClick={() => void refreshProfile()} className="btn-primary mt-4">Try again</button><button type="button" onClick={() => void signOut()} className="btn-secondary mt-4">Sign out</button></> : <p role="status" className="text-ink-600">Loading your account…</p>}
+    </div></div>
+  );
+
   return (
     <div className="auth-page">
       <div className="w-full max-w-xl">
@@ -78,19 +120,21 @@ export function RegisterPage() {
           <Link to="/" aria-label={`${settings.site_name} home`} className="inline-flex items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">
             <SiteLogo size="lg" />
           </Link>
-          <h1 className="mt-3 font-display text-2xl font-bold text-ink-900 sm:text-3xl">Create your account</h1>
-          <p className="mt-1 text-sm text-ink-500">Join {settings.site_name} as a driver or car owner.</p>
+          <h1 className="mt-3 font-display text-2xl font-bold text-ink-900 sm:text-3xl">{completingGoogle ? 'Finish your account setup' : 'Create your account'}</h1>
+          <p className="mt-1 text-sm text-ink-500">{completingGoogle ? 'Google sign-in worked. Add your details and accept the terms to join.' : `Join ${settings.site_name} as a driver or car owner.`}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="auth-card" aria-busy={loading}>
           {error && <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+          {!completingGoogle && <GoogleSignInButton role={role} disabled={loading} onBusyChange={setGoogleBusy} onError={setError} />}
+          {completingGoogle && <p className="mb-4 text-sm leading-6 text-ink-600">Your profile is not published yet. No new password is needed. <button type="button" className="font-semibold underline" onClick={() => void signOut()}>Use a different account</button></p>}
           <p className="mb-4 text-xs text-ink-500"><span className="font-bold text-danger">*</span> Required information</p>
 
           <fieldset>
             <legend className="label">I am a… <span className="text-danger">*</span></legend>
             <p className="mb-3 text-xs leading-5 text-ink-500">Choose how you will use {settings.site_name}.</p>
             <div className="grid grid-cols-2 gap-3" role="group" aria-label="Account type">
-              {(['driver', 'owner'] as Role[]).map((r) => (
+              {(['driver', 'owner'] as const).map((r) => (
                 <button
                   key={r}
                   type="button"
@@ -122,9 +166,9 @@ export function RegisterPage() {
                 <label htmlFor="register-email" className="label">Email address <span className="text-danger">*</span></label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-                  <input id="register-email" aria-describedby="register-email-hint" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="input pl-10" required />
+                  <input id="register-email" aria-describedby="register-email-hint" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="input pl-10" readOnly={completingGoogle} required />
                 </div>
-                <p id="register-email-hint" className="auth-hint">For sign-in and password recovery. Not shown publicly.</p>
+                <p id="register-email-hint" className="auth-hint">{completingGoogle ? 'From your Google account. Not shown publicly.' : 'For sign-in and password recovery. Not shown publicly.'}</p>
               </div>
             </div>
             <div className="mt-4">
@@ -143,7 +187,7 @@ export function RegisterPage() {
             </div>
           </div>
 
-          <div role="group" aria-labelledby="register-security" className="mt-6 border-t border-ink-100 pt-5">
+          {!completingGoogle && <div role="group" aria-labelledby="register-security" className="mt-6 border-t border-ink-100 pt-5">
             <h2 id="register-security" className="auth-section-title"><Lock className="h-4 w-4 text-ink-500" /> Account security</h2>
             <div>
               <label htmlFor="register-password" className="label">Password <span className="text-danger">*</span></label>
@@ -186,8 +230,7 @@ export function RegisterPage() {
               </div>
               <p id="register-confirm-hint" className={`auth-hint ${confirmPin.length > 0 && pin !== confirmPin ? 'text-danger' : ''}`}>{confirmPin.length > 0 && pin !== confirmPin ? 'Passwords do not match.' : 'Enter the same password again.'}</p>
             </div>
-          </div>
-
+          </div>}
           <div role="group" aria-labelledby="register-terms" className="mt-6 border-t border-ink-100 pt-5">
             <h2 id="register-terms" className="auth-section-title">Before you join</h2>
             <MemberSafetyNotice />
@@ -197,17 +240,17 @@ export function RegisterPage() {
               <p className="mt-2 text-xs text-ink-500">Required · Terms version {TERMS_VERSION}. This does not waive your statutory rights or consent to marketing. Opening the terms keeps your form entries intact.</p>
             </div>
           </div>
-          <button type="submit" disabled={loading || !acceptedTerms} className="btn-primary mt-6 min-h-12 w-full">
-            {loading ? 'Creating account…' : 'Create account'} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+          <button type="submit" disabled={loading || googleBusy || !acceptedTerms} className="btn-primary mt-6 min-h-12 w-full">
+            {loading ? 'Saving account…' : completingGoogle ? 'Complete account setup' : 'Create account'} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
           </button>
           {!acceptedTerms && <p className="auth-hint text-center">Accept the terms above to create your account.</p>}
         </form>
         {showTerms && <Modal title="Terms of Service" size="xl" onClose={() => setShowTerms(false)}><TermsContent /><button type="button" onClick={() => setShowTerms(false)} className="btn-secondary mt-5 w-full">Back to registration</button></Modal>}
 
-        <p className="mt-4 text-center text-sm text-ink-500">
+        {!completingGoogle && <p className="mt-4 text-center text-sm text-ink-500">
           Already have an account?{' '}
           <Link to="/login" className="inline-flex min-h-11 items-center font-semibold text-brand-700 underline-offset-4 hover:underline">Sign in</Link>
-        </p>
+        </p>}
       </div>
     </div>
   );

@@ -12,28 +12,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthContextValue['user']>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [registrationRequired, setRegistrationRequired] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const activeUserId = useRef<string | null>(null);
 
   const loadProfile = useCallback(async (uid: string) => {
-    const { data, error } = await supabase.rpc('get_my_profile');
-    if (error) {
-      console.error('profile load error', error);
-      return;
-    }
-    const current = Array.isArray(data) ? data[0] : data;
-    if (current) {
-      if (activeUserId.current === uid) setProfile(current as Profile);
-      return;
-    } else {
-      // profile row missing — create a minimal one
-      const { error: createError } = await supabase
-        .from('profiles')
-        .insert({ id: uid, role: 'driver', full_name: '' });
-      if (!createError) {
-        const { data: created } = await supabase.rpc('get_my_profile');
-        const createdProfile = Array.isArray(created) ? created[0] : created;
-        if (createdProfile && activeUserId.current === uid) setProfile(createdProfile as Profile);
+    try {
+      const { data, error } = await supabase.rpc('get_my_profile');
+      if (error) throw error;
+      const current = Array.isArray(data) ? data[0] : data;
+      if (activeUserId.current === uid) {
+        // Missing Google profiles must finish registration, not be silently
+        // created as drivers. Network errors are handled separately below.
+        setProfile(current ? current as Profile : null);
+        setRegistrationRequired(!current);
+        setProfileError(null);
       }
+    } catch {
+      if (activeUserId.current === uid) setProfileError('Could not load your account. Check your connection and try again.');
     }
   }, []);
 
@@ -69,6 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!mounted) return;
       const u = data.session?.user ?? null;
       activeUserId.current = u?.id ?? null;
+      setRegistrationRequired(false);
+      setProfileError(null);
       setProfile(null);
       setUser(u ? { id: u.id, email: u.email ?? '' } : null);
       if (u) {
@@ -78,6 +76,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } else {
         setLoading(false);
       }
+    }).catch(() => {
+      if (!mounted) return;
+      setProfileError('Could not restore your sign-in session. Check your connection and try again.');
+      setLoading(false);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
@@ -99,6 +101,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       (async () => {
         activeUserId.current = uid;
+        setRegistrationRequired(false);
+        setProfileError(null);
         setLoading(true);
         setProfile(null);
         setUser(u ? { id: u.id, email: u.email ?? '' } : null);
@@ -213,6 +217,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     activeUserId.current = null;
     setUser(null);
     setProfile(null);
+    setRegistrationRequired(false);
+    setProfileError(null);
     if (DEMO_MODE) {
       localStorage.removeItem(DEMO_ADMIN_SESSION_KEY);
       setLoading(false);
@@ -237,7 +243,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signUp, signIn, signOut, refreshProfile, resetPin }}>
+    <AuthContext.Provider value={{ user, profile, loading, registrationRequired, profileError, signUp, signIn, signOut, refreshProfile, resetPin }}>
       {children}
     </AuthContext.Provider>
   );

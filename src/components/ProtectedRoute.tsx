@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 const SUSPENDED_ALLOWED = ['/suspended', '/about', '/contact', '/terms', '/privacy'];
 
 export function ProtectedRoute({ children, roles }: { children: ReactNode; roles?: string[] }) {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, registrationRequired, profileError, refreshProfile, signOut } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -20,9 +20,12 @@ export function ProtectedRoute({ children, roles }: { children: ReactNode; roles
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
   if (!profile) {
+    if (registrationRequired && !profileError) return <Navigate to="/register" replace />;
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-600" />
+      <div className="container-content flex min-h-[60vh] flex-col items-center justify-center gap-4 text-center">
+        <p role="alert" className="text-ink-600">{profileError || 'Your account could not be loaded.'}</p>
+        <button type="button" onClick={() => void refreshProfile()} className="btn-primary">Try again</button>
+        <button type="button" onClick={() => void signOut()} className="btn-secondary">Sign out</button>
       </div>
     );
   }
