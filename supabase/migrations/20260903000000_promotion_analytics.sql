@@ -17,7 +17,7 @@ CREATE OR REPLACE FUNCTION public.active_promotion_targets()
 RETURNS TABLE(kind text,target_id uuid) LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
   SELECT DISTINCT l.kind,l.target_id FROM public.live_promotions() l;
 $$;
-REVOKE ALL ON FUNCTION public.live_promotions() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.live_promotions() FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.live_promotions() TO anon,authenticated;
 
 CREATE TABLE public.promotion_events (
@@ -45,7 +45,7 @@ BEGIN
   END IF;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.record_promotion_event(uuid,uuid,text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.record_promotion_event(uuid,uuid,text) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.record_promotion_event(uuid,uuid,text) TO anon,authenticated;
 
 CREATE FUNCTION public.promotion_analytics()
@@ -56,6 +56,6 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path=public AS $$
   WHERE auth.uid() IS NOT NULL AND (r.user_id=auth.uid() OR public.is_admin())
   GROUP BY r.id;
 $$;
-REVOKE ALL ON FUNCTION public.promotion_analytics() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.promotion_analytics() FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.promotion_analytics() TO authenticated;
 NOTIFY pgrst,'reload schema';

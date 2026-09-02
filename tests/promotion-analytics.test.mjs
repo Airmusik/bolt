@@ -15,6 +15,7 @@ test('promotion tracking: privacy, deduplication, expiry, and listing preservati
   try {
     await db.exec(`
       CREATE ROLE anon; CREATE ROLE authenticated;
+      ALTER DEFAULT PRIVILEGES GRANT EXECUTE ON FUNCTIONS TO anon,authenticated;
       CREATE SCHEMA auth;
       CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql AS $$ SELECT nullif(current_setting('request.uid',true),'')::uuid $$;
       CREATE FUNCTION public.is_admin() RETURNS boolean LANGUAGE sql AS $$ SELECT coalesce(auth.uid()='${admin}'::uuid,false) $$;
@@ -28,6 +29,7 @@ test('promotion tracking: privacy, deduplication, expiry, and listing preservati
       INSERT INTO promotion_requests VALUES('${campaign}','${owner}','listing','${car}','active',now()-interval '1 day',now()+interval '1 day');
     `);
     await db.exec(await readFile(new URL('../supabase/migrations/20260903000000_promotion_analytics.sql', import.meta.url), 'utf8'));
+    assert.equal((await db.query("SELECT has_function_privilege('anon','promotion_analytics()','EXECUTE') AS allowed")).rows[0].allowed, false);
     const record = () => db.query('SELECT record_promotion_event($1,$2,$3)', [campaign, visitor, 'click']);
     await asUser(owner); await record();
     await asUser(admin); await record();
