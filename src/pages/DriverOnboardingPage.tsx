@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, ShieldCheck, Pencil, Clock3, History, FileText, Loader2, Upload } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
@@ -165,8 +164,7 @@ export function DriverOnboardingPage() {
     clearPendingUpload();
     setUploadIssue(null);
     try { sessionStorage.setItem(PROOF_PICKER_ITEM_KEY, item.id); } catch { /* ignore unavailable storage */ }
-    flushSync(() => setProofPickerItemId(item.id));
-    proofInputRef.current?.click();
+    setProofPickerItemId(item.id);
   };
 
   useEffect(() => {
@@ -316,7 +314,7 @@ export function DriverOnboardingPage() {
         <button type="button" onClick={closeProofPicker} className="btn-ghost">← Back to platform history</button>
         <div className="card mt-4 p-5 sm:p-6">
           <h1 className="font-display text-xl font-bold text-ink-900">Upload platform proof</h1>
-          <p className="mt-1 text-sm text-ink-500">This lightweight screen keeps phone uploads stable. The file stays private and is not uploaded until you confirm it.</p>
+          <p className="mt-1 text-sm text-ink-500">The full form is now unloaded. Tap the button below to open your gallery safely; the file stays private until you confirm it.</p>
 
           {!trustLoaded && <div className="mt-6 flex items-center gap-2 text-sm text-ink-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading platform…</div>}
           {trustLoaded && !proofItem && <div role="alert" className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-800">This platform entry could not be found. Return to platform history and try again.</div>}
@@ -435,7 +433,7 @@ export function DriverOnboardingPage() {
             <div className="flex flex-wrap items-end gap-2">
               <div className="w-full sm:max-w-sm">
                 <p className="mb-1 block text-xs font-semibold text-ink-700">{item.proof_url ? 'Choose replacement proof' : 'Choose proof'} <span className="text-danger">*</span></p>
-                <button type="button" onClick={() => openProofPicker(item)} className="btn-secondary min-h-11 w-full justify-center text-sm"><Upload className="h-4 w-4" /> {item.proof_url ? 'Choose replacement proof' : 'Choose proof'}</button>
+                <button type="button" onClick={() => openProofPicker(item)} className="btn-secondary min-h-11 w-full justify-center text-sm"><Upload className="h-4 w-4" /> {item.proof_url ? 'Continue to replace proof' : 'Continue to upload proof'}</button>
               </div>
               {item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}
               <span className="basis-full text-[11px] text-ink-400">Upload your latest platform activity screen. Phone photos, HEIC, JPG, PNG, WebP, or PDF · preview before submission · maximum 8 MB.</span>
