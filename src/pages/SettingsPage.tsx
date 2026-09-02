@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, Bell, LogOut, Camera, Loader2, Check, ToggleLeft, ToggleRight, Lock, KeyRound, Palette, Mail, AlertTriangle, MessageSquare, Trash2 } from 'lucide-react';
+import { User, Shield, Bell, LogOut, Camera, Loader2, Check, ToggleLeft, ToggleRight, Lock, KeyRound, Palette, Mail, AlertTriangle, MessageSquare, Trash2, Languages } from 'lucide-react';
 import { supabase, AVATAR_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -13,6 +13,7 @@ import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { Modal } from '@/components/Modal';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
 import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
+import { hasFirstAndSecondName, normalizePersonName, parseLanguages } from '@/lib/profileValidation';
 
 export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
@@ -21,6 +22,7 @@ export function SettingsPage() {
   const [fullName, setFullName] = useState(profile?.full_name || '');
   const [bio, setBio] = useState(profile?.bio || '');
   const [location, setLocation] = useState(profile?.location || '');
+  const [languages, setLanguages] = useState((profile?.languages || []).join(', '));
   const [availability, setAvailability] = useState(profile?.availability || 'available');
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -47,19 +49,25 @@ export function SettingsPage() {
 
   const save = async () => {
     if (!user) return;
-    if (fullName.trim().length < 2) {
-      toast('Enter your full name.', 'error');
+    if (!hasFirstAndSecondName(fullName)) {
+      toast('Enter both your first name and second name.', 'error');
       return;
     }
     if (!location.trim()) {
       toast('Choose or enter your location in Kenya.', 'error');
       return;
     }
+    const selectedLanguages = parseLanguages(languages);
+    if (selectedLanguages.length < 2) {
+      toast('Add at least two languages you speak, separated with commas.', 'error');
+      return;
+    }
     setSaving(true);
     const { error } = await supabase.from('profiles').update({
-      full_name: fullName.trim(),
+      full_name: normalizePersonName(fullName),
       bio: bio.trim(),
       location: location.trim(),
+      languages: selectedLanguages,
     }).eq('id', user.id);
     if (error) {
       setSaving(false);
@@ -188,13 +196,14 @@ export function SettingsPage() {
           {avatarIssue && <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:bg-red-950/20 dark:text-red-100"><p className="font-semibold">Profile photo was not uploaded</p><p className="mt-1">{avatarIssue}</p></div>}
 
           <div className="mt-4 space-y-4">
-            <div><label className="label">Full name <span className="text-danger">*</span></label><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" /><p className="mt-1 text-xs text-ink-400">This is the name other members see on your profile and in chat.</p></div>
+            <div><label className="label">First and second name <span className="text-danger">*</span></label><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" placeholder="Jane Wanjiku" /><p className="mt-1 text-xs text-ink-400">Enter at least two names. This is what other members see on your profile and in chat.</p></div>
             <div><label className="label">Registered email address</label><div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={user?.email || profile?.email || ''} readOnly className="input pl-10 opacity-80" /></div><p className="mt-1 text-xs text-ink-400">This is the address you use to sign in.</p></div>
             <div>
               <label className="label">Location <span className="text-danger">*</span></label>
               <PlaceAutocomplete value={location} onChange={setLocation} />
               <p className="mt-1 text-xs text-ink-400">Type any town, estate, neighbourhood, or landmark in Kenya.</p>
             </div>
+            <div><label className="label">Languages spoken <span className="text-danger">*</span></label><div className="relative"><Languages className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={languages} onChange={(e) => setLanguages(e.target.value)} className="input pl-10" placeholder="English, Swahili" /></div><p className="mt-1 text-xs text-ink-400">Add at least two languages and separate them with commas.</p></div>
             <div><label className="label">Bio <span className="text-xs font-normal text-ink-400">(optional)</span></label><textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="input" /><p className="mt-1 text-xs text-ink-400">Briefly describe yourself, your work, or what you are looking for.</p></div>
           </div>
           <button onClick={save} disabled={saving} className="btn-primary mt-4">

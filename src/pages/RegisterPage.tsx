@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail } from 'lucide-react';
+import { Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail, Languages } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
@@ -8,16 +8,19 @@ import type { Role } from '@/lib/types';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { SiteLogo } from '@/components/SiteLogo';
+import { normalizePersonName, parseLanguages } from '@/lib/profileValidation';
 
 export function RegisterPage() {
   const { signUp, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const { settings } = useSiteSettings();
-  const [fullName, setFullName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [secondName, setSecondName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [location, setLocation] = useState('');
+  const [languages, setLanguages] = useState('');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
   const [role, setRole] = useState<Role>('driver');
@@ -32,12 +35,16 @@ export function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    const fullName = normalizePersonName(`${firstName} ${secondName}`);
+    if (firstName.trim().length < 2 || secondName.trim().length < 2) { setError('Enter both your first name and second name.'); return; }
     if (pin !== confirmPin) { setError('Passwords do not match. Please re-enter.'); return; }
     if (!email.trim()) { setError('Email address is required.'); return; }
     if (!location.trim()) { setError('Town or neighbourhood is required.'); return; }
+    const selectedLanguages = parseLanguages(languages);
+    if (selectedLanguages.length < 2) { setError('Add at least two languages you speak, separated with commas.'); return; }
     setLoading(true);
     try {
-      const result = await signUp(phone, pin, fullName, role, email, location);
+      const result = await signUp(phone, pin, fullName, role, email, location, selectedLanguages);
       if (result.error) {
         setError(result.error);
       } else if (result.requiresEmailConfirmation) {
@@ -91,12 +98,12 @@ export function RegisterPage() {
           </div>
 
           <div>
-            <label className="label">Full name <span className="text-danger">*</span></label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Jane Doe" className="input pl-10" required />
+            <label className="label">Your name <span className="text-danger">*</span></label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div><div className="relative"><User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" /><input value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" placeholder="First name" className="input pl-10" required /></div><p className="mt-1 text-xs text-ink-400">Your first name.</p></div>
+              <div><input value={secondName} onChange={(e) => setSecondName(e.target.value)} autoComplete="family-name" placeholder="Second name" className="input" required /><p className="mt-1 text-xs text-ink-400">Your family or second name.</p></div>
             </div>
-            <p className="mt-1.5 text-xs text-ink-400">Use the name other members will recognise on your profile.</p>
+            <p className="mt-1.5 text-xs text-ink-400">Both names will appear together on your public profile.</p>
           </div>
           <div className="mt-4">
             <label className="label">Phone number <span className="text-danger">*</span></label>
@@ -118,6 +125,15 @@ export function RegisterPage() {
             <label className="label">Town or neighbourhood <span className="text-danger">*</span></label>
             <PlaceAutocomplete value={location} onChange={setLocation} placeholder="e.g. Ongata Rongai" required />
             <p className="mt-1.5 text-xs text-ink-400">Shown publicly so nearby drivers and owners can find you. {settings.site_name} operates in Kenya only.</p>
+          </div>
+
+          <div className="mt-4">
+            <label className="label">Languages spoken <span className="text-danger">*</span></label>
+            <div className="relative">
+              <Languages className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+              <input value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder="English, Swahili" className="input pl-10" required />
+            </div>
+            <p className="mt-1.5 text-xs text-ink-400">Add at least two languages and separate them with commas. This helps members communicate confidently.</p>
           </div>
 
           <div className="mt-4">

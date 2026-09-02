@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Search, MapPin, ShieldCheck, Car, Users, Star, ArrowRight,
-  CheckCircle2, MessageSquare, Bell, BadgeCheck, TrendingUp,
+  CheckCircle2, MessageSquare, Bell, BadgeCheck, TrendingUp, ChevronLeft, ChevronRight, Pause, Play,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -25,6 +25,9 @@ export function HomePage() {
   const [featured, setFeatured] = useState<VehicleWithRelations[]>([]);
   const [drivers, setDrivers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [featuredPaused, setFeaturedPaused] = useState(false);
+  const [featuredInteracting, setFeaturedInteracting] = useState(false);
+  const featuredTrackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (user && profile?.role === 'admin') {
@@ -56,6 +59,25 @@ export function HomePage() {
       setLoading(false);
     })();
   }, []);
+
+  const scrollFeatured = useCallback((direction: 1 | -1) => {
+    const track = featuredTrackRef.current;
+    const card = track?.querySelector<HTMLElement>('[data-featured-card]');
+    if (!track || !card) return;
+    const gap = 20;
+    const amount = card.getBoundingClientRect().width + gap;
+    const atEnd = track.scrollLeft + track.clientWidth >= track.scrollWidth - amount / 2;
+    const atStart = track.scrollLeft <= amount / 2;
+    if (direction > 0 && atEnd) track.scrollTo({ left: 0, behavior: 'smooth' });
+    else if (direction < 0 && atStart) track.scrollTo({ left: track.scrollWidth, behavior: 'smooth' });
+    else track.scrollBy({ left: direction * amount, behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    if (featured.length < 2 || featuredPaused || featuredInteracting || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const timer = window.setInterval(() => scrollFeatured(1), 4200);
+    return () => window.clearInterval(timer);
+  }, [featured.length, featuredInteracting, featuredPaused, scrollFeatured]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,14 +146,15 @@ export function HomePage() {
 
       {/* FEATURED LISTINGS */}
       <section className="container-content py-16">
-        <div className="flex items-end justify-between">
+        <div className="flex items-end justify-between gap-4">
           <div>
             <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">Featured cars</h2>
-            <p className="mt-1 text-sm text-ink-500">Available vehicles from trusted owners.</p>
+            <p className="mt-1 text-sm text-ink-500">Available vehicles from trusted owners. Swipe or use the controls to explore.</p>
           </div>
-          <Link to="/browse-cars" className="hidden items-center gap-1 text-sm font-semibold text-brand-700 hover:text-brand-800 sm:flex">
-            View all <ArrowRight className="h-4 w-4" />
-          </Link>
+          <div className="hidden items-center gap-2 sm:flex">
+            {featured.length > 1 && <><button type="button" onClick={() => scrollFeatured(-1)} aria-label="Previous featured cars" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 hover:-translate-y-0.5 hover:shadow-card dark:bg-[#141416]"><ChevronLeft className="h-4 w-4" /></button><button type="button" onClick={() => setFeaturedPaused((value) => !value)} aria-label={featuredPaused ? 'Resume featured car scrolling' : 'Pause featured car scrolling'} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 hover:-translate-y-0.5 hover:shadow-card dark:bg-[#141416]">{featuredPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}</button><button type="button" onClick={() => scrollFeatured(1)} aria-label="Next featured cars" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 hover:-translate-y-0.5 hover:shadow-card dark:bg-[#141416]"><ChevronRight className="h-4 w-4" /></button></>}
+            <Link to="/browse-cars" className="ml-1 inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:text-brand-800">View all <ArrowRight className="h-4 w-4" /></Link>
+          </div>
         </div>
 
         {loading ? (
@@ -148,8 +171,11 @@ export function HomePage() {
             ))}
           </div>
         ) : featured.length > 0 ? (
-          <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {featured.map((v) => <VehicleCard key={v.id} vehicle={v} />)}
+          <div className="relative mt-8">
+            <div ref={featuredTrackRef} onPointerEnter={() => setFeaturedInteracting(true)} onPointerLeave={() => setFeaturedInteracting(false)} onTouchStart={() => setFeaturedInteracting(true)} onTouchEnd={() => setFeaturedInteracting(false)} onFocusCapture={() => setFeaturedInteracting(true)} onBlurCapture={() => setFeaturedInteracting(false)} className="-mx-4 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-5 pt-1 scroll-smooth sm:mx-0 sm:px-1" aria-label="Featured cars carousel">
+              {featured.map((v) => <div key={v.id} data-featured-card className="min-w-[86vw] snap-start sm:min-w-[calc(50%-0.625rem)] lg:min-w-[calc(33.333%-0.875rem)]"><VehicleCard vehicle={v} /></div>)}
+            </div>
+            <div className="mt-1 flex items-center justify-between sm:hidden"><div className="flex items-center gap-2">{featured.length > 1 && <><button type="button" onClick={() => scrollFeatured(-1)} aria-label="Previous featured car" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 dark:bg-[#141416]"><ChevronLeft className="h-4 w-4" /></button><button type="button" onClick={() => setFeaturedPaused((value) => !value)} aria-label={featuredPaused ? 'Resume featured car scrolling' : 'Pause featured car scrolling'} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 dark:bg-[#141416]">{featuredPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}</button><button type="button" onClick={() => scrollFeatured(1)} aria-label="Next featured car" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 dark:bg-[#141416]"><ChevronRight className="h-4 w-4" /></button></>}</div><Link to="/browse-cars" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700">View all <ArrowRight className="h-4 w-4" /></Link></div>
           </div>
         ) : (
           <div className="mt-8 rounded-2xl border border-dashed border-ink-200 bg-white p-12 text-center dark:bg-[#141416]">

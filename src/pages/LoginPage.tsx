@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Lock, Eye, EyeOff, ArrowRight, Mail, Check } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -12,7 +12,6 @@ export function LoginPage() {
   const { signIn, user, resetPin } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const location = useLocation();
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
   const [showPin, setShowPin] = useState(false);
@@ -45,10 +44,9 @@ export function LoginPage() {
 
   useEffect(() => {
     if (user && !legacyResetMode) {
-      const from = (location.state as { from?: string })?.from || '/dashboard';
-      navigate(from, { replace: true });
+      navigate('/dashboard', { replace: true });
     }
-  }, [user, legacyResetMode, navigate, location.state]);
+  }, [user, legacyResetMode, navigate]);
 
   if (legacyResetMode) return <ResetPasswordPage />;
 

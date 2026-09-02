@@ -14,7 +14,6 @@ import { Modal } from '@/components/Modal';
 import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { updateConnectionStatus, endConnection } from '@/lib/connections';
 import { timeAgo, titleCase, cn, formatDateTime } from '@/lib/utils';
-import { BackButton } from '@/components/BackButton';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import type { ToastType } from '@/components/toastContext';
 import { useSiteSettings } from '@/lib/siteSettings';
@@ -147,7 +146,17 @@ export function DashboardPage() {
 
   return (
     <div className="container-content py-6 sm:py-8">
-      <BackButton to="/" />
+      <div className="sticky top-16 z-30 -mx-4 bg-white/90 px-4 py-2 backdrop-blur-xl dark:bg-[#0b0b0d]/90 sm:mx-0 sm:px-0">
+        <div className="flex gap-1 overflow-x-auto rounded-xl bg-ink-50 p-1 ring-1 ring-ink-100 dark:bg-[#101012]">
+          {tabs.map((t) => (
+            <button key={t.id} onClick={() => { if (tab !== t.id) setTab(t.id); }} className={cn('flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all', tab === t.id ? 'bg-white text-ink-900 shadow-soft ring-1 ring-ink-100 dark:bg-[#1d1d20]' : 'text-ink-500 hover:bg-white/70 hover:text-ink-800 dark:hover:bg-[#1d1d20]/70')}>
+              {t.label}{!loading && t.badge !== undefined && t.badge > 0 && <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{t.badge}</span>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {tab === 'overview' && <>
       <div className="dashboard-hero relative mt-4 overflow-hidden rounded-3xl bg-ink-950 px-5 py-6 text-white shadow-card-hover sm:px-8 sm:py-8 dark:bg-[#171719]">
         <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-accent-500/20 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 left-1/3 h-52 w-52 rounded-full bg-white/10 blur-3xl" />
@@ -197,17 +206,9 @@ export function DashboardPage() {
           {recommendedAction.to ? <Link to={recommendedAction.to} className="btn-primary w-full shrink-0 sm:w-auto">{recommendedAction.label}<ArrowRight className="h-4 w-4" /></Link> : <button type="button" onClick={() => recommendedAction.tab && setTab(recommendedAction.tab)} className="btn-primary w-full shrink-0 sm:w-auto">{recommendedAction.label}<ArrowRight className="h-4 w-4" /></button>}
         </div>
       </div>
+      </>}
 
-      {/* Tabs */}
-      <div className="mt-7 flex gap-1 overflow-x-auto rounded-xl bg-ink-50 p-1 ring-1 ring-ink-100 dark:bg-[#101012]">
-        {tabs.map((t) => (
-          <button key={t.id} onClick={() => { if (tab !== t.id) setTab(t.id); }} className={cn('flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all', tab === t.id ? 'bg-white text-ink-900 shadow-soft ring-1 ring-ink-100 dark:bg-[#1d1d20]' : 'text-ink-500 hover:bg-white/70 hover:text-ink-800 dark:hover:bg-[#1d1d20]/70')}>
-            {t.label}{!loading && t.badge !== undefined && t.badge > 0 && <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{t.badge}</span>}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-6">
+      <div className={cn('mt-6', tab !== 'overview' && 'mt-4')}>
         {tab === 'overview' && <OverviewTab profile={profile} drivers={drivers} availableCars={availableCars} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
         {tab === 'drivers' && isOwner && <DriversTab users={drivers} loading={loading} siteName={settings.site_name} />}
         {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars} loading={loading} />}

@@ -10,6 +10,7 @@ import { BackButton } from '@/components/BackButton';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { isPreviewableTrustImage, isTrustImageFile, prepareTrustUpload } from '@/lib/trustUpload';
+import { hasFirstAndSecondName, normalizePersonName, parseLanguages } from '@/lib/profileValidation';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 const TRUST_FILE_ACCEPT = 'image/*,.pdf';
@@ -227,6 +228,15 @@ export function DriverOnboardingPage() {
 
   const saveProfile = async () => {
     if (!user) return;
+    if (!hasFirstAndSecondName(profileForm.full_name)) {
+      toast('Enter both your first name and second name in About You.', 'error');
+      return;
+    }
+    const languages = parseLanguages(profileForm.languages);
+    if (languages.length < 2) {
+      toast('Add at least two languages you speak, separated with commas.', 'error');
+      return;
+    }
     const experienceYears = Number(profileForm.driving_experience_years);
     if (!experienceYears || experienceYears < 1 || experienceYears > 60) {
       toast('Driving experience must be between 1 and 60 years.', 'error');
@@ -239,10 +249,10 @@ export function DriverOnboardingPage() {
     }
     setSaving(true);
     const { error: profileError } = await supabase.from('profiles').update({
-      full_name: profileForm.full_name, bio: profileForm.bio, location: profileForm.location,
+      full_name: normalizePersonName(profileForm.full_name), bio: profileForm.bio, location: profileForm.location,
       age: profileForm.age ? Number(profileForm.age) : null,
       driving_experience_years: experienceYears,
-      languages: profileForm.languages.split(',').map((value) => value.trim()).filter(Boolean),
+      languages,
       preferred_locations: profileForm.preferred_locations.split(',').map((value) => value.trim()).filter(Boolean),
       platforms_worked: profileForm.platforms_worked,
     }).eq('id', user.id);
@@ -258,18 +268,18 @@ export function DriverOnboardingPage() {
 
   const saveAbout = async () => {
     if (!user) return;
-    if (profileForm.full_name.trim().length < 2 || !profileForm.location.trim() || profileForm.bio.trim().length < 20) {
-      toast('Add your full name, location, and an About Me description of at least 20 characters.', 'error'); return;
+    if (!hasFirstAndSecondName(profileForm.full_name) || !profileForm.location.trim() || profileForm.bio.trim().length < 20) {
+      toast('Add your first and second name, location, and an About Me description of at least 20 characters.', 'error'); return;
     }
     const age = Number(profileForm.age);
     if (!age || age < 18 || age > 85) { toast('Enter a valid age between 18 and 85.', 'error'); return; }
-    const languages = profileForm.languages.split(',').map((value) => value.trim()).filter(Boolean);
-    if (languages.length === 0) { toast('Add at least one language you speak.', 'error'); return; }
+    const languages = parseLanguages(profileForm.languages);
+    if (languages.length < 2) { toast('Add at least two languages you speak, separated with commas.', 'error'); return; }
     const experienceYears = Number(profileForm.driving_experience_years);
     if (!experienceYears || experienceYears < 1 || experienceYears > 60) { toast('Driving experience must be between 1 and 60 years.', 'error'); return; }
     setSaving(true);
     const { error } = await supabase.from('profiles').update({
-      full_name: profileForm.full_name.trim(), bio: profileForm.bio.trim(), location: profileForm.location.trim(), age,
+      full_name: normalizePersonName(profileForm.full_name), bio: profileForm.bio.trim(), location: profileForm.location.trim(), age,
       driving_experience_years: experienceYears,
       languages, preferred_locations: profileForm.preferred_locations.split(',').map((value) => value.trim()).filter(Boolean),
       platforms_worked: profileForm.platforms_worked, onboarding_completed: true,
@@ -408,11 +418,11 @@ export function DriverOnboardingPage() {
 function AboutFields({ profileForm, setProfileForm }: { profileForm: DriverAboutForm; setProfileForm: (value: DriverAboutForm) => void }) {
   return <Section title="About you" desc="This information is required before your driver profile can appear publicly.">
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="Full name" required hint="Use the name owners will recognise on your public profile."><input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="input" /></Field>
+      <Field label="First and second name" required hint="Enter at least two names, for example Jane Wanjiku."><input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="input" placeholder="Jane Wanjiku" /></Field>
       <Field label="Age" required hint="Drivers must be between 18 and 85 years old."><input type="number" min={18} max={85} value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="input" /></Field>
       <Field label="Location" required hint="Enter the Kenyan town or neighbourhood where you are based."><PlaceAutocomplete value={profileForm.location} onChange={(location) => setProfileForm({ ...profileForm, location })} placeholder="e.g. Ongata Rongai" required /></Field>
       <Field label="Driving experience (years)" required hint="Enter completed years of driving experience; minimum 1."><input type="number" min={1} max={60} value={profileForm.driving_experience_years} onChange={(e) => setProfileForm({ ...profileForm, driving_experience_years: e.target.value })} className="input" /></Field>
-      <Field label="Languages spoken" required hint="Separate multiple languages with commas."><input value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="input" placeholder="English, Swahili" /></Field>
+      <Field label="Languages spoken" required hint="Add at least two languages and separate them with commas."><input value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="input" placeholder="English, Swahili" /></Field>
       <Field label="Preferred work locations" hint="Optional: list areas where you would prefer to work."><input value={profileForm.preferred_locations} onChange={(e) => setProfileForm({ ...profileForm, preferred_locations: e.target.value })} className="input" placeholder="Nairobi, Mombasa" /></Field>
     </div>
     <Field label="Bio / About me" required hint="Write at least 20 characters about your experience and working style."><textarea value={profileForm.bio} onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })} rows={3} className="input" placeholder="Tell owners about your experience and working style…" /></Field>

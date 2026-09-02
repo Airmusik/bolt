@@ -114,8 +114,6 @@ export function Header() {
   }, [user]);
 
   const isAdmin = profile?.role === 'admin';
-  const isOwner = profile?.role === 'owner';
-  const isDriver = profile?.role === 'driver';
   const isSuspended = !!profile?.is_suspended;
 
   const navLinks = isSuspended
@@ -125,12 +123,13 @@ export function Header() {
         { to: '/terms', label: 'Terms', icon: undefined, show: true },
         { to: '/privacy', label: 'Privacy', icon: undefined, show: true },
       ]
-    : [
-        { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: !!user && !isAdmin },
-        { to: '/browse-cars', label: 'Browse Cars', icon: undefined, show: !isAdmin && !isOwner },
-        { to: '/browse-drivers', label: 'Browse Drivers', icon: undefined, show: !isAdmin && !isDriver },
-        { to: '/how-it-works', label: 'How it works', icon: undefined, show: !isAdmin },
-      ].filter((l) => l.show);
+    : (user
+        ? [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, show: !isAdmin }]
+        : [
+            { to: '/browse-cars', label: 'Browse Cars', icon: undefined, show: true },
+            { to: '/browse-drivers', label: 'Browse Drivers', icon: undefined, show: true },
+            { to: '/how-it-works', label: 'How it works', icon: undefined, show: true },
+          ]).filter((l) => l.show);
 
   const mobileAccountLinks = isSuspended
     ? []

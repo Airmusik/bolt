@@ -5,6 +5,7 @@ import { getAuthErrorMessage } from './authErrors';
 import type { Profile } from './types';
 import { AuthContext, type AuthContextValue } from './authContext';
 import { createDemoAdminProfile, DEMO_ADMIN_EMAIL, DEMO_ADMIN_ID, DEMO_ADMIN_SESSION_KEY, DEMO_MODE } from './demoMode';
+import { hasFirstAndSecondName, normalizePersonName } from './profileValidation';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthContextValue['user']>(null);
@@ -120,12 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail, userLocation) => {
+  const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail, userLocation, languages) => {
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number (e.g. 0712 345 678).' };
     if (!isValidPin(pin)) return { error: 'Password must be at least 10 characters and include uppercase, lowercase, and a number.' };
-    if (!fullName.trim()) return { error: 'Please enter your full name.' };
+    if (!hasFirstAndSecondName(fullName)) return { error: 'Enter both your first name and second name.' };
     if (!isValidEmail(userEmail)) return { error: 'Enter a valid email address, for example name@example.com.' };
     if (userLocation.trim().length < 2) return { error: 'Enter your town or neighbourhood, for example Ongata Rongai.' };
+    if (languages.length < 2) return { error: 'Add at least two languages you speak.' };
 
     const password = pinToPassword(pin);
     const email = userEmail.trim().toLowerCase();
@@ -139,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: fullName.trim(), role, phone: normalized, email, location: userLocation.trim() } },
+        options: { data: { full_name: normalizePersonName(fullName), role, phone: normalized, email, location: userLocation.trim(), languages } },
       });
       if (error) return { error: getAuthErrorMessage(error, 'signup') };
 
@@ -155,10 +157,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error: profileError } = await supabase.from('profiles').upsert({
           id: data.user.id,
           role,
-          full_name: fullName.trim(),
+          full_name: normalizePersonName(fullName),
           phone: normalized,
           email,
           location: userLocation.trim(),
+          languages,
         });
         if (profileError) {
           console.error('profile setup error', profileError);
