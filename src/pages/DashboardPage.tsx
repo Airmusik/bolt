@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight } from 'lucide-react';
+import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Pause, Play } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -45,6 +45,16 @@ export function DashboardPage() {
   const [incomingConnections, setIncomingConnections] = useState<IncomingConnection[]>([]);
   const [outgoingConnections, setOutgoingConnections] = useState<OutgoingConnection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [motionPaused, setMotionPaused] = useState(() => {
+    try { return localStorage.getItem('overview-motion-paused') === 'true'; }
+    catch { return false; }
+  });
+  const toggleOverviewMotion = () => {
+    const paused = !motionPaused;
+    setMotionPaused(paused);
+    try { localStorage.setItem('overview-motion-paused', String(paused)); }
+    catch { /* The toggle still works when browser storage is unavailable. */ }
+  };
 
   const load = useCallback(async () => {
     if (!user || !profile) return;
@@ -152,10 +162,11 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="container-content py-2 sm:py-5">
+    <div className={cn('container-content py-2 sm:py-5', tab === 'overview' && 'overview-motion')} data-motion-paused={motionPaused ? 'true' : undefined}>
       {tab === 'overview' && <>
-      <section className="dashboard-panel mt-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <section className="dashboard-panel overview-welcome relative isolate mt-3 overflow-hidden">
+        <span aria-hidden="true" className="overview-ambient pointer-events-none absolute -right-8 -top-12 h-44 w-64 rounded-full" />
+        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <div className="shrink-0"><Avatar name={profile.full_name} src={profile.avatar_url} size={48} verified={isDriver && profile.is_verified} /></div>
             <div className="min-w-0 flex-1">
@@ -165,25 +176,28 @@ export function DashboardPage() {
                 <span className="font-medium text-ink-700">{isOwner ? 'Car owner' : 'Driver'}</span>
                 {profile.location && <span className="inline-flex min-w-0 items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /><span className="break-words">{profile.location}</span></span>}
               </div>
-              {isDriver && <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-ink-600"><span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', profile.availability === 'available' ? 'bg-emerald-500' : profile.availability === 'busy' ? 'bg-amber-500' : 'bg-ink-400')} />{profile.availability === 'busy' ? 'Currently on a connection' : titleCase(profile.availability)}</p>}
+              {isDriver && <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-ink-600"><span aria-hidden="true" className={cn('h-1.5 w-1.5 shrink-0 rounded-full', profile.availability === 'available' ? 'overview-availability-dot bg-emerald-500' : profile.availability === 'busy' ? 'bg-amber-500' : 'bg-ink-400')} />{profile.availability === 'busy' ? 'Currently on a connection' : titleCase(profile.availability)}</p>}
             </div>
           </div>
-          {(isOwner || (isDriver && !profile.is_verified)) && <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3 sm:shrink-0 sm:border-0 sm:pt-0">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             {isOwner && <Link to="/vehicles/new" className="btn-secondary min-h-11 px-3 py-2 text-xs"><Plus className="h-3.5 w-3.5" /> Add vehicle</Link>}
             {isDriver && !profile.is_verified && <Link to="/onboarding" className="btn-ghost min-h-11 px-3 py-2 text-xs"><ShieldCheck className="h-3.5 w-3.5" /> My history</Link>}
-          </div>}
+            <button type="button" onClick={toggleOverviewMotion} aria-label={motionPaused ? 'Resume overview animations' : 'Pause overview animations'} title={motionPaused ? 'Resume overview animations' : 'Pause overview animations'} className="overview-motion-control ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">
+              {motionPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
       </section>
 
-      <div className="dashboard-panel mt-3 border-l-2 border-accent-500">
+      <div className="dashboard-panel overview-recommendation relative isolate mt-3 overflow-hidden border-l-2 border-accent-500">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-start gap-2.5"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-400"><recommendedAction.icon className="h-4 w-4" /></span><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent-700 dark:text-accent-400">{recommendedAction.eyebrow}</p><h2 className="mt-0.5 font-display text-base font-bold leading-snug text-ink-900">{recommendedAction.title}</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-ink-500">{recommendedAction.description}</p></div></div>
+          <div className="flex min-w-0 items-start gap-2.5"><span className="overview-action-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-400"><recommendedAction.icon className="h-4 w-4" /></span><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent-700 dark:text-accent-400">{recommendedAction.eyebrow}</p><h2 className="mt-0.5 font-display text-base font-bold leading-snug text-ink-900">{recommendedAction.title}</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-ink-500">{recommendedAction.description}</p></div></div>
           {recommendedAction.to ? <Link to={recommendedAction.to} className="btn-primary w-full shrink-0 sm:w-auto">{recommendedAction.label}<ArrowRight className="h-4 w-4" /></Link> : <button type="button" onClick={() => recommendedAction.tab && setTab(recommendedAction.tab)} className="btn-primary w-full shrink-0 sm:w-auto">{recommendedAction.label}<ArrowRight className="h-4 w-4" /></button>}
         </div>
       </div>
 
       {/* Stats */}
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3 lg:grid-cols-4">
+      <div className="overview-statistics mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3 lg:grid-cols-4">
         {stats.map((s) => (
           s.tab ? (
             <button key={s.label} onClick={() => setTab(s.tab!)} className="dashboard-stat group hover:ring-ink-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">

@@ -11,6 +11,7 @@ import { useSiteSettings } from '@/lib/siteSettings';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { PlatePrivacyEditor } from '@/components/PlatePrivacyEditor';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { VehicleModelInput } from '@/components/VehicleModelInput';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
 import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
 
@@ -130,7 +131,7 @@ export function VehicleFormPage() {
 
   const save = async () => {
     if (!user) return;
-    if (!form.make || !form.model || !form.location) { toast('Make, model and location are required.', 'error'); return; }
+    if (!form.make || !form.model.trim() || !form.location.trim()) { toast('Make, model and location are required.', 'error'); return; }
     if (photos.length === 0) { toast('At least one vehicle photo is required for security.', 'error'); return; }
     if (!isEdit) {
       const maxVehicles = Number(settings.max_vehicles_per_owner || 10);
@@ -147,7 +148,7 @@ export function VehicleFormPage() {
     setSaving(true);
     const payload = {
       owner_id: user.id,
-      make: form.make, model: form.model, year: Number(form.year),
+      make: form.make, model: form.model.trim(), year: Number(form.year),
       transmission: form.transmission, fuel_type: form.fuel_type, location: form.location.trim(),
       weekly_target: form.weekly_target ? Number(form.weekly_target) : null,
       monthly_target: form.monthly_target ? Number(form.monthly_target) : null,
@@ -250,13 +251,13 @@ export function VehicleFormPage() {
         {/* Basics */}
         <Card title="Vehicle details">
           <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Make" required hint="Select the vehicle manufacturer.">
-              <select value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} className="input">
+            <Field label="Make" htmlFor="vehicle-make" required hint="Select the manufacturer first. Changing it clears the model.">
+              <select id="vehicle-make" value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value, model: e.target.value === form.make ? form.model : '' })} className="input">
                 <option value="">Select make…</option>
                 {VEHICLE_MAKES.map((m) => <option key={m} value={m}>{m}</option>)}
               </select>
             </Field>
-            <Field label="Model" required hint="Enter the model drivers will search for."><input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="input" placeholder="e.g. Axio, Fielder, Note" /></Field>
+            <Field label="Model" htmlFor="vehicle-model" required hint="Start typing and choose a suggestion, or enter your exact model if it isn't listed."><VehicleModelInput id="vehicle-model" make={form.make} value={form.model} onChange={(model) => setForm({ ...form, model })} /></Field>
             <Field label="Year" required hint="Enter the vehicle's manufacture year."><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} className="input" /></Field>
             <Field label="Location" required hint="Enter where the vehicle is normally available.">
               <PlaceAutocomplete value={form.location} onChange={(location) => setForm({ ...form, location })} required />
@@ -382,12 +383,12 @@ function Card({ title, desc, icon, children }: { title: string; desc?: string; i
   );
 }
 
-function Field({ label, children, hint, required = false }: { label: string; children: React.ReactNode; hint?: string; required?: boolean }) {
+function Field({ label, children, hint, required = false, htmlFor }: { label: string; children: React.ReactNode; hint?: string; required?: boolean; htmlFor?: string }) {
   return (
     <div className="mb-4">
-      <label className="label">{label} {required && <span className="text-danger">*</span>}</label>
+      <label htmlFor={htmlFor} className="label">{label} {required && <span className="text-danger">*</span>}</label>
       {children}
-      {hint && <p className="mt-1.5 text-xs text-ink-400">{hint}</p>}
+      {hint && <p id={htmlFor ? `${htmlFor}-hint` : undefined} className="mt-1.5 text-xs text-ink-400">{hint}</p>}
     </div>
   );
 }

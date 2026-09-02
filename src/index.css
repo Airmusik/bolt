@@ -130,6 +130,84 @@
   background-size: 52px 52px;
 }
 .metric-value { font-variant-numeric: tabular-nums; }
+
+/* Overview decoration never changes account data, layout, or click targets. */
+.overview-motion .overview-ambient {
+  background: radial-gradient(ellipse, rgb(249 115 22 / 0.13), transparent 70%);
+}
+.overview-motion .overview-recommendation::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 35%, rgb(249 115 22 / 0.08) 50%, transparent 65%);
+  opacity: 0;
+}
+.overview-motion .overview-availability-dot { position: relative; }
+.overview-motion .overview-availability-dot::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border: 1px solid rgb(16 185 129 / 0.4);
+  border-radius: 50%;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .overview-motion .overview-ambient { animation: overview-drift 9s ease-in-out infinite; }
+  .overview-motion .overview-recommendation::after { animation: overview-sweep 9s ease-in-out infinite; }
+  .overview-motion .overview-action-icon { animation: overview-float 5.5s ease-in-out infinite; }
+  .overview-motion .overview-availability-dot::after { animation: overview-halo 3.5s ease-out infinite; }
+  .overview-motion .overview-statistics .dashboard-icon { animation: overview-float 6s ease-in-out infinite; }
+  .overview-motion .overview-statistics > :nth-child(2) .dashboard-icon { animation-delay: -1.5s; }
+  .overview-motion .overview-statistics > :nth-child(3) .dashboard-icon { animation-delay: -3s; }
+  .overview-motion .overview-statistics > :nth-child(4) .dashboard-icon { animation-delay: -4.5s; }
+  .overview-motion .dashboard-panel,
+  .overview-motion .dashboard-stat { animation: overview-enter 0.55s cubic-bezier(0.16, 1, 0.3, 1) backwards; }
+  .overview-motion .overview-recommendation { animation-delay: 60ms; }
+  .overview-motion .overview-statistics > :nth-child(1) { animation-delay: 100ms; }
+  .overview-motion .overview-statistics > :nth-child(2) { animation-delay: 150ms; }
+  .overview-motion .overview-statistics > :nth-child(3) { animation-delay: 200ms; }
+  .overview-motion .overview-statistics > :nth-child(4) { animation-delay: 250ms; }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .overview-motion button.dashboard-stat:hover { transform: translateY(-3px); }
+}
+/* Disabling motion cancels entrances as well, so nothing freezes half-hidden. */
+.overview-motion[data-motion-paused='true'] *,
+.overview-motion[data-motion-paused='true'] *::before,
+.overview-motion[data-motion-paused='true'] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+.overview-motion[data-motion-paused='true'] button.dashboard-stat:hover { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .overview-motion *, .overview-motion *::before, .overview-motion *::after { animation: none !important; }
+  .overview-motion .overview-motion-control { display: none; }
+}
+@keyframes overview-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes overview-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.6; }
+  50% { transform: translate(-24px, 12px) scale(1.12); opacity: 1; }
+}
+@keyframes overview-sweep {
+  0%, 55% { transform: translateX(-100%); opacity: 0; }
+  65%, 85% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+@keyframes overview-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+@keyframes overview-halo {
+  0%, 20% { transform: scale(0.7); opacity: 0; }
+  35% { opacity: 0.7; }
+  80%, 100% { transform: scale(1.8); opacity: 0; }
+}
 .chat-canvas {
   background-image:
     radial-gradient(circle at 8% 10%, rgb(249 115 22 / 0.07), transparent 24%),
