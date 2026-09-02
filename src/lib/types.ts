@@ -4,8 +4,10 @@ export type VerificationStatus = 'unverified' | 'pending' | 'approved' | 'reject
 export type ListingApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Profile {
+  document_listing_visibility?: 'public' | 'private' | 'deleted';
   platform_history_approved?: boolean;
   platform_history_submitted?: boolean;
+  platform_history_valid_until?: string | null;
   sponsored?: boolean;
   id: string;
   email: string | null;
@@ -44,6 +46,7 @@ export interface Profile {
 }
 
 export interface Vehicle {
+  document_listing_visibility?: 'public' | 'private' | 'deleted';
   sponsored?: boolean;
   deleted_at?: string | null;
   id: string;
@@ -115,6 +118,11 @@ export interface DocumentRow {
 }
 
 export interface PlatformHistory {
+  review_status?: 'draft' | 'pending' | 'approved' | 'rejected';
+  submitted_at?: string | null;
+  reviewed_at?: string | null;
+  expires_at?: string | null;
+  rejection_reason?: string | null;
   id: string;
   driver_id: string;
   platform: 'uber' | 'bolt' | 'little' | 'faras' | 'other';

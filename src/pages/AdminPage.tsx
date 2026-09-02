@@ -4,6 +4,9 @@ import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MED
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
 import { AdminPromotions, OwnerListingAllowance } from '@/components/AdminPromotions';
+import { AdminExpiredDocuments } from '@/components/AdminExpiredDocuments';
+import { DocumentExpiry } from '@/components/DocumentExpiry';
+import { historyState } from '@/lib/documentLifecycle';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { cn, timeAgo, formatDate, formatDateTime } from '@/lib/utils';
@@ -64,9 +67,9 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions';
+type Tab = 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
 
-const ADMIN_TABS: Tab[] = ['overview', 'members', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions'];
+const ADMIN_TABS: Tab[] = ['overview', 'members', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -149,6 +152,7 @@ export function AdminPage() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'contact_message_entries' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => void load())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, () => void load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_platform_history' }, () => void load())
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [load]);
@@ -273,20 +277,12 @@ export function AdminPage() {
   const rejectPlatformHistory = async (item: AdminHistory, reason: string) => {
     setModerationLoading(true);
     const cleanReason = reason.trim();
-    const { error } = await supabase.from('driver_platform_history').update({ approved: false, proof_url: null }).eq('id', item.id);
+    const { error } = await supabase.rpc('review_platform_history', { p_id: item.id, p_decision: 'rejected', p_reason: cleanReason, p_submitted_at: item.submitted_at });
     if (error) {
       toast('Could not reject platform history: ' + error.message, 'error');
       setModerationLoading(false);
       return;
     }
-    const { count, error: countError } = await supabase.from('driver_platform_history').select('id', { count: 'exact', head: true }).eq('driver_id', item.driver_id).eq('approved', true);
-    if (countError) {
-      toast('History was rejected, but the driver signal could not be checked: ' + countError.message, 'error');
-    } else if (count === 0) {
-      const { error: profileError } = await supabase.from('profiles').update({ is_verified: false, verification_status: 'rejected' }).eq('id', item.driver_id);
-      if (profileError) toast('History was rejected, but the public driver signal could not be updated: ' + profileError.message, 'error');
-    }
-    await notifyUser(item.driver_id, 'trust', 'Platform history rejected', `${cleanReason} Please upload clearer, recent platform history.`);
     toast('Platform history rejected with a reason.');
     setHistoryRejection(null);
     setModerationReason('');
@@ -296,20 +292,13 @@ export function AdminPage() {
 
   const approvePlatformHistory = async (item: AdminHistory) => {
     setModerationLoading(true);
-    const { error } = await supabase.from('driver_platform_history').update({ approved: true }).eq('id', item.id);
+    const { error } = await supabase.rpc('review_platform_history', { p_id: item.id, p_decision: 'approved', p_submitted_at: item.submitted_at });
     if (error) {
       toast('Could not approve platform history: ' + error.message, 'error');
       setModerationLoading(false);
       return;
     }
-    const { error: profileError } = await supabase.from('profiles').update({ is_verified: true, verification_status: 'approved' }).eq('id', item.driver_id);
-    if (profileError) {
-      toast('History was approved, but the public driver signal could not be updated: ' + profileError.message, 'error');
-      setModerationLoading(false);
-      return;
-    }
-    await notifyUser(item.driver_id, 'trust', 'Platform history approved', `Your recent ${item.platform} history is now approved on ${siteSettings.site_name}.`);
-    toast('Platform history approved and public signal updated.');
+    toast('Platform history approved for six months. The driver was notified.');
     setViewingHistory(null);
     setModerationLoading(false);
     await load();
@@ -431,7 +420,8 @@ export function AdminPage() {
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: unsolvedReports.length },
     { key: 'contact', label: 'Messages', icon: Mail, badge: newContactMessages.length },
-    { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
+    { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => historyState(h) === 'pending').length },
+    { key: 'expired', label: 'Expired documents', icon: CalendarDays },
     { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
     { key: 'promotions', label: 'Promotions', icon: TrendingUp },
@@ -751,18 +741,17 @@ export function AdminPage() {
         {tab === 'history' && !loading && (
           <div className="space-y-2">
             {history.length === 0 && <p className="text-sm text-ink-500">No platform history entries yet.</p>}
-            {history.map((h) => (
-              <div key={h.id} className="card flex items-center gap-3 p-4">
+            {history.filter(h => historyState(h) !== 'draft').map((h) => (
+              <div key={h.id} className="card flex flex-wrap items-center gap-3 p-4">
                 <div className="flex-1">
                   <p className="font-medium text-ink-900 capitalize">{h.platform} — {h.driver?.full_name || 'Unknown driver'}</p>
                   <p className="text-xs text-ink-500">{h.months_active} {h.months_active === 1 ? 'month' : 'months'} active{h.rating != null ? ` · ${h.rating.toFixed(1)} rating` : ''}</p>
                   {h.proof_url && <span className="text-xs text-brand-600">Private proof attached</span>}
+                  {h.expires_at && <DocumentExpiry expiresAt={h.expires_at} />}
+                  {h.rejection_reason && <p className="mt-1 text-xs text-danger">{h.rejection_reason}</p>}
                 </div>
-                {h.approved ? (
-                  <span className="badge badge-success"><CheckCircle2 className="inline h-3 w-3" /> Approved</span>
-                ) : (
-                  <button onClick={() => setViewingHistory(h)} className="btn-primary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> Review</button>
-                )}
+                <span className={cn('badge capitalize', historyState(h) === 'approved' ? 'badge-success' : 'badge-warning')}>{historyState(h)}</span>
+                <button onClick={() => setViewingHistory(h)} className="btn-primary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> {historyState(h) === 'pending' ? 'Review' : 'View'}</button>
               </div>
             ))}
           </div>
@@ -774,6 +763,7 @@ export function AdminPage() {
         {/* ---------- Settings ---------- */}
         {tab === 'settings' && !loading && <AdminSettings />}
         {tab === 'promotions' && !loading && <AdminPromotions />}
+        {tab === 'expired' && !loading && <AdminExpiredDocuments onContact={(id) => { const member = users.find(item => item.id === id); if (member) void adminStartChat(member); }} onChanged={load} />}
       </div>
 
       {/* Document viewer modal */}
@@ -822,7 +812,7 @@ export function AdminPage() {
 
       {historyRejection && (
         <Modal title={`Reject ${historyRejection.platform} platform history`} onClose={() => { if (!moderationLoading) { setHistoryRejection(null); setModerationReason(''); } }}>
-          <p className="text-sm text-ink-600">This private proof will be removed. Explain what the driver should upload next.</p>
+          <p className="text-sm text-ink-600">The proof will be marked rejected and retained in review history. Explain what the driver should correct before resubmitting.</p>
           <label htmlFor="history-rejection-reason" className="label mt-4">Reason</label>
           <textarea
             id="history-rejection-reason"
@@ -938,10 +928,10 @@ export function AdminPage() {
             <button
               type="button"
               onClick={() => { setHistoryRejection(viewingHistory); setModerationReason(''); setViewingHistory(null); }}
-              disabled={moderationLoading}
+              disabled={moderationLoading || historyState(viewingHistory) !== 'pending'}
               className="btn-secondary w-full sm:w-auto"
             ><X className="h-4 w-4" /> Reject</button>
-            <button type="button" onClick={() => void approvePlatformHistory(viewingHistory)} disabled={moderationLoading} className="btn-primary w-full sm:w-auto">
+            <button type="button" onClick={() => void approvePlatformHistory(viewingHistory)} disabled={moderationLoading || historyState(viewingHistory) !== 'pending'} className="btn-primary w-full sm:w-auto">
               {moderationLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Approve
             </button>
           </div>

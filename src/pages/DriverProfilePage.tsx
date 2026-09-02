@@ -18,7 +18,7 @@ import { MemberSafetyNotice } from '@/components/MemberSafetyNotice';
 
 export function DriverProfilePage() {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, profile: signedInProfile } = useAuth();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [history, setHistory] = useState<PlatformHistory[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -39,7 +39,7 @@ export function DriverProfilePage() {
       : supabase.from('profiles').select(BROWSE_PROFILE_FIELDS).eq('id', id).in('role', ['driver', 'owner']).maybeSingle();
     const [profileResult, historyResult, reviewsResult, trustResult] = await Promise.all([
       profileRequest,
-      supabase.from('driver_platform_history').select('id,driver_id,platform,months_active,trips,rating,approved,created_at').eq('driver_id', id).eq('approved', true),
+      supabase.rpc('public_platform_history', { p_driver_id: id }),
       supabase.from('reviews').select(`*, reviewer:profiles(${BROWSE_PROFILE_FIELDS})`).eq('reviewee_id', id).order('created_at', { ascending: false }),
       supabase.rpc('get_trust_passport', { p_user_id: id }).maybeSingle(),
     ]);
@@ -62,6 +62,7 @@ export function DriverProfilePage() {
   if (loadError) return <div className="container-content py-12"><EmptyState title="Could not load this profile" description="Check your connection and try again." action={<button type="button" onClick={() => void loadProfile()} className="btn-primary">Try again</button>} /></div>;
   if (!profile) return <div className="container-content py-12"><EmptyState title="Profile not found" /></div>;
   if (profile.role === 'admin') return <div className="container-content py-12"><EmptyState title="Support has no member profile" description="Use Messages to speak with the support team." action={<Link to="/contact" className="btn-primary">Contact support</Link>} /></div>;
+  if (profile.document_listing_visibility && profile.document_listing_visibility !== 'public' && user?.id !== profile.id && signedInProfile?.role !== 'admin') return <div className="container-content py-12"><EmptyState title="Driver listing not public" description="This listing is not currently available. Existing conversations remain saved in Chats." action={<Link to="/chat" className="btn-secondary">Open chats</Link>} /></div>;
   if (profile.role === 'driver' && !profile.onboarding_completed && user?.id !== profile.id) return <div className="container-content py-12"><EmptyState title="Profile not public yet" description="This driver is still completing their About You information." /></div>;
 
   const isOwner = profile.role === 'owner';

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, ShieldCheck, Pencil, Clock3, History, FileText, Loader2, Upload } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, ShieldCheck, Clock3, History, FileText, Loader2, Upload } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -12,6 +12,8 @@ import { ModeratedImage } from '@/components/ModeratedImage';
 import { isPreviewableTrustImage, isTrustImageFile, prepareTrustUpload } from '@/lib/trustUpload';
 import { hasValidNameFields, normalizePersonName, parseLanguages, splitPersonName } from '@/lib/profileValidation';
 import { PersonNameFields } from '@/components/PersonNameFields';
+import { DocumentExpiry } from '@/components/DocumentExpiry';
+import { historyCanEdit, historyState } from '@/lib/documentLifecycle';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 const TRUST_FILE_ACCEPT = 'image/*,.pdf';
@@ -54,9 +56,14 @@ export function DriverOnboardingPage() {
   const [history, setHistory] = useState<PlatformHistory[]>([]);
   const [monthDrafts, setMonthDrafts] = useState<Record<string, string>>({});
   const [trustLoaded, setTrustLoaded] = useState(false);
-  const [editingPassport, setEditingPassport] = useState(false);
-  const [loadingSavedProfile, setLoadingSavedProfile] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
+  const uploadInFlight = useRef(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [now, setNow] = useState(Date.now);
+  useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 60_000); return () => window.clearInterval(timer); }, []);
+  const awaitingReview = history.some(item => historyState(item, now) === 'pending');
+  const canAddHistory = trustLoaded && !awaitingReview && !history.some(item => historyState(item, now) === 'approved');
+  const canSubmitHistory = trustLoaded && !awaitingReview && history.some(item => historyState(item, now) === 'draft');
 
   const hydrateProfileForm = useCallback((savedProfile: typeof profile) => {
     if (!savedProfile) return;
@@ -78,11 +85,10 @@ export function DriverOnboardingPage() {
       const { data: platformHistory, error: historyError } = await supabase.from('driver_platform_history').select('*').eq('driver_id', user.id);
       if (historyError) throw historyError;
       setHistory((platformHistory as PlatformHistory[]) || []);
+      setTrustLoaded(true);
     } catch (error) {
       toast('Could not load platform history. Please refresh and try again.', 'error');
       console.error('platform history load failed', error);
-    } finally {
-      setTrustLoaded(true);
     }
   };
 
@@ -92,34 +98,23 @@ export function DriverOnboardingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, profile, hydrateProfileForm]);
 
-  useEffect(() => {
-    if (user && sessionStorage.getItem(`driver-proof-edit-${user.id}`) === 'true') {
-      setEditingPassport(true);
-    }
-  }, [user]);
-
-  const startEditingPassport = async () => {
-    setLoadingSavedProfile(true);
+  const renewHistory = async (item: PlatformHistory) => {
+    if (historyBusy || !historyCanEdit(item, history, now)) return;
+    setHistoryBusy(true);
     try {
-      const { data, error } = await supabase.rpc('get_my_profile');
+      const { error } = await supabase.rpc('prepare_history_renewal', { p_id: item.id });
       if (error) throw error;
-      const savedProfile = Array.isArray(data) ? data[0] : data;
-      hydrateProfileForm(savedProfile || profile);
       await loadTrustData();
-      if (user) sessionStorage.setItem(`driver-proof-edit-${user.id}`, 'true');
-      setEditingPassport(true);
-    } catch (error) {
-      console.error('saved profile load failed', error);
-      toast('Could not load your saved details. Please try again.', 'error');
-    } finally {
-      setLoadingSavedProfile(false);
-    }
+      toast('Choose fresh proof below, preview it, then save and submit for review.');
+    } catch (error) { toast('Could not open renewal: ' + (error as Error).message, 'error'); }
+    finally { setHistoryBusy(false); }
   };
 
   const chooseUpload = (
     file: File,
     target: { kind: 'history'; item: PlatformHistory; label: string },
   ) => {
+    if (!historyCanEdit(target.item, history, now) || historyState(target.item, now) !== 'draft' || uploadInFlight.current) return;
     const uploadKey = `history-${target.item.id}`;
     const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
     const isImage = isTrustImageFile(file);
@@ -157,7 +152,8 @@ export function DriverOnboardingPage() {
   }, [pendingUpload?.previewUrl]);
 
   const addHistory = async () => {
-    if (!user) return;
+    if (!user || !canAddHistory || historyBusy) return;
+    setHistoryBusy(true);
     try {
       const { data, error } = await supabase.from('driver_platform_history').insert({ driver_id: user.id, platform: 'uber', months_active: 0, trips: 0 }).select().maybeSingle();
       if (error) throw error;
@@ -165,7 +161,7 @@ export function DriverOnboardingPage() {
     } catch (error) {
       toast('Could not add platform history. Please try again.', 'error');
       console.error('platform history insert failed', error);
-    }
+    } finally { setHistoryBusy(false); }
   };
 
   const uploadHistoryProof = async (item: PlatformHistory, file: File) => {
@@ -178,9 +174,12 @@ export function DriverOnboardingPage() {
       if (uploadError) throw uploadError;
       const { data: publicUrl } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
       const { error } = await supabase.from('driver_platform_history').update({ proof_url: publicUrl.publicUrl, approved: false }).eq('id', item.id);
-      if (error) throw error;
+      if (error) {
+        await supabase.storage.from(DOCUMENT_BUCKET).remove([path]);
+        throw error;
+      }
       await loadTrustData();
-      toast('Platform proof submitted for admin approval.');
+      toast('Proof uploaded to your draft. Click Save & submit platform history when ready.');
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'The upload could not be completed.';
@@ -193,7 +192,8 @@ export function DriverOnboardingPage() {
   };
 
   const submitPendingUpload = async () => {
-    if (!pendingUpload) return;
+    if (!pendingUpload || uploadInFlight.current || !historyCanEdit(pendingUpload.item, history, now)) return;
+    uploadInFlight.current = true;
     setUploadingType(pendingUpload.uploadKey);
     try {
       const preparedFile = await prepareTrustUpload(pendingUpload.file);
@@ -203,14 +203,15 @@ export function DriverOnboardingPage() {
       const message = error instanceof Error ? error.message : 'The file could not be prepared.';
       toast('Could not prepare this upload: ' + message, 'error');
       setUploadingType(null);
-    }
+    } finally { uploadInFlight.current = false; }
   };
 
   const updateHistory = async (item: PlatformHistory, field: keyof PlatformHistory, value: unknown) => {
-    setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, [field]: value } : entry));
+    if (!historyCanEdit(item, history, now) || historyState(item, now) !== 'draft') return;
     try {
       const { error } = await supabase.from('driver_platform_history').update({ [field]: value, approved: false }).eq('id', item.id);
       if (error) throw error;
+      setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, [field]: value } : entry));
     } catch (error) {
       toast('Could not update platform history. Your page is still open; please try again.', 'error');
       console.error('platform history update failed', error);
@@ -218,19 +219,21 @@ export function DriverOnboardingPage() {
   };
 
   const removeHistory = async (item: PlatformHistory) => {
+    if (historyBusy || !historyCanEdit(item, history, now)) return;
+    setHistoryBusy(true);
     try {
-      const { error } = await supabase.from('driver_platform_history').delete().eq('id', item.id);
+      const { error } = await supabase.rpc('remove_history_draft', { p_id: item.id });
       if (error) throw error;
       setHistory((items) => items.filter((entry) => entry.id !== item.id));
       toast('Platform history removed.');
     } catch (error) {
       toast('Could not remove platform history.', 'error');
       console.error('platform history delete failed', error);
-    }
+    } finally { setHistoryBusy(false); }
   };
 
   const saveProfile = async () => {
-    if (!user) return;
+    if (!user || saving || !canSubmitHistory || uploadInFlight.current || pendingUpload) return;
     if (!hasValidNameFields(profileForm.firstName, profileForm.secondName)) {
       toast('Enter both your first name and second name in About You.', 'error');
       return;
@@ -248,12 +251,17 @@ export function DriverOnboardingPage() {
     if (history.some(item => monthDrafts[item.id] !== undefined && (!monthDrafts[item.id].trim() || !Number.isInteger(Number(monthDrafts[item.id])) || Number(monthDrafts[item.id]) < 1))) {
       toast('Enter at least 1 whole month for each platform history entry.', 'error'); return;
     }
-    const completeHistory = history.filter((item) => item.months_active > 0 && Boolean(item.proof_url));
-    if (completeHistory.length === 0) {
-      toast('Add at least one platform history entry with months active and proof before submitting.', 'error');
+    const drafts = history.filter(item => historyState(item, now) === 'draft');
+    if (!drafts.length || drafts.some(item => !(Number(monthDrafts[item.id] ?? item.months_active) > 0) || !item.proof_url)) {
+      toast('Add months active and upload proof for every draft platform, or remove unused draft entries.', 'error');
       return;
     }
     setSaving(true);
+    try {
+    for (const item of drafts) {
+      const { error } = await supabase.from('driver_platform_history').update({ months_active: Number(monthDrafts[item.id] ?? item.months_active) }).eq('id', item.id);
+      if (error) throw error;
+    }
     const { error: profileError } = await supabase.from('profiles').update({
       full_name: normalizePersonName(`${profileForm.firstName} ${profileForm.secondName}`), bio: profileForm.bio, location: profileForm.location,
       age: profileForm.age ? Number(profileForm.age) : null,
@@ -270,6 +278,8 @@ export function DriverOnboardingPage() {
     sessionStorage.removeItem(`driver-proof-edit-${user.id}`);
     toast('Platform history submitted for admin review.');
     navigate('/dashboard');
+    } catch (error) { toast('Could not submit history: ' + (error as Error).message, 'error'); }
+    finally { setSaving(false); }
   };
 
   const saveAbout = async () => {
@@ -309,10 +319,10 @@ export function DriverOnboardingPage() {
     );
   }
 
-  const passportSubmitted = trustLoaded && !editingPassport && (profile?.verification_status === 'pending' || profile?.verification_status === 'approved');
+  const passportSubmitted = trustLoaded && history.length > 0 && (awaitingReview || history.every(item => historyState(item, now) === 'approved'));
 
   if (passportSubmitted) {
-    const approved = profile?.verification_status === 'approved';
+    const approved = !awaitingReview;
     return (
       <div className="container-content max-w-3xl py-8">
         <BackButton to="/dashboard" />
@@ -322,15 +332,16 @@ export function DriverOnboardingPage() {
               {approved ? <CheckCircle2 className="h-8 w-8" /> : <Clock3 className="h-8 w-8" />}
             </div>
             <h1 className="mt-5 font-display text-2xl font-bold">Platform history {approved ? 'approved' : 'submitted'}</h1>
-            <p className="mt-2 max-w-xl text-sm text-white/85">{approved ? 'Your reviewed trust information is active on your public driver profile.' : 'Your information is complete and waiting for admin review. You will receive a notification when the review is finished.'}</p>
+            <p className="mt-2 max-w-xl text-sm text-white/85">{approved ? 'Your platform history is valid for six months from approval. Editing and renewal unlock when it expires.' : 'Your submission is locked while admins review it. You cannot edit or submit again until a decision is made. Rejected proof can be corrected; approved proof stays locked until expiry.'}</p>
           </div>
           <div className="space-y-3 p-6 sm:p-8">
             <CompletionRow label="Profile details" detail="Done" approved />
             <CompletionRow label="Platform history" detail="Done" approved={approved} />
             <CompletionRow label="Platform proof" detail="Done" approved={approved} />
+            {history.map(item => <div key={item.id} className="rounded-xl border border-ink-200 p-3"><p className="text-sm font-semibold capitalize">{item.platform} · {historyState(item, now)}</p>{item.expires_at && <DocumentExpiry expiresAt={item.expires_at} />}</div>)}
             <div className="border-t border-ink-100 pt-5">
-              <button type="button" onClick={startEditingPassport} disabled={loadingSavedProfile} className="btn-secondary w-full sm:w-auto"><Pencil className="h-4 w-4" /> {loadingSavedProfile ? 'Loading saved details…' : 'Edit platform history'}</button>
-              <p className="mt-2 text-xs text-ink-500">Editing reviewed information may send the updated sections back to admin for approval.</p>
+              <Link to="/dashboard" className="btn-secondary w-full sm:w-auto">Back to dashboard</Link>
+              <p className="mt-2 text-xs text-ink-500">You can still update your About You information in Settings. Expiry reminders appear in Notifications; renewal opens on the expiry date.</p>
             </div>
           </div>
         </div>
@@ -338,11 +349,15 @@ export function DriverOnboardingPage() {
     );
   }
 
+  if (!trustLoaded) return <div className="container-content py-8"><p className="text-sm text-ink-600">Loading saved platform history…</p><button type="button" onClick={() => void loadTrustData()} className="btn-secondary mt-3">Retry loading</button></div>;
+
   return (
     <div className="container-content py-8">
       <BackButton to="/dashboard" />
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Build your driver trust profile</h1>
       <p className="mt-1 max-w-3xl text-sm text-ink-500">No identity document is required. Your latest ride-hailing platform history with proof is required so admins can confirm real driving activity.</p>
+      <p className="mt-2 text-sm text-ink-600">Preview and upload your proof, then submit once for review. Approved proof is valid for six months and cannot be edited until it expires. Renew expired proof promptly to avoid your listing being made private or removed by an admin.</p>
+      {profile?.document_listing_visibility && profile.document_listing_visibility !== 'public' && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Your driver listing is {profile.document_listing_visibility === 'deleted' ? 'removed from discovery' : 'private'}. Renew your proof and contact support to restore it. Your account and chats are still available.</p>}
       <p className="mt-2 text-xs text-ink-400"><span className="font-bold text-danger">*</span> Required information</p>
 
       <div className="mt-6 space-y-6">
@@ -357,11 +372,16 @@ export function DriverOnboardingPage() {
         <AboutFields profileForm={profileForm} setProfileForm={setProfileForm} />
 
         <Section title="Platform history and proof (required)" desc="Add at least one platform, enter your recent activity, and upload its latest Uber, Bolt, Faras, Little Cab, or other platform history. Admins see the private proof; other members only see approved activity.">
-          <div className="space-y-3">{history.map((item) => <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
+          <div className="space-y-3">{history.map((item) => historyState(item, now) !== 'draft' ? <div key={item.id} className="rounded-xl border border-ink-200 p-4">
+            <p className="text-sm font-semibold capitalize">{item.platform} · {historyState(item, now)}</p>
+            {item.rejection_reason && <p className="mt-2 text-sm text-danger">Reason: {item.rejection_reason}</p>}
+            {item.expires_at && <DocumentExpiry expiresAt={item.expires_at} />}
+            {historyCanEdit(item, history, now) && <button type="button" onClick={() => void renewHistory(item)} disabled={historyBusy} className="btn-primary mt-3">{historyBusy ? 'Opening…' : historyState(item, now) === 'rejected' ? 'Correct rejected proof' : 'Renew expired proof'}</button>}
+          </div> : <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <Field label="Platform" required hint="Select the app shown in your proof."><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select></Field>
               <Field label="Months active" required hint="Enter at least 1 whole month."><input type="number" min={1} value={monthDrafts[item.id] ?? String(item.months_active || '')} onChange={(e) => setMonthDrafts((drafts) => ({ ...drafts, [item.id]: e.target.value }))} onBlur={(e) => { const value = Number(e.target.value); if (e.target.value && Number.isInteger(value) && value >= 1) void updateHistory(item, 'months_active', value); }} className="input py-2" placeholder="e.g. 12" /></Field>
-              <button type="button" onClick={() => removeHistory(item)} aria-label={`Remove ${titleCase(item.platform)} history`} className="btn-ghost mb-4 self-center text-danger"><Trash2 className="h-4 w-4" /></button>
+              {!item.reviewed_at && !item.submitted_at && <button type="button" onClick={() => removeHistory(item)} disabled={historyBusy || saving} aria-label={`Remove ${titleCase(item.platform)} history`} className="btn-ghost mb-4 self-center text-danger"><Trash2 className="h-4 w-4" /></button>}
             </div>
             <div className="flex flex-wrap items-end gap-2">
               <div className="w-full sm:max-w-sm">
@@ -372,7 +392,7 @@ export function DriverOnboardingPage() {
                     accept={TRUST_FILE_ACCEPT}
                     aria-label={`Choose ${titleCase(item.platform)} platform proof`}
                     className="hidden"
-                    disabled={uploadingType === `history-${item.id}`}
+                    disabled={Boolean(uploadingType) || saving}
                     onChange={(event) => {
                       const file = event.currentTarget.files?.item(0);
                       if (file) chooseUpload(file, { kind: 'history', item, label: `${titleCase(item.platform)} platform proof` });
@@ -382,7 +402,7 @@ export function DriverOnboardingPage() {
                   <Upload className="h-4 w-4" /> {pendingUpload?.item.id === item.id ? 'Choose a different file' : item.proof_url ? 'Choose replacement proof' : 'Choose image or PDF'}
                 </label>
               </div>
-              {item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}
+              <span className="badge badge-warning">{item.proof_url ? 'Draft · ready to submit' : 'Draft · proof required'}</span>
               <span className="basis-full text-[11px] text-ink-400">Upload your latest platform activity screen. Phone photos, HEIC, JPG, PNG, WebP, or PDF · preview before submission · maximum 8 MB.</span>
             </div>
             {pendingUpload?.item.id === item.id && (
@@ -411,10 +431,10 @@ export function DriverOnboardingPage() {
               </div>
             )}
             {item.proof_url && isPreviewableTrustImage(item.proof_url) && <UploadPreview url={item.proof_url} label={`${titleCase(item.platform)} platform proof`} />}
-          </div>)}<button type="button" onClick={addHistory} className="btn-secondary"><Plus className="h-4 w-4" /> Add platform</button></div>
+          </div>)}{canAddHistory && <button type="button" onClick={addHistory} disabled={historyBusy || saving} className="btn-secondary"><Plus className="h-4 w-4" /> Add platform</button>}</div>
         </Section>
 
-        <div className="flex justify-end"><button type="button" onClick={saveProfile} disabled={saving} className="btn-primary">{saving ? 'Saving…' : 'Save & submit platform history'} <ArrowRight className="h-4 w-4" /></button></div>
+        {canSubmitHistory && <div className="flex flex-col items-end gap-2"><button type="button" onClick={saveProfile} disabled={saving || historyBusy || Boolean(pendingUpload) || Boolean(uploadingType)} className="btn-primary">{saving ? 'Submitting…' : 'Save & submit platform history'} <ArrowRight className="h-4 w-4" /></button><p className="text-xs text-ink-500">After submission, no changes are allowed while review is pending.</p></div>}
       </div>
     </div>
   );

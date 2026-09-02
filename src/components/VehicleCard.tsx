@@ -39,6 +39,7 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
           </div>
         )}
         <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+          {showApprovalStatus && vehicle.document_listing_visibility && vehicle.document_listing_visibility !== 'public' && <span className="badge-danger">{vehicle.document_listing_visibility === 'private' ? 'Private · document renewal needed' : 'Removed from discovery'}</span>}
           {showApprovalStatus && vehicle.approval_status === 'pending' && <span className="badge-warning">Pending admin approval</span>}
           {showApprovalStatus && vehicle.approval_status === 'approved' && <span className="badge-success">Approved</span>}
           {showApprovalStatus && vehicle.approval_status === 'rejected' && <span className="badge-danger">Changes required</span>}

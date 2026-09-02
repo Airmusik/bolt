@@ -1,7 +1,7 @@
 import type { Profile } from './types';
 
-export function driverNeedsApproval(profile: Pick<Profile, 'role' | 'platform_history_approved'> | null | undefined) {
-  return profile?.role === 'driver' && !profile.platform_history_approved;
+export function driverNeedsApproval(profile: Pick<Profile, 'role' | 'platform_history_approved' | 'platform_history_valid_until'> | null | undefined) {
+  return profile?.role === 'driver' && (!profile.platform_history_approved || Boolean(profile.platform_history_valid_until && Date.parse(profile.platform_history_valid_until) <= Date.now()));
 }
 export function driverApprovalMessage(profile: Pick<Profile, 'platform_history_submitted'> | null | undefined) {
   return profile?.platform_history_submitted
