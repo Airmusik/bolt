@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole, Headphones, ImagePlus, Loader2, Search, ShieldCheck } from 'lucide-react';
+import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole, Headphones, ImagePlus, Loader2, Search, ShieldCheck, Power } from 'lucide-react';
 import { CHAT_MEDIA_BUCKET, supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -17,6 +17,7 @@ import { Modal } from '@/components/Modal';
 import { ChatMediaImage } from '@/components/ChatMediaImage';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
 import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
+import { endConnection } from '@/lib/connections';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
@@ -70,7 +71,7 @@ function conversationPartnerId(conversation: Conversation, userId: string) {
 export function ChatPage() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const { settings } = useSiteSettings();
 
@@ -82,6 +83,7 @@ export function ChatPage() {
   const [conversationSearch, setConversationSearch] = useState('');
   const [showReport, setShowReport] = useState(false);
   const [showSupportRequest, setShowSupportRequest] = useState(false);
+  const [showEndConnection, setShowEndConnection] = useState(false);
   const [supportRequest, setSupportRequest] = useState('');
   const [requestingSupport, setRequestingSupport] = useState(false);
   const [confirmSafetyAction, setConfirmSafetyAction] = useState<'block' | 'unblock' | null>(null);
@@ -443,6 +445,20 @@ export function ChatPage() {
     toast('Support request sent. An administrator can now open this exact conversation.');
   };
 
+  const endActiveConnection = async () => {
+    if (!active?.connection_id) {
+      toast('This chat is not linked to an active connection.', 'error');
+      return;
+    }
+    const { error } = await endConnection(active.connection_id);
+    if (error) {
+      toast('Could not end this connection: ' + error, 'error');
+      return;
+    }
+    await Promise.all([loadConversations(), refreshProfile()]);
+    toast('Connection ended. Both members are available again and this chat remains saved as read-only history.');
+  };
+
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
 
   if (conversations.length === 0) {
@@ -460,6 +476,7 @@ export function ChatPage() {
   const supportSessionActive = Boolean(activeGroup?.items.some((conversation) => conversation.support_reopened_at && !conversation.support_resolved_at && !conversation.closed_at));
   const adminClosedChat = Boolean(activeGroup?.items.some((conversation) => conversation.closed_at && conversation.admin_closed_at));
   const memberConnectionChat = Boolean(active?.driver_id && active?.owner_id);
+  const canEndConnection = Boolean(memberConnectionChat && active?.connection_id && active.connection?.status === 'accepted' && !chatClosed);
 
   return (
     <div className="container-content py-4 sm:py-6">
@@ -515,6 +532,7 @@ export function ChatPage() {
                   </div>
                 </div>
                 <div className="flex gap-1">
+                  {canEndConnection && <button onClick={() => setShowEndConnection(true)} aria-label="End connection" title="End connection" className="inline-flex items-center gap-1 rounded-full px-2 py-2 text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/30"><Power className="h-4 w-4" /><span className="hidden text-xs font-semibold sm:inline">End</span></button>}
                   {memberConnectionChat && <button onClick={() => setShowSupportRequest(true)} aria-label="Contact support about this conversation" title="Contact support about this conversation" className="inline-flex items-center gap-1 rounded-full px-2 py-2 text-violet-600 hover:bg-violet-100 dark:text-violet-300"><Headphones className="h-4 w-4" /><span className="hidden text-xs font-semibold sm:inline">Support</span></button>}
                   <button onClick={() => setShowReport(true)} aria-label="Report conversation" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><Flag className="h-4 w-4" /></button>
                   {!isDirectSupportConversation && (blockStatus.i_blocked_other ? (
@@ -663,6 +681,16 @@ export function ChatPage() {
           danger={confirmSafetyAction === 'block'}
           onConfirm={confirmSafetyAction === 'block' ? blockUser : unblockUser}
           onClose={() => setConfirmSafetyAction(null)}
+        />
+      )}
+      {showEndConnection && canEndConnection && (
+        <ConfirmDialog
+          title="End this connection?"
+          message="Both members will become available for new connections. This chat will become read-only, but its complete history will remain saved for reference and dispute support."
+          confirmLabel="End connection"
+          danger
+          onConfirm={endActiveConnection}
+          onClose={() => setShowEndConnection(false)}
         />
       )}
     </div>
