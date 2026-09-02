@@ -224,7 +224,7 @@ export function AdminPage() {
   const issueReportWarning = async (report: AdminReport, message: string) => {
     const { data, error } = await supabase.rpc('admin_issue_report_warning', { p_report_id: report.id, p_message: message.trim() });
     if (error) { toast('Could not send warning: ' + error.message, 'error'); return false; }
-    toast(`Warning ${Number(data) || 1} sent. The report is now solved.`);
+    toast(`Warning ${Number(data) || 1} recorded. The report is now solved.`);
     setViewingReport(null);
     await load();
     return true;
