@@ -590,7 +590,7 @@ function ChatsTab({ conversations, loading, currentUserId }: { conversations: Co
           <Avatar name={(c.driver?.full_name || c.owner?.full_name || 'User')} src={c.driver?.avatar_url || c.owner?.avatar_url} size={44} verified={!!c.driver?.is_verified} />
           <div className="flex-1">
             <p className="font-semibold text-ink-900">{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : `${c.driver?.full_name || 'Driver'} ↔ ${c.owner?.full_name || 'Owner'}`}</p>
-            <p className="text-xs text-ink-400">{count > 1 ? `${count} connections · complete history preserved` : c.closed_at ? 'Ended · history preserved' : c.last_message_at ? timeAgo(c.last_message_at) : 'No messages yet'}</p>
+            <p className="text-xs text-ink-400">{count > 1 ? 'Complete chat history preserved' : c.closed_at ? 'Ended · history preserved' : c.last_message_at ? timeAgo(c.last_message_at) : 'No messages yet'}</p>
           </div>
           <MessageSquare className="h-5 w-5 text-ink-400" />
         </Link>
