@@ -10,6 +10,7 @@ import { BackButton } from '@/components/BackButton';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { isPreviewableTrustImage, isTrustImageFile, prepareTrustUpload } from '@/lib/trustUpload';
+import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 const TRUST_FILE_ACCEPT = 'image/*,application/pdf,.pdf,.heic,.heif';
@@ -51,6 +52,7 @@ export function DriverOnboardingPage() {
   const [editingPassport, setEditingPassport] = useState(false);
   const [loadingSavedProfile, setLoadingSavedProfile] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
+  const [uploadIssue, setUploadIssue] = useState<string | null>(() => consumeInterruptedMobileUpload('driver-proof'));
 
   const hydrateProfileForm = useCallback((savedProfile: typeof profile) => {
     if (!savedProfile) return;
@@ -116,6 +118,8 @@ export function DriverOnboardingPage() {
   ) => {
     const uploadKey = `history-${target.item.id}`;
     setUploadingType(uploadKey);
+    setUploadIssue(null);
+    rememberMobileUploadAttempt('driver-proof', file);
     try {
       const preparedFile = await prepareTrustUpload(file);
       const imageFile = isTrustImageFile(preparedFile);
@@ -127,8 +131,11 @@ export function DriverOnboardingPage() {
         previewFailed: false,
         uploadKey,
       } as PendingUpload);
+      clearMobileUploadAttempt();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'The image could not be prepared.';
+      clearMobileUploadAttempt();
+      setUploadIssue(message);
       toast('Could not preview this upload: ' + message, 'error');
     } finally {
       setUploadingType(null);
@@ -327,6 +334,7 @@ export function DriverOnboardingPage() {
         <AboutFields profileForm={profileForm} setProfileForm={setProfileForm} />
 
         <Section title="Platform history and proof (required)" desc="Add at least one platform, enter your recent activity, and upload its latest Uber, Bolt, Faras, Little Cab, or other platform history. Admins see the private proof; other members only see approved activity.">
+          {uploadIssue && <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950/20 dark:text-red-100"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="font-semibold">The photo was not selected</p><p className="mt-0.5 text-xs">{uploadIssue}</p></div></div>}
           <div className="space-y-3">{history.map((item) => <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
               <Field label="Platform" required hint="Select the app shown in your proof."><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select></Field>
@@ -344,7 +352,7 @@ export function DriverOnboardingPage() {
                   aria-label={`Choose ${titleCase(item.platform)} platform proof`}
                   className="block w-full rounded-xl border border-ink-200 bg-white text-xs text-ink-600 file:mr-3 file:border-0 file:border-r file:border-ink-200 file:bg-ink-50 file:px-4 file:py-3 file:text-xs file:font-semibold file:text-ink-800 hover:file:bg-ink-100 disabled:opacity-50 dark:bg-[#141416]"
                   disabled={uploadingType === `history-${item.id}`}
-                  onClick={(event) => { event.currentTarget.value = ''; }}
+                  onClick={(event) => { event.currentTarget.value = ''; rememberMobileUploadPicker('driver-proof'); }}
                   onChange={(event) => {
                     const file = event.currentTarget.files?.item(0);
                     if (file) void chooseUpload(file, { kind: 'history', item, label: `${titleCase(item.platform)} platform proof` });

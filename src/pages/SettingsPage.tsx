@@ -12,6 +12,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { Modal } from '@/components/Modal';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
+import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
 
 export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
@@ -25,6 +26,7 @@ export function SettingsPage() {
   const [justSaved, setJustSaved] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [preparingAvatar, setPreparingAvatar] = useState(false);
+  const [avatarIssue, setAvatarIssue] = useState<string | null>(() => consumeInterruptedMobileUpload('profile-photo'));
   const [activeRelationships, setActiveRelationships] = useState(0);
   const [showAvailabilityWarning, setShowAvailabilityWarning] = useState(false);
   const [changingAvailability, setChangingAvailability] = useState(false);
@@ -98,11 +100,17 @@ export function SettingsPage() {
 
   const prepareAndUploadAvatar = async (file: File) => {
     setPreparingAvatar(true);
+    setAvatarIssue(null);
+    rememberMobileUploadAttempt('profile-photo', file);
     try {
       const prepared = await prepareChatImageUpload(file);
+      clearMobileUploadAttempt();
       await uploadAvatar(prepared);
     } catch (error) {
-      toast('Could not prepare this phone photo: ' + (error instanceof Error ? error.message : 'Choose another image.'), 'error');
+      clearMobileUploadAttempt();
+      const message = error instanceof Error ? error.message : 'Choose another image.';
+      setAvatarIssue(message);
+      toast('Could not prepare this phone photo: ' + message, 'error');
     } finally {
       setPreparingAvatar(false);
     }
@@ -167,7 +175,7 @@ export function SettingsPage() {
             <div className="relative">
               <Avatar name={profile?.full_name || 'User'} src={profile?.avatar_url} size={72} verified={profile?.role === 'driver' && !!profile?.is_verified} />
               <label className="absolute -bottom-1 -right-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-brand-600 text-white shadow-md ring-2 ring-white transition-transform hover:scale-110">
-                <input type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void prepareAndUploadAvatar(f); e.target.value = ''; }} disabled={uploadingAvatar || preparingAvatar} />
+                <input type="file" accept="image/*,.heic,.heif" className="hidden" onClick={() => rememberMobileUploadPicker('profile-photo')} onChange={(e) => { const f = e.target.files?.[0]; if (f) void prepareAndUploadAvatar(f); e.target.value = ''; }} disabled={uploadingAvatar || preparingAvatar} />
                 {uploadingAvatar || preparingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
               </label>
             </div>
@@ -177,6 +185,7 @@ export function SettingsPage() {
               <p className="mt-0.5 text-xs text-ink-400">Phone photos, HEIC, HEIF, JPG, PNG, or WebP · compressed before upload</p>
             </div>
           </div>
+          {avatarIssue && <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:bg-red-950/20 dark:text-red-100"><p className="font-semibold">Profile photo was not uploaded</p><p className="mt-1">{avatarIssue}</p></div>}
 
           <div className="mt-4 space-y-4">
             <div><label className="label">Full name <span className="text-danger">*</span></label><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" /><p className="mt-1 text-xs text-ink-400">This is the name other members see on your profile and in chat.</p></div>

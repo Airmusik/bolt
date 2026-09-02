@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Modal } from '@/components/Modal';
 import { ChatMediaImage } from '@/components/ChatMediaImage';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
+import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
@@ -83,6 +84,7 @@ export function ChatPage() {
   const [supportRequest, setSupportRequest] = useState('');
   const [requestingSupport, setRequestingSupport] = useState(false);
   const [confirmSafetyAction, setConfirmSafetyAction] = useState<'block' | 'unblock' | null>(null);
+  const [imageUploadIssue, setImageUploadIssue] = useState<string | null>(() => consumeInterruptedMobileUpload('chat-image'));
   const [blockStatus, setBlockStatus] = useState<BlockStatus>(CLEAR_BLOCK_STATUS);
   const [otherTyping, setOtherTyping] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -350,9 +352,12 @@ export function ChatPage() {
     if (!user || !active) return;
     if (active.closed_at) { toast('This chat is read-only, so images cannot be sent.', 'error'); return; }
     setUploadingImage(true);
+    setImageUploadIssue(null);
+    rememberMobileUploadAttempt('chat-image', file);
     let path: string | null = null;
     try {
       const prepared = await prepareChatImageUpload(file);
+      clearMobileUploadAttempt();
       path = `${active.id}/${user.id}/chat-${Date.now()}-${crypto.randomUUID()}.jpg`;
       const { error: uploadError } = await supabase.storage.from(CHAT_MEDIA_BUCKET).upload(path, prepared, {
         contentType: 'image/jpeg',
@@ -367,8 +372,11 @@ export function ChatPage() {
       if (messageError) throw messageError;
       await Promise.all([loadMessages(), loadConversations()]);
     } catch (error) {
+      clearMobileUploadAttempt();
       if (path) await supabase.storage.from(CHAT_MEDIA_BUCKET).remove([path]);
-      toast(`Could not send image: ${error instanceof Error ? error.message : 'Please try again.'}`, 'error');
+      const message = error instanceof Error ? error.message : 'Please try again.';
+      setImageUploadIssue(message);
+      toast(`Could not send image: ${message}`, 'error');
     } finally {
       setUploadingImage(false);
       if (imageInputRef.current) imageInputRef.current.value = '';
@@ -569,10 +577,12 @@ export function ChatPage() {
                 </div>
               )}
 
+              {imageUploadIssue && !chatClosed && !chatBlocked && <div role="alert" className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs text-red-800 dark:bg-red-950/20 dark:text-red-100"><span className="font-semibold">Image not sent:</span> {imageUploadIssue}</div>}
+
               {/* Input */}
               {!chatClosed && !chatBlocked && <div className="flex items-center gap-2 border-t border-ink-100 bg-white p-3 dark:bg-[#141416]">
                 <button onClick={() => setShowEmoji((v) => !v)} aria-label="Choose emoji" className="rounded-full p-2 text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
-                <input ref={imageInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadChatImage(file); }} />
+                <input ref={imageInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onClick={() => rememberMobileUploadPicker('chat-image')} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadChatImage(file); }} />
                 <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Send an image" title="Send an image" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
                 <div className="relative flex-1"><input
                   ref={inputRef}

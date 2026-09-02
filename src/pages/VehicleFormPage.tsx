@@ -12,6 +12,7 @@ import { ModeratedImage } from '@/components/ModeratedImage';
 import { PlatePrivacyEditor } from '@/components/PlatePrivacyEditor';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
+import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
 
 interface IssueDraft { id?: string; description: string; severity: 'minor' | 'moderate' | 'major' }
 const RIDE_HAILING_PLATFORMS: { value: Vehicle['registered_platforms'][number]; label: string }[] = [
@@ -43,6 +44,7 @@ export function VehicleFormPage() {
   const [uploading, setUploading] = useState(false);
   const [preparingPhoto, setPreparingPhoto] = useState(false);
   const [photoForPrivacyReview, setPhotoForPrivacyReview] = useState<File | null>(null);
+  const [photoIssue, setPhotoIssue] = useState<string | null>(() => consumeInterruptedMobileUpload('vehicle-photo'));
 
   useEffect(() => {
     if (!id) return;
@@ -99,11 +101,17 @@ export function VehicleFormPage() {
 
   const prepareVehiclePhoto = async (file: File) => {
     setPreparingPhoto(true);
+    setPhotoIssue(null);
+    rememberMobileUploadAttempt('vehicle-photo', file);
     try {
       const prepared = await prepareChatImageUpload(file);
+      clearMobileUploadAttempt();
       setPhotoForPrivacyReview(prepared);
     } catch (error) {
-      toast('Could not prepare this phone photo: ' + (error instanceof Error ? error.message : 'Choose another image.'), 'error');
+      clearMobileUploadAttempt();
+      const message = error instanceof Error ? error.message : 'Choose another image.';
+      setPhotoIssue(message);
+      toast('Could not prepare this phone photo: ' + message, 'error');
     } finally {
       setPreparingPhoto(false);
     }
@@ -221,7 +229,7 @@ export function VehicleFormPage() {
               </div>
             ))}
             <label className={cn('flex h-24 w-32 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-ink-200 text-ink-400 hover:border-brand-400 hover:text-brand-600', (uploading || preparingPhoto) && 'pointer-events-none opacity-50')}>
-              <input type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(e) => {
+              <input type="file" accept="image/*,.heic,.heif" className="hidden" onClick={() => rememberMobileUploadPicker('vehicle-photo')} onChange={(e) => {
                 const file = e.target.files?.[0];
                 if (file) void prepareVehiclePhoto(file);
                 e.target.value = '';
@@ -229,6 +237,7 @@ export function VehicleFormPage() {
               <div className="text-center"><Upload className="mx-auto h-5 w-5" /><span className="text-xs">{preparingPhoto ? 'Preparing preview…' : uploading ? 'Uploading…' : 'Add photo'}</span></div>
             </label>
           </div>
+          {photoIssue && <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:bg-red-950/20 dark:text-red-100"><p className="font-semibold">Vehicle photo was not selected</p><p className="mt-1">{photoIssue}</p></div>}
           <p className="mt-3 text-xs text-ink-400">Phone photos, HEIC, HEIF, JPG, PNG, or WebP · compressed before preview · maximum 24 MB</p>
         </Card>
 
