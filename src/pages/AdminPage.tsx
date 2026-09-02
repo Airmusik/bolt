@@ -789,9 +789,9 @@ export function AdminPage() {
             placeholder="e.g. The document is blurry, please upload a clearer photo."
             className="input mt-3"
           />
-          <div className="mt-4 flex justify-end gap-2">
-            <button onClick={() => { setRejectingDoc(null); setRejectReason(''); }} className="btn-secondary">Cancel</button>
-            <button onClick={() => rejectDoc(rejectingDoc, rejectReason || 'Document does not meet requirements.')} disabled={!rejectReason.trim()} className="btn bg-danger text-white hover:bg-red-700">Reject document</button>
+          <div className="mt-4 grid gap-2 sm:flex sm:justify-end">
+            <button onClick={() => { setRejectingDoc(null); setRejectReason(''); }} className="btn-secondary w-full sm:w-auto">Cancel</button>
+            <button onClick={() => rejectDoc(rejectingDoc, rejectReason || 'Document does not meet requirements.')} disabled={!rejectReason.trim()} className="btn w-full bg-danger text-white hover:bg-red-700 sm:w-auto">Reject document</button>
           </div>
         </Modal>
       )}
@@ -808,9 +808,9 @@ export function AdminPage() {
             placeholder="e.g. The image is too dark to identify the vehicle."
             className="input"
           />
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => { setPhotoRejection(null); setModerationReason(''); }} disabled={moderationLoading} className="btn-secondary">Cancel</button>
-            <button type="button" onClick={() => void rejectVehiclePhoto(photoRejection.photo, photoRejection.ownerId, moderationReason)} disabled={moderationLoading || moderationReason.trim().length < 3} className="btn-danger">
+          <div className="mt-4 grid gap-2 sm:flex sm:justify-end">
+            <button type="button" onClick={() => { setPhotoRejection(null); setModerationReason(''); }} disabled={moderationLoading} className="btn-secondary w-full sm:w-auto">Cancel</button>
+            <button type="button" onClick={() => void rejectVehiclePhoto(photoRejection.photo, photoRejection.ownerId, moderationReason)} disabled={moderationLoading || moderationReason.trim().length < 3} className="btn-danger w-full sm:w-auto">
               {moderationLoading ? 'Rejecting…' : 'Reject photo'}
             </button>
           </div>
@@ -829,9 +829,9 @@ export function AdminPage() {
             placeholder="e.g. The screenshot does not show recent trip activity or the platform name."
             className="input"
           />
-          <div className="mt-4 flex justify-end gap-2">
-            <button type="button" onClick={() => { setHistoryRejection(null); setModerationReason(''); }} disabled={moderationLoading} className="btn-secondary">Cancel</button>
-            <button type="button" onClick={() => void rejectPlatformHistory(historyRejection, moderationReason)} disabled={moderationLoading || moderationReason.trim().length < 3} className="btn-danger">
+          <div className="mt-4 grid gap-2 sm:flex sm:justify-end">
+            <button type="button" onClick={() => { setHistoryRejection(null); setModerationReason(''); }} disabled={moderationLoading} className="btn-secondary w-full sm:w-auto">Cancel</button>
+            <button type="button" onClick={() => void rejectPlatformHistory(historyRejection, moderationReason)} disabled={moderationLoading || moderationReason.trim().length < 3} className="btn-danger w-full sm:w-auto">
               {moderationLoading ? 'Rejecting…' : 'Reject history'}
             </button>
           </div>
@@ -860,9 +860,9 @@ export function AdminPage() {
             placeholder="Select a reason above or type a custom one…"
             className="input mt-3"
           />
-          <div className="mt-4 flex gap-2">
-            <button onClick={() => { setSuspendingUser(null); setSuspendReason(''); setSuspensionReportId(null); }} className="btn-secondary flex-1">Cancel</button>
-            <button onClick={() => suspend(suspendingUser, suspendReason.trim() || 'Violation of platform rules.')} disabled={suspending} className="btn flex-1 bg-danger text-white hover:bg-red-700">
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <button onClick={() => { setSuspendingUser(null); setSuspendReason(''); setSuspensionReportId(null); }} className="btn-secondary w-full">Cancel</button>
+            <button onClick={() => suspend(suspendingUser, suspendReason.trim() || 'Violation of platform rules.')} disabled={suspending} className="btn w-full bg-danger text-white hover:bg-red-700">
               {suspending ? 'Suspending…' : 'Suspend user'}
             </button>
           </div>
@@ -931,15 +931,15 @@ export function AdminPage() {
               </div>
             )}
           </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <button onClick={() => setViewingHistory(null)} className="btn-secondary">Close</button>
+          <div className="mt-4 grid gap-2 sm:flex sm:flex-wrap sm:justify-end">
+            <button onClick={() => setViewingHistory(null)} className="btn-secondary w-full sm:w-auto">Close</button>
             <button
               type="button"
               onClick={() => { setHistoryRejection(viewingHistory); setModerationReason(''); setViewingHistory(null); }}
               disabled={moderationLoading}
-              className="btn-secondary"
+              className="btn-secondary w-full sm:w-auto"
             ><X className="h-4 w-4" /> Reject</button>
-            <button type="button" onClick={() => void approvePlatformHistory(viewingHistory)} disabled={moderationLoading} className="btn-primary">
+            <button type="button" onClick={() => void approvePlatformHistory(viewingHistory)} disabled={moderationLoading} className="btn-primary w-full sm:w-auto">
               {moderationLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />} Approve
             </button>
           </div>
@@ -1034,7 +1034,7 @@ function ReportReviewModal({ report, onClose, onWarn, onContact, onOpenConversat
   };
   return (
     <Modal title={`Report: ${report.reason}`} onClose={onClose} size="xl">
-      <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
+      <div className="space-y-5 sm:max-h-[75dvh] sm:overflow-y-auto sm:pr-1">
         <div className="grid gap-3 rounded-xl bg-ink-50 p-4 sm:grid-cols-2 lg:grid-cols-4">
           <InfoRow label="Status" value={<span className="capitalize">{report.status === 'resolved' ? 'Solved' : report.status}</span>} />
           <InfoRow label="Target" value={<span className="capitalize">{report.target_type}</span>} />
@@ -1051,12 +1051,12 @@ function ReportReviewModal({ report, onClose, onWarn, onContact, onOpenConversat
         ) : report.reported ? (
           <div><label className="label">Warning message</label><textarea value={warningMessage} onChange={(event) => setWarningMessage(event.target.value)} rows={3} className="input" /><p className="mt-1 text-xs text-ink-500">The member will also receive the report reason, report details, their warning count, and: “Three warnings may lead to account suspension.”</p><button onClick={sendWarning} disabled={sending || warningMessage.trim().length < 3} className="btn-secondary mt-3 text-amber-800"><Flag className="h-4 w-4" /> {sending ? 'Sending…' : 'Send warning'}</button></div>
         ) : null}
-        <div className="flex flex-wrap gap-2 border-t border-ink-100 pt-4">
-          {onOpenConversation && <button onClick={onOpenConversation} className="btn-primary"><Headphones className="h-4 w-4" /> Open connection chat</button>}
-          {report.reported && <><button onClick={onViewProfile} className="btn-secondary"><Eye className="h-4 w-4" /> User profile</button><button onClick={onContact} className="btn-secondary"><MessageSquare className="h-4 w-4" /> Contact user</button><button onClick={onSuspend} className="btn-secondary text-danger"><Ban className="h-4 w-4" /> Suspend user</button></>}
-          <div className="flex-1" />
-          <button onClick={() => onStatus('dismissed')} className="btn-ghost">Dismiss report</button>
-          <button onClick={() => onStatus('resolved')} className="btn-primary"><Check className="h-4 w-4" /> Mark resolved</button>
+        <div className="grid gap-2 border-t border-ink-100 pt-4 sm:flex sm:flex-wrap">
+          {onOpenConversation && <button onClick={onOpenConversation} className="btn-primary w-full sm:w-auto"><Headphones className="h-4 w-4" /> Open connection chat</button>}
+          {report.reported && <><button onClick={onViewProfile} className="btn-secondary w-full sm:w-auto"><Eye className="h-4 w-4" /> User profile</button><button onClick={onContact} className="btn-secondary w-full sm:w-auto"><MessageSquare className="h-4 w-4" /> Contact user</button><button onClick={onSuspend} className="btn-secondary w-full text-danger sm:w-auto"><Ban className="h-4 w-4" /> Suspend user</button></>}
+          <div className="hidden flex-1 sm:block" />
+          <button onClick={() => onStatus('dismissed')} className="btn-ghost w-full sm:w-auto">Dismiss report</button>
+          <button onClick={() => onStatus('resolved')} className="btn-primary w-full sm:w-auto"><Check className="h-4 w-4" /> Mark resolved</button>
         </div>
       </div>
     </Modal>
@@ -1074,7 +1074,7 @@ function ReviewVehicleModal({ vehicle, loading, onClose, onApprove, onReject }: 
   const photos = [...(vehicle.photos || [])].sort((a, b) => a.position - b.position);
   return (
     <Modal title={`Review listing: ${vehicle.make} ${vehicle.model}`} onClose={onClose} size="xl">
-      <div className="max-h-[75vh] space-y-5 overflow-y-auto pr-1">
+      <div className="space-y-5 sm:max-h-[75dvh] sm:overflow-y-auto sm:pr-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className={cn('badge capitalize', vehicle.approval_status === 'approved' ? 'badge-success' : vehicle.approval_status === 'rejected' ? 'badge-danger' : 'badge-warning')}>{vehicle.approval_status}</span>
           <span className="text-sm text-ink-500">Owner: {vehicle.owner?.full_name || 'Unknown'} · {vehicle.location}</span>
@@ -1103,10 +1103,10 @@ function ReviewVehicleModal({ vehicle, loading, onClose, onApprove, onReject }: 
         {vehicle.requirements && <div><p className="label">Driver requirements</p><p className="text-sm text-ink-600">{vehicle.requirements}</p></div>}
         {(vehicle.issues || []).length > 0 && <div><p className="label">Known issues</p><ul className="space-y-1">{vehicle.issues!.map((issue) => <li key={issue.id} className="text-sm text-ink-600">• {issue.description} <span className="capitalize text-ink-400">({issue.severity})</span></li>)}</ul></div>}
         <div><label className="label">Reason if changes are required</label><textarea value={reason} onChange={(event) => setReason(event.target.value)} rows={3} className="input" placeholder="Explain exactly what the owner must correct…" /></div>
-        <div className="flex flex-wrap justify-end gap-2 border-t border-ink-100 pt-4">
-          <button onClick={onClose} disabled={loading} className="btn-ghost">Close</button>
-          <button onClick={() => onReject(reason)} disabled={loading || !reason.trim()} className="btn-secondary text-danger"><X className="h-4 w-4" /> Require changes</button>
-          <button onClick={onApprove} disabled={loading || photos.length === 0 || photos.some((photo) => photo.rejected)} className="btn-primary"><Check className="h-4 w-4" /> {loading ? 'Working…' : 'Approve and publish'}</button>
+        <div className="grid gap-2 border-t border-ink-100 pt-4 sm:flex sm:flex-wrap sm:justify-end">
+          <button onClick={onClose} disabled={loading} className="btn-ghost w-full sm:w-auto">Close</button>
+          <button onClick={() => onReject(reason)} disabled={loading || !reason.trim()} className="btn-secondary w-full text-danger sm:w-auto"><X className="h-4 w-4" /> Require changes</button>
+          <button onClick={onApprove} disabled={loading || photos.length === 0 || photos.some((photo) => photo.rejected)} className="btn-primary w-full sm:w-auto"><Check className="h-4 w-4" /> {loading ? 'Working…' : 'Approve and publish'}</button>
         </div>
       </div>
     </Modal>
@@ -1125,9 +1125,9 @@ function AdminChangePinModal({ user, onClose, onConfirm }: { user: Profile; onCl
         <input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Confirm password" className="input" />
       </div>
       {pin && confirm && pin !== confirm && <p className="mt-2 text-xs text-danger">Passwords do not match.</p>}
-      <div className="mt-4 flex justify-end gap-2">
-        <button onClick={onClose} className="btn-secondary">Cancel</button>
-        <button onClick={() => onConfirm(pin)} disabled={pin.length < 10 || pin !== confirm} className="btn-primary"><KeyRound className="h-4 w-4" /> Set new password</button>
+      <div className="mt-4 grid gap-2 sm:flex sm:justify-end">
+        <button onClick={onClose} className="btn-secondary w-full sm:w-auto">Cancel</button>
+        <button onClick={() => onConfirm(pin)} disabled={pin.length < 10 || pin !== confirm} className="btn-primary w-full sm:w-auto"><KeyRound className="h-4 w-4" /> Set new password</button>
       </div>
     </Modal>
   );
@@ -1367,14 +1367,14 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminV
               <button onClick={() => removeIssue(iss.id)} className="text-danger hover:text-red-700"><Trash2 className="h-4 w-4" /></button>
             </div>
           ))}
-          <div className="flex gap-2">
-            <input value={newIssue.description} onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })} placeholder="Add an issue…" className="input flex-1" />
-            <select value={newIssue.severity} onChange={(e) => setNewIssue({ ...newIssue, severity: e.target.value as VehicleIssue['severity'] })} className="input w-auto">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+            <input value={newIssue.description} onChange={(e) => setNewIssue({ ...newIssue, description: e.target.value })} placeholder="Add an issue…" className="input min-w-0" />
+            <select value={newIssue.severity} onChange={(e) => setNewIssue({ ...newIssue, severity: e.target.value as VehicleIssue['severity'] })} className="input w-full sm:w-auto">
               <option value="minor">Minor</option>
               <option value="moderate">Moderate</option>
               <option value="major">Major</option>
             </select>
-            <button onClick={addIssue} aria-label="Add vehicle issue" className="btn-secondary"><Plus className="h-4 w-4" /></button>
+            <button onClick={addIssue} aria-label="Add vehicle issue" className="btn-secondary w-full sm:w-auto"><Plus className="h-4 w-4" /> <span className="sm:hidden">Add issue</span></button>
           </div>
         </div>
       </div>
@@ -1463,7 +1463,7 @@ function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onCha
 
   return (
     <Modal title={`${user.full_name} — Profile`} onClose={onClose}>
-      <div className="max-h-[70vh] space-y-4 overflow-y-auto">
+      <div className="space-y-4 sm:max-h-[70dvh] sm:overflow-y-auto">
         {/* Profile info */}
         <div className="flex items-center gap-3">
           <Avatar name={user.full_name} src={user.avatar_url} size={64} verified={user.role === 'driver' && user.is_verified} />
@@ -1544,17 +1544,17 @@ function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onCha
       </div>
 
       {/* Actions */}
-      <div className="mt-4 flex flex-wrap justify-end gap-2 border-t border-ink-100 pt-4">
-        <button onClick={onClose} className="btn-secondary">Close</button>
-        <button onClick={onMessage} className="btn-secondary"><MessageSquare className="h-4 w-4" /> Message</button>
-        <button onClick={onEdit} className="btn-secondary"><Pencil className="h-4 w-4" /> Edit profile</button>
-        <button onClick={onChangePin} className="btn-secondary"><KeyRound className="h-4 w-4" /> Change password</button>
+      <div className="mt-4 grid gap-2 border-t border-ink-100 pt-4 sm:flex sm:flex-wrap sm:justify-end">
+        <button onClick={onClose} className="btn-secondary w-full sm:w-auto">Close</button>
+        <button onClick={onMessage} className="btn-secondary w-full sm:w-auto"><MessageSquare className="h-4 w-4" /> Message</button>
+        <button onClick={onEdit} className="btn-secondary w-full sm:w-auto"><Pencil className="h-4 w-4" /> Edit profile</button>
+        <button onClick={onChangePin} className="btn-secondary w-full sm:w-auto"><KeyRound className="h-4 w-4" /> Change password</button>
         {user.is_suspended ? (
-          <button onClick={onReinstate} className="btn-primary"><ShieldCheck className="h-4 w-4" /> Reinstate account</button>
+          <button onClick={onReinstate} className="btn-primary w-full sm:w-auto"><ShieldCheck className="h-4 w-4" /> Reinstate account</button>
         ) : (
-          <button onClick={onSuspend} className="btn-secondary text-danger"><Ban className="h-4 w-4" /> Suspend</button>
+          <button onClick={onSuspend} className="btn-secondary w-full text-danger sm:w-auto"><Ban className="h-4 w-4" /> Suspend</button>
         )}
-        <button onClick={onDelete} className="btn-secondary text-danger"><Trash2 className="h-4 w-4" /> Delete user</button>
+        <button onClick={onDelete} className="btn-secondary w-full text-danger sm:w-auto"><Trash2 className="h-4 w-4" /> Delete user</button>
       </div>
     </Modal>
   );

@@ -148,9 +148,9 @@ export function NotificationsPage() {
               </div>
             )}
           </div>
-          <div className="mt-5 flex gap-2">
-            <button type="button" onClick={() => setSelected(null)} className="btn-secondary flex-1">Done</button>
-            {notificationDestination(selected) && <button type="button" onClick={() => { const destination = notificationDestination(selected); setSelected(null); if (destination) navigate(destination); }} className="btn-primary flex-1">Open related page</button>}
+          <div className="mt-5 grid gap-2 sm:grid-cols-2">
+            <button type="button" onClick={() => setSelected(null)} className="btn-secondary w-full">Done</button>
+            {notificationDestination(selected) && <button type="button" onClick={() => { const destination = notificationDestination(selected); setSelected(null); if (destination) navigate(destination); }} className="btn-primary w-full">Open related page</button>}
           </div>
         </Modal>
       )}

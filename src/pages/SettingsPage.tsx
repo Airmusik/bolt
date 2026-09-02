@@ -261,7 +261,7 @@ export function SettingsPage() {
             <p className="mt-2 text-sm leading-6">Setting your profile to available will end the active connection immediately. You and the other member will no longer be able to send messages in that chat unless a new connection request is sent and accepted.</p>
           </div>
           <p className="mt-3 flex items-start gap-2 text-xs text-ink-500"><MessageSquare className="mt-0.5 h-4 w-4 shrink-0" />The complete conversation will remain stored and readable for history, support, and dispute resolution.</p>
-          <div className="mt-5 flex gap-2"><button type="button" onClick={() => setShowAvailabilityWarning(false)} className="btn-secondary flex-1">Keep connection</button><button type="button" onClick={() => applyAvailability(true)} disabled={changingAvailability} className="btn-primary flex-1">{changingAvailability ? 'Ending…' : 'End & become available'}</button></div>
+          <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => setShowAvailabilityWarning(false)} className="btn-secondary w-full">Keep connection</button><button type="button" onClick={() => applyAvailability(true)} disabled={changingAvailability} className="btn-primary w-full">{changingAvailability ? 'Ending…' : 'End & become available'}</button></div>
         </Modal>
       )}
       {showDeleteAccount && (
@@ -270,7 +270,7 @@ export function SettingsPage() {
           <label className="label mt-4" htmlFor="delete-account-password">Enter your current password to confirm</label>
           <input id="delete-account-password" type="password" autoComplete="current-password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} placeholder="Current password" className="input" />
           <p className="mt-1.5 text-xs text-ink-400">Required to prove that you own this account before permanent deletion.</p>
-          <div className="mt-5 flex gap-2"><button type="button" onClick={() => { setShowDeleteAccount(false); setDeletePassword(''); }} disabled={deletingAccount} className="btn-secondary flex-1">Keep my account</button><button type="button" onClick={deleteAccount} disabled={deletingAccount || !deletePassword} className="btn flex-1 bg-danger text-white hover:bg-red-700 disabled:opacity-50">{deletingAccount ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting…</> : <><Trash2 className="h-4 w-4" /> Delete forever</>}</button></div>
+          <div className="mt-5 grid gap-2 sm:grid-cols-2"><button type="button" onClick={() => { setShowDeleteAccount(false); setDeletePassword(''); }} disabled={deletingAccount} className="btn-secondary w-full">Keep my account</button><button type="button" onClick={deleteAccount} disabled={deletingAccount || !deletePassword} className="btn w-full bg-danger text-white hover:bg-red-700 disabled:opacity-50">{deletingAccount ? <><Loader2 className="h-4 w-4 animate-spin" /> Deleting…</> : <><Trash2 className="h-4 w-4" /> Delete forever</>}</button></div>
         </Modal>
       )}
     </div>

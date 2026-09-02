@@ -59,6 +59,17 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
     };
   }, [doc.file_url]);
 
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') onClose(); };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [onClose]);
+
   const handleDownload = async () => {
     try {
       const url = new URL(doc.file_url);
@@ -84,21 +95,21 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
   };
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[90] flex items-end justify-center overflow-hidden p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={doc.label || doc.type.replace(/_/g, ' ')}>
       <div className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-card-hover dark:bg-[#141416]">
-        <div className="flex items-center justify-between border-b border-ink-100 p-4">
-          <h3 className="flex items-center gap-2 font-display text-lg font-bold text-ink-900">
-            <FileText className="h-5 w-5 text-brand-600" /> {doc.label || doc.type.replace(/_/g, ' ')}
+      <div className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-card-hover dark:bg-[#141416] sm:h-[88dvh] sm:rounded-2xl">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-ink-100 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] sm:p-4">
+          <h3 className="flex min-w-0 flex-1 items-center gap-2 font-display text-base font-bold text-ink-900 sm:text-lg">
+            <FileText className="h-5 w-5 shrink-0 text-brand-600" /> <span className="truncate">{doc.label || doc.type.replace(/_/g, ' ')}</span>
           </h3>
-          <div className="flex items-center gap-2">
-            {objectUrl && <button onClick={handleDownload} className="btn-ghost text-sm"><Download className="h-4 w-4" /> Download</button>}
-            <button onClick={onClose} aria-label="Close document viewer" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            {objectUrl && <button onClick={handleDownload} aria-label="Download file" className="btn-ghost h-11 px-3 text-sm"><Download className="h-4 w-4" /> <span className="hidden sm:inline">Download</span></button>}
+            <button onClick={onClose} aria-label="Close document viewer" className="flex h-11 w-11 items-center justify-center rounded-full text-ink-500 hover:bg-ink-100 hover:text-ink-700">
               <X className="h-5 w-5" />
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-auto bg-ink-50 p-4">
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain bg-ink-50 p-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:p-4">
           {loading ? (
             <div className="flex h-full items-center justify-center">
               <div className="h-8 w-8 animate-spin rounded-full border-2 border-ink-200 border-t-brand-600" />
@@ -109,7 +120,7 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
               <p className="text-sm text-ink-500">{error}</p>
             </div>
           ) : isImage ? (
-            <img src={objectUrl!} alt="Document" className="mx-auto max-h-full max-w-full object-contain" />
+            <div className="flex min-h-full items-center justify-center"><img src={objectUrl!} alt="Document" className="h-auto max-h-full w-auto max-w-full object-contain" /></div>
           ) : (
             <object data={objectUrl ?? undefined} type="application/pdf" className="h-full w-full rounded-lg">
               <div className="flex h-full flex-col items-center justify-center gap-3 text-center">

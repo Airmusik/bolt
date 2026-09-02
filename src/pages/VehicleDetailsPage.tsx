@@ -386,9 +386,9 @@ export function ReportModal({ targetType, targetId, reportedId, onClose, onDone 
     return (
       <Modal title="Sign in to report" onClose={onClose}>
         <p className="text-sm text-ink-600">Reports are linked to an account so the support team can follow up and prevent misuse.</p>
-        <div className="mt-4 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-          <Link to="/login" state={{ from: window.location.pathname }} className="btn-primary">Sign in</Link>
+        <div className="mt-4 grid gap-2 sm:flex sm:justify-end">
+          <button type="button" onClick={onClose} className="btn-secondary w-full sm:w-auto">Cancel</button>
+          <Link to="/login" state={{ from: window.location.pathname }} className="btn-primary w-full sm:w-auto">Sign in</Link>
         </div>
       </Modal>
     );

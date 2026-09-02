@@ -35,12 +35,12 @@ export function ConfirmDialog({
         )}
         <p className="text-sm text-ink-700">{message}</p>
       </div>
-      <div className="mt-5 flex justify-end gap-2">
-        <button onClick={onClose} disabled={confirming} className="btn-secondary">{cancelLabel}</button>
+      <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button onClick={onClose} disabled={confirming} className="btn-secondary w-full sm:w-auto">{cancelLabel}</button>
         <button
           onClick={confirm}
           disabled={confirming}
-          className={danger ? 'btn bg-danger text-white hover:bg-red-700' : 'btn-primary'}
+          className={`${danger ? 'btn bg-danger text-white hover:bg-red-700' : 'btn-primary'} w-full sm:w-auto`}
         >
           {confirming ? 'Working…' : confirmLabel}
         </button>
