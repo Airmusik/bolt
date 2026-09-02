@@ -39,6 +39,9 @@ export function consumeInterruptedMobileUpload(area: MobileUploadArea) {
     if (!raw) return null;
     const attempt = JSON.parse(raw) as UploadAttempt;
     if (attempt.area !== area || Date.now() - attempt.startedAt > MAX_AGE_MS) return null;
+    if (area === 'driver-proof' && attempt.fileSize === 0) {
+      return 'Your phone reloaded while its gallery was open. The lightweight upload screen is ready—tap “Choose image or PDF” again.';
+    }
     return `Your phone reloaded while preparing “${attempt.fileName}”. The image was not submitted. Please try a screenshot or a smaller photo.`;
   } catch {
     return null;
