@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
-import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, LayoutDashboard, ClipboardList } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -19,7 +19,7 @@ import type { ToastType } from '@/components/toastContext';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 
-type Tab = 'overview' | 'drivers' | 'vehicles' | 'cars' | 'applications' | 'connections' | 'chats';
+import { dashboardDestination, dashboardTabFromSearch, getDashboardTabs, type DashboardTab as Tab } from '@/lib/dashboardNavigation';
 type OwnerApplication = Application & { driver?: Profile; vehicle?: VehicleWithRelations };
 type DriverApplication = Application & { vehicle?: VehicleWithRelations };
 type ConversationWithRelations = Conversation & { vehicle?: VehicleWithRelations; driver?: Profile; owner?: Profile };
@@ -31,12 +31,10 @@ export function DashboardPage() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const { settings } = useSiteSettings();
-  const [tab, setTab] = useState<Tab>(() => {
-    const requested = new URLSearchParams(window.location.search).get('tab');
-    return requested && ['overview', 'drivers', 'vehicles', 'cars', 'applications', 'connections', 'chats'].includes(requested)
-      ? requested as Tab
-      : 'overview';
-  });
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tab = dashboardTabFromSearch(profile?.role === 'owner' ? 'owner' : 'driver', searchParams.toString());
+  const setTab = (next: Tab) => navigate(dashboardDestination(next));
 
   const [vehicles, setVehicles] = useState<VehicleWithRelations[]>([]);
   const [applications, setApplications] = useState<OwnerApplication[]>([]);
@@ -104,13 +102,6 @@ export function DashboardPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    if (tab === 'overview') url.searchParams.delete('tab');
-    else url.searchParams.set('tab', tab);
-    window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
-  }, [tab]);
-
   if (!profile) return null;
   const isOwner = profile.role === 'owner';
   const isDriver = profile.role === 'driver';
@@ -148,16 +139,7 @@ export function DashboardPage() {
           ? { eyebrow: 'Your status', title: profile.availability === 'busy' ? 'You are currently on a connection' : 'Your profile is not available', description: 'Manage your availability when you are ready to receive new requests.', label: 'Manage availability', to: '/settings', tab: null, icon: Clock }
           : { eyebrow: 'Ready for your next match', title: 'Explore cars available near you', description: 'Compare vehicle requirements and connect with an owner that suits you.', label: 'Browse cars', to: '/browse-cars', tab: null, icon: Car };
 
-  const tabs: { id: Tab; label: string; shortLabel: string; icon: typeof Car; badge?: number }[] = [
-    { id: 'overview', label: 'Overview', shortLabel: 'Overview', icon: LayoutDashboard },
-    ...(isOwner
-      ? [{ id: 'drivers' as Tab, label: 'Available drivers', shortLabel: 'Drivers', icon: Users }]
-      : [{ id: 'cars' as Tab, label: 'Available cars', shortLabel: 'Cars', icon: Car }]),
-    ...(isOwner ? [{ id: 'vehicles' as Tab, label: 'My vehicles', shortLabel: 'Vehicles', icon: Car }] : []),
-    { id: 'applications', label: isOwner ? 'Applications' : 'My applications', shortLabel: 'Applications', icon: ClipboardList },
-    { id: 'connections', label: 'Connections', shortLabel: 'Connections', icon: Link2, badge: pendingConnections.length },
-    { id: 'chats', label: 'Chats', shortLabel: 'Chats', icon: MessageSquare },
-  ];
+  const tabs = getDashboardTabs(isOwner ? 'owner' : 'driver');
   const activeTab = tabs.find((item) => item.id === tab) || tabs[0];
   const sectionDescriptions: Record<Tab, string> = {
     overview: 'Your account, activity, and next steps in one place.',
@@ -171,17 +153,6 @@ export function DashboardPage() {
 
   return (
     <div className="container-content py-2 sm:py-5">
-      <div className="sticky top-16 z-30 -mx-4 bg-white/95 px-4 py-1.5 backdrop-blur-xl dark:bg-[#0b0b0d]/95 sm:mx-0 sm:px-0">
-        <div className="grid grid-cols-3 gap-1 rounded-2xl bg-ink-50 p-1 ring-1 ring-ink-100 dark:bg-[#101012] sm:flex sm:flex-wrap">
-          {tabs.map((t) => (
-            <button key={t.id} onClick={() => { if (tab !== t.id) setTab(t.id); }} aria-current={tab === t.id ? 'page' : undefined} className={cn('relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-1.5 text-[11px] font-semibold transition-colors sm:flex-row sm:gap-1.5 sm:whitespace-nowrap sm:px-3 sm:py-2 sm:text-sm', tab === t.id ? 'bg-white text-ink-900 shadow-soft ring-1 ring-ink-100 dark:bg-[#1d1d20]' : 'text-ink-500 hover:bg-white/70 hover:text-ink-800 dark:hover:bg-[#1d1d20]/70')}>
-              <t.icon className={cn('h-4 w-4 shrink-0', tab === t.id && 'text-brand-600')} />
-              <span className="max-w-full truncate sm:hidden">{t.shortLabel}</span><span className="hidden sm:inline">{t.label}</span>{!loading && t.badge !== undefined && t.badge > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[9px] font-bold text-white sm:static sm:h-auto sm:bg-brand-100 sm:py-0.5 sm:text-[10px] sm:text-brand-700">{t.badge}</span>}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {tab === 'overview' && <>
       <section className="dashboard-panel mt-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -197,11 +168,10 @@ export function DashboardPage() {
               {isDriver && <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-ink-600"><span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', profile.availability === 'available' ? 'bg-emerald-500' : profile.availability === 'busy' ? 'bg-amber-500' : 'bg-ink-400')} />{profile.availability === 'busy' ? 'Currently on a connection' : titleCase(profile.availability)}</p>}
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3 sm:shrink-0 sm:border-0 sm:pt-0">
-            <Link to="/settings" className="btn-secondary min-h-11 px-3 py-2 text-xs"><Pencil className="h-3.5 w-3.5" /> Settings</Link>
+          {(isOwner || (isDriver && !profile.is_verified)) && <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3 sm:shrink-0 sm:border-0 sm:pt-0">
             {isOwner && <Link to="/vehicles/new" className="btn-secondary min-h-11 px-3 py-2 text-xs"><Plus className="h-3.5 w-3.5" /> Add vehicle</Link>}
             {isDriver && !profile.is_verified && <Link to="/onboarding" className="btn-ghost min-h-11 px-3 py-2 text-xs"><ShieldCheck className="h-3.5 w-3.5" /> My history</Link>}
-          </div>
+          </div>}
         </div>
       </section>
 

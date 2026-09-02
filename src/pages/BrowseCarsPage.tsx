@@ -100,7 +100,7 @@ export function BrowseCarsPage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-[260px_1fr]">
         {/* Filters */}
         <aside className={`${showFilters ? 'block' : 'hidden'} lg:block`}>
-          <div className="card sticky top-20 p-5">
+          <div className="card sticky top-[calc(5rem+var(--member-nav-height,0px))] p-5">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-ink-900">Filters</h2>
               {activeCount > 0 && (

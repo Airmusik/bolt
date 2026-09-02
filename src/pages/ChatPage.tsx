@@ -484,7 +484,7 @@ export function ChatPage() {
         <div><p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand-600"><Sparkles className="h-3.5 w-3.5 text-accent-500" /> Your connections</p><h1 className="font-display text-2xl font-bold text-ink-900">Messages</h1></div>
         <span className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 sm:inline-flex"><ShieldCheck className="h-3.5 w-3.5" /> Private & saved</span>
       </div>
-      <div className="grid h-[calc(100dvh-9.5rem)] min-h-[520px] max-h-[820px] gap-4 lg:grid-cols-[320px_1fr]">
+      <div className="grid h-[calc(100dvh-9.5rem-var(--member-nav-height,0px))] min-h-[320px] max-h-[820px] gap-4 lg:grid-cols-[320px_1fr]">
         {/* Conversation list */}
         <div className={cn('card overflow-y-auto bg-gradient-to-b from-white to-ink-50/60 dark:from-[#141416] dark:to-[#101012]', active && 'hidden lg:block')}>
           <div className="sticky top-0 z-10 border-b border-ink-100 bg-white/90 p-3 backdrop-blur-xl dark:bg-[#141416]/90">
@@ -505,7 +505,7 @@ export function ChatPage() {
                   <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
                     {otherUser?.full_name} <VerifiedBadge verified={otherUser?.is_verified} size={11} />
                   </p>
-                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-500">{c.vehicle?.make && <CarFront className="h-3 w-3 shrink-0" />}{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : c.admin_id ? `${settings.site_name} Admin` : 'Conversation'}{group.items.length > 1 ? ` · ${group.items.length} connections` : ''}</p>
+                  <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-500">{c.vehicle?.make && <CarFront className="h-3 w-3 shrink-0" />}{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : c.admin_id ? `${settings.site_name} Admin` : 'Conversation'}</p>
                   <p className={cn('mt-1 text-[10px]', online ? 'font-semibold text-emerald-600' : 'text-ink-400')}>{lastSeenText(otherUser)}</p>
                 </div>
                 {c.last_message_at && <span className="self-start whitespace-nowrap text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}
