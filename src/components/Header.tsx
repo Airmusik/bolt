@@ -146,10 +146,10 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur-md dark:bg-[#0b0b0d]/90">
-      <div className="container-content flex h-16 items-center justify-between gap-4">
-        <Link to="/" className="flex items-center gap-2">
+      <div className="container-content flex h-16 items-center justify-between gap-2 sm:gap-4">
+        <Link to="/" className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <SiteLogo />
-          <span className="site-wordmark font-display text-lg font-extrabold tracking-tight">
+          <span className="site-wordmark truncate font-display text-base font-extrabold tracking-tight sm:text-lg">
             {settings.site_name}
           </span>
         </Link>
@@ -172,7 +172,7 @@ export function Header() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2">
           <ThemeToggle />
           {user ? (
             <>

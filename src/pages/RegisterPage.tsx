@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Phone, Lock, User, Eye, EyeOff, ArrowRight, Check, Mail, Languages } from 'lucide-react';
+import { Phone, Lock, Eye, EyeOff, ArrowRight, Check, Mail, Languages } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
@@ -8,7 +8,8 @@ import type { Role } from '@/lib/types';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { SiteLogo } from '@/components/SiteLogo';
-import { normalizePersonName, parseLanguages } from '@/lib/profileValidation';
+import { hasValidNameFields, normalizePersonName, parseLanguages } from '@/lib/profileValidation';
+import { PersonNameFields } from '@/components/PersonNameFields';
 
 export function RegisterPage() {
   const { signUp, user } = useAuth();
@@ -36,7 +37,7 @@ export function RegisterPage() {
     e.preventDefault();
     setError(null);
     const fullName = normalizePersonName(`${firstName} ${secondName}`);
-    if (firstName.trim().length < 2 || secondName.trim().length < 2) { setError('Enter both your first name and second name.'); return; }
+    if (!hasValidNameFields(firstName, secondName)) { setError('Enter both your first name and second name.'); return; }
     if (pin !== confirmPin) { setError('Passwords do not match. Please re-enter.'); return; }
     if (!email.trim()) { setError('Email address is required.'); return; }
     if (!location.trim()) { setError('Town or neighbourhood is required.'); return; }
@@ -97,14 +98,7 @@ export function RegisterPage() {
             </div>
           </div>
 
-          <div>
-            <label className="label">Your name <span className="text-danger">*</span></label>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div><div className="relative"><User className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" /><input value={firstName} onChange={(e) => setFirstName(e.target.value)} autoComplete="given-name" placeholder="First name" className="input pl-10" required /></div><p className="mt-1 text-xs text-ink-400">Your first name.</p></div>
-              <div><input value={secondName} onChange={(e) => setSecondName(e.target.value)} autoComplete="family-name" placeholder="Second name" className="input" required /><p className="mt-1 text-xs text-ink-400">Your family or second name.</p></div>
-            </div>
-            <p className="mt-1.5 text-xs text-ink-400">Both names will appear together on your public profile.</p>
-          </div>
+          <PersonNameFields firstName={firstName} secondName={secondName} onFirstNameChange={setFirstName} onSecondNameChange={setSecondName} />
           <div className="mt-4">
             <label className="label">Phone number <span className="text-danger">*</span></label>
             <div className="relative">

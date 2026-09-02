@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, BadgeCheck, Link2, MapPin, Briefcase, Pencil, ArrowRight, Sparkles, ShieldCheck, Activity, ChevronRight, LayoutDashboard, ClipboardList } from 'lucide-react';
+import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, LayoutDashboard, ClipboardList } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -143,7 +143,7 @@ export function DashboardPage() {
     : !profile.onboarding_completed
       ? { eyebrow: 'Profile required', title: 'Complete your driver profile', description: 'Add your experience, preferred areas, platforms, and introduction to become visible.', label: 'Complete profile', to: '/onboarding', tab: null, icon: Pencil }
       : !profile.is_verified
-        ? { eyebrow: 'Build confidence', title: 'Submit recent platform history', description: 'An approved Uber, Bolt, Faras, Little Cab, or other platform record helps owners trust your profile.', label: 'Manage history', to: '/onboarding', tab: null, icon: ShieldCheck }
+        ? { eyebrow: 'Recommended next step', title: profile.verification_status === 'pending' ? 'Platform history under review' : 'Submit recent platform history', description: profile.verification_status === 'pending' ? 'An administrator is reviewing your history. You can view your submission or update it.' : 'Upload recent Uber, Bolt, Faras, Little Cab, or other platform history for admin review.', label: profile.verification_status === 'pending' ? 'View submission' : 'Manage history', to: '/onboarding', tab: null, icon: ShieldCheck }
         : profile.availability !== 'available'
           ? { eyebrow: 'Your status', title: profile.availability === 'busy' ? 'You are currently on a connection' : 'Your profile is not available', description: 'Manage your availability when you are ready to receive new requests.', label: 'Manage availability', to: '/settings', tab: null, icon: Clock }
           : { eyebrow: 'Ready for your next match', title: 'Explore cars available near you', description: 'Compare vehicle requirements and connect with an owner that suits you.', label: 'Browse cars', to: '/browse-cars', tab: null, icon: Car };
@@ -170,11 +170,11 @@ export function DashboardPage() {
   };
 
   return (
-    <div className="container-content py-4 sm:py-8">
-      <div className="sticky top-16 z-30 -mx-4 bg-white/95 px-4 py-2 shadow-[0_8px_20px_rgba(15,23,42,0.04)] backdrop-blur-xl dark:bg-[#0b0b0d]/95 sm:mx-0 sm:px-0 sm:shadow-none">
-        <div className="grid grid-cols-3 gap-1 rounded-2xl bg-ink-50 p-1.5 ring-1 ring-ink-100 dark:bg-[#101012] sm:flex">
+    <div className="container-content py-2 sm:py-5">
+      <div className="sticky top-16 z-30 -mx-4 bg-white/95 px-4 py-1.5 backdrop-blur-xl dark:bg-[#0b0b0d]/95 sm:mx-0 sm:px-0">
+        <div className="grid grid-cols-3 gap-1 rounded-2xl bg-ink-50 p-1 ring-1 ring-ink-100 dark:bg-[#101012] sm:flex sm:flex-wrap">
           {tabs.map((t) => (
-            <button key={t.id} onClick={() => { if (tab !== t.id) setTab(t.id); }} aria-current={tab === t.id ? 'page' : undefined} className={cn('relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-2 text-[10px] font-semibold transition-all sm:flex-row sm:gap-1.5 sm:whitespace-nowrap sm:px-4 sm:py-2.5 sm:text-sm', tab === t.id ? 'bg-white text-ink-900 shadow-soft ring-1 ring-ink-100 dark:bg-[#1d1d20]' : 'text-ink-500 hover:bg-white/70 hover:text-ink-800 dark:hover:bg-[#1d1d20]/70')}>
+            <button key={t.id} onClick={() => { if (tab !== t.id) setTab(t.id); }} aria-current={tab === t.id ? 'page' : undefined} className={cn('relative flex min-h-11 min-w-0 flex-col items-center justify-center gap-1 rounded-xl px-1.5 py-1.5 text-[11px] font-semibold transition-colors sm:flex-row sm:gap-1.5 sm:whitespace-nowrap sm:px-3 sm:py-2 sm:text-sm', tab === t.id ? 'bg-white text-ink-900 shadow-soft ring-1 ring-ink-100 dark:bg-[#1d1d20]' : 'text-ink-500 hover:bg-white/70 hover:text-ink-800 dark:hover:bg-[#1d1d20]/70')}>
               <t.icon className={cn('h-4 w-4 shrink-0', tab === t.id && 'text-brand-600')} />
               <span className="max-w-full truncate sm:hidden">{t.shortLabel}</span><span className="hidden sm:inline">{t.label}</span>{!loading && t.badge !== undefined && t.badge > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[9px] font-bold text-white sm:static sm:h-auto sm:bg-brand-100 sm:py-0.5 sm:text-[10px] sm:text-brand-700">{t.badge}</span>}
             </button>
@@ -183,47 +183,46 @@ export function DashboardPage() {
       </div>
 
       {tab === 'overview' && <>
-      <section className="relative mt-4 overflow-hidden rounded-2xl border border-brand-100 bg-gradient-to-br from-white via-brand-50/60 to-accent-50/60 p-4 shadow-soft dark:border-brand-900/40 dark:from-[#171719] dark:via-brand-950/20 dark:to-accent-950/10 sm:p-6">
-        <div className="pointer-events-none absolute -right-12 -top-16 h-40 w-40 rounded-full bg-accent-400/10 blur-3xl" />
-        <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <section className="dashboard-panel mt-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className="shrink-0 rounded-2xl bg-white p-1 shadow-soft ring-1 ring-brand-100 dark:bg-[#1d1d20]"><Avatar name={profile.full_name} src={profile.avatar_url} size={54} verified={isDriver && profile.is_verified} /></div>
-            <div>
-              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-brand-600"><Sparkles className="h-3.5 w-3.5 text-accent-500" /> Your dashboard</p>
-              <h1 className="mt-1 truncate font-display text-xl font-bold text-ink-950 sm:text-2xl">Welcome, {profile.full_name.split(' ')[0]}</h1>
-              <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-500">
-                <span className="font-semibold capitalize text-ink-700">{profile.role}</span>
-                {profile.location && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {profile.location}</span>}
-                {isDriver && <span className="inline-flex items-center gap-1"><span className={cn('h-2 w-2 rounded-full', profile.availability === 'available' ? 'bg-emerald-400' : profile.availability === 'busy' ? 'bg-amber-400' : 'bg-white/40')} /> {profile.availability === 'busy' ? 'Currently on a connection' : titleCase(profile.availability)}</span>}
+            <div className="shrink-0"><Avatar name={profile.full_name} src={profile.avatar_url} size={48} verified={isDriver && profile.is_verified} /></div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-500">Your dashboard</p>
+              <h1 className="mt-0.5 break-words font-display text-xl font-bold leading-tight text-ink-950 sm:text-2xl">{profile.full_name}</h1>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
+                <span className="font-medium text-ink-700">{isOwner ? 'Car owner' : 'Driver'}</span>
+                {profile.location && <span className="inline-flex min-w-0 items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /><span className="break-words">{profile.location}</span></span>}
               </div>
+              {isDriver && <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-ink-600"><span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', profile.availability === 'available' ? 'bg-emerald-500' : profile.availability === 'busy' ? 'bg-amber-500' : 'bg-ink-400')} />{profile.availability === 'busy' ? 'Currently on a connection' : titleCase(profile.availability)}</p>}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:flex">
-            <Link to="/settings" className={cn('btn-secondary px-3 py-2 text-xs', isDriver && profile.is_verified && 'col-span-2 sm:col-auto')}><Pencil className="h-4 w-4" /> Settings</Link>
-            {isOwner && <Link to="/vehicles/new" className="btn-primary px-3 py-2 text-xs"><Plus className="h-4 w-4" /> Add vehicle</Link>}
-            {isDriver && !profile.is_verified && <Link to="/onboarding" className="btn bg-accent-500 text-white hover:-translate-y-0.5 hover:bg-accent-600"><BadgeCheck className="h-4 w-4" /> Platform history</Link>}
+          <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3 sm:shrink-0 sm:border-0 sm:pt-0">
+            <Link to="/settings" className="btn-secondary min-h-11 px-3 py-2 text-xs"><Pencil className="h-3.5 w-3.5" /> Settings</Link>
+            {isOwner && <Link to="/vehicles/new" className="btn-secondary min-h-11 px-3 py-2 text-xs"><Plus className="h-3.5 w-3.5" /> Add vehicle</Link>}
+            {isDriver && !profile.is_verified && <Link to="/onboarding" className="btn-ghost min-h-11 px-3 py-2 text-xs"><ShieldCheck className="h-3.5 w-3.5" /> My history</Link>}
           </div>
         </div>
       </section>
 
-      <div className="mt-3 overflow-hidden rounded-2xl border border-accent-200 bg-gradient-to-r from-accent-50 via-white to-white p-4 shadow-soft dark:border-accent-500/20 dark:from-accent-500/10 dark:via-[#141416] dark:to-[#141416] sm:mt-4 sm:p-5">
+      <div className="dashboard-panel mt-3 border-l-2 border-accent-500">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-500 text-white shadow-lg shadow-accent-500/20"><recommendedAction.icon className="h-5 w-5" /></span><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent-600">{recommendedAction.eyebrow}</p><h2 className="mt-0.5 font-display text-base font-bold text-ink-900 sm:text-lg">{recommendedAction.title}</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-ink-500 sm:text-sm">{recommendedAction.description}</p></div></div>
+          <div className="flex min-w-0 items-start gap-2.5"><span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-400"><recommendedAction.icon className="h-4 w-4" /></span><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent-700 dark:text-accent-400">{recommendedAction.eyebrow}</p><h2 className="mt-0.5 font-display text-base font-bold leading-snug text-ink-900">{recommendedAction.title}</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-ink-500">{recommendedAction.description}</p></div></div>
           {recommendedAction.to ? <Link to={recommendedAction.to} className="btn-primary w-full shrink-0 sm:w-auto">{recommendedAction.label}<ArrowRight className="h-4 w-4" /></Link> : <button type="button" onClick={() => recommendedAction.tab && setTab(recommendedAction.tab)} className="btn-primary w-full shrink-0 sm:w-auto">{recommendedAction.label}<ArrowRight className="h-4 w-4" /></button>}
         </div>
       </div>
 
       {/* Stats */}
       <div className="mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3 lg:grid-cols-4">
-        {stats.map((s, index) => (
+        {stats.map((s) => (
           s.tab ? (
-            <button key={s.label} onClick={() => setTab(s.tab!)} className="card group flex min-w-0 items-center gap-3 p-3 text-left hover:-translate-y-0.5 hover:shadow-card-hover hover:ring-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-400 sm:p-4">
-              <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', index === 0 ? 'bg-emerald-50 text-emerald-700' : index === 1 ? 'bg-amber-50 text-amber-700' : index === 2 ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700')}><s.icon className="h-4 w-4" /></span>
+            <button key={s.label} onClick={() => setTab(s.tab!)} className="dashboard-stat group hover:ring-ink-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">
+              <span className="dashboard-icon"><s.icon className="h-4 w-4" /></span>
               <span className="min-w-0 flex-1"><span className="metric-value block font-display text-xl font-bold leading-none text-ink-900">{s.value}</span><span className="mt-1 block text-[11px] leading-tight text-ink-500 sm:text-xs">{s.label}</span></span><ChevronRight className="hidden h-4 w-4 text-ink-300 transition group-hover:translate-x-1 group-hover:text-ink-600 sm:block" />
             </button>
           ) : (
-            <div key={s.label} className="card flex min-w-0 items-center gap-3 p-3 sm:p-4">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><s.icon className="h-4 w-4" /></span>
+            <div key={s.label} className="dashboard-stat">
+              <span className="dashboard-icon"><s.icon className="h-4 w-4" /></span>
               <span className="min-w-0"><span className="metric-value block font-display text-xl font-bold leading-none text-ink-900">{s.value}</span><span className="mt-1 block text-[11px] leading-tight text-ink-500 sm:text-xs">{s.label}</span></span>
             </div>
           )
@@ -233,7 +232,7 @@ export function DashboardPage() {
 
       {tab !== 'overview' && <div className="mt-5 border-b border-ink-100 pb-4"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-600">Dashboard</p><h1 className="mt-1 font-display text-xl font-bold text-ink-900 sm:text-2xl">{activeTab.label}</h1><p className="mt-1 text-sm text-ink-500">{sectionDescriptions[tab]}</p></div>}
 
-      <div className={cn('mt-5', tab !== 'overview' && 'mt-4')}>
+      <div className={tab === 'overview' ? 'mt-3' : 'mt-4'}>
         {tab === 'overview' && <OverviewTab profile={profile} drivers={drivers} availableCars={availableCars} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
         {tab === 'drivers' && isOwner && <DriversTab users={drivers} loading={loading} siteName={settings.site_name} />}
         {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars} loading={loading} />}
@@ -256,29 +255,26 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
   pendingConnections: IncomingConnection[];
 }) {
   return (
-    <div className="space-y-5 sm:space-y-6">
-      <div className={cn('grid gap-4 sm:gap-5', !isOwner && 'lg:grid-cols-2')}>
-        {!isOwner && <div className="card overflow-hidden p-5">
-          <div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-400">Your profile</p><h3 className="mt-1 font-semibold text-ink-900">Readiness and availability</h3></div><span className={cn('flex h-10 w-10 items-center justify-center rounded-xl', profile.is_verified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>{profile.is_verified ? <ShieldCheck className="h-5 w-5" /> : <Clock className="h-5 w-5" />}</span></div>
-          <div className="mt-3 flex items-center gap-2">
-            {profile.is_verified ? (
-              <><VerifiedBadge verified size={18} showLabel /><span className="text-sm text-ink-700">Your recent platform history has been approved.</span></>
-            ) : (
-              <><Clock className="h-5 w-5 text-amber-500" /><span className="text-sm text-amber-700">{profile.verification_status === 'pending' ? 'Platform history under review.' : 'Platform history not reviewed yet.'}</span></>
-            )}
+    <div className="space-y-4 sm:space-y-5">
+      <div className={cn('grid gap-3', !isOwner && 'lg:grid-cols-2')}>
+        {!isOwner && <div className="dashboard-panel">
+          <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold text-ink-900">Profile status</h3><span className="dashboard-icon"><ShieldCheck className="h-4 w-4" /></span></div>
+          <div className="mt-3 flex items-start gap-2">
+            {profile.is_verified ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <Clock className="mt-0.5 h-4 w-4 shrink-0 text-ink-500" />}
+            <div className="min-w-0"><p className="text-xs font-medium text-ink-700">{profile.is_verified ? 'Platform history approved' : profile.verification_status === 'pending' ? 'Platform history under review' : 'Platform history not yet reviewed'}</p><p className="mt-0.5 text-xs leading-5 text-ink-500">{profile.is_verified ? 'Your submitted driving activity has been reviewed.' : 'Your platform activity is reviewed privately by an administrator.'}</p></div>
           </div>
           {!profile.is_verified && (
-            <Link to="/onboarding" className="btn-secondary mt-4">Manage platform history</Link>
+            <Link to="/onboarding" className="mt-1 inline-flex min-h-11 items-center gap-1 pl-6 text-xs font-semibold text-ink-700 hover:underline">View history details<ChevronRight className="h-3.5 w-3.5" /></Link>
           )}
-          <div className="mt-4 flex items-center justify-between gap-3 border-t border-ink-100 pt-4">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-3">
             <div><p className="text-xs font-semibold text-ink-800">Availability</p><p className="mt-0.5 text-xs text-ink-500">{profile.availability === 'available' ? 'Open to new connections' : profile.availability === 'busy' ? 'Currently in a connection' : 'Not accepting connections'}</p></div>
-            <div className="flex items-center gap-2"><AvailabilityBadge availability={profile.availability} /><Link to="/settings" className="text-xs font-semibold text-brand-700 hover:underline">Manage</Link></div>
+            <div className="flex max-w-full flex-wrap items-center gap-2"><AvailabilityBadge availability={profile.availability} /><Link to="/settings" className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-700 hover:underline">Manage</Link></div>
           </div>
         </div>}
-        <div className="card p-5">
-          <div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-400">What is happening</p><h3 className="mt-1 font-semibold text-ink-900">Recent activity</h3></div><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><Activity className="h-5 w-5" /></span></div>
-          <div className="mt-4 space-y-1 text-sm">
-            {pendingConnections.length === 0 && conversations.length === 0 && <div className="rounded-xl bg-ink-50 px-4 py-5 text-center"><Sparkles className="mx-auto h-5 w-5 text-ink-300" /><p className="mt-2 font-medium text-ink-700">Nothing needs your attention</p><p className="mt-1 text-xs text-ink-400">New requests and conversations will appear here.</p></div>}
+        <div className="dashboard-panel">
+          <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold text-ink-900">Recent activity</h3><span className="dashboard-icon"><Activity className="h-4 w-4" /></span></div>
+          <div className="mt-3 space-y-1 text-sm">
+            {pendingConnections.length === 0 && conversations.length === 0 && <div className="rounded-xl bg-ink-50 p-3"><p className="text-xs font-medium text-ink-700">You're all caught up</p><p className="mt-1 text-xs leading-5 text-ink-500">New requests and conversations will appear here.</p></div>}
             {pendingConnections.slice(0, 3).map((c: Connection) => (
               <div key={c.id} className="flex items-start gap-3 rounded-xl px-2 py-2.5 hover:bg-ink-50"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700"><Link2 className="h-4 w-4" /></span><div><p className="font-medium text-ink-800">New request from {c.requester?.full_name || 'a member'}</p><p className="text-xs text-ink-400">{timeAgo(c.created_at)}</p></div></div>
             ))}

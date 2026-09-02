@@ -67,6 +67,15 @@
   .card-hover {
     @apply hover:-translate-y-1 hover:shadow-card-hover hover:ring-ink-200;
   }
+  .dashboard-panel {
+    @apply card p-4 shadow-soft sm:p-5;
+  }
+  .dashboard-stat {
+    @apply card flex min-h-[92px] min-w-0 items-start gap-2.5 p-3 text-left shadow-soft sm:gap-3 sm:p-4;
+  }
+  .dashboard-icon {
+    @apply flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ink-50 text-ink-600;
+  }
   .input {
     @apply w-full rounded-lg border-0 bg-ink-50 px-4 py-3 text-sm text-ink-900 ring-1 ring-inset ring-ink-200 placeholder:text-ink-400 transition focus:outline-none focus:ring-2 focus:ring-ink-900;
   }

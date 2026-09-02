@@ -10,7 +10,8 @@ import { BackButton } from '@/components/BackButton';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { isPreviewableTrustImage, isTrustImageFile, prepareTrustUpload } from '@/lib/trustUpload';
-import { hasFirstAndSecondName, normalizePersonName, parseLanguages } from '@/lib/profileValidation';
+import { hasValidNameFields, normalizePersonName, parseLanguages, splitPersonName } from '@/lib/profileValidation';
+import { PersonNameFields } from '@/components/PersonNameFields';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
 const TRUST_FILE_ACCEPT = 'image/*,.pdf';
@@ -18,7 +19,8 @@ const MAX_PDF_BYTES = 8 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 24 * 1024 * 1024;
 
 interface DriverAboutForm {
-  full_name: string;
+  firstName: string;
+  secondName: string;
   bio: string;
   location: string;
   age: string;
@@ -46,7 +48,7 @@ export function DriverOnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingType, setUploadingType] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState<DriverAboutForm>({
-    full_name: '', bio: '', location: '', age: '', driving_experience_years: '',
+    firstName: '', secondName: '', bio: '', location: '', age: '', driving_experience_years: '',
     languages: '', preferred_locations: '', platforms_worked: [] as string[],
   });
   const [history, setHistory] = useState<PlatformHistory[]>([]);
@@ -58,7 +60,7 @@ export function DriverOnboardingPage() {
   const hydrateProfileForm = useCallback((savedProfile: typeof profile) => {
     if (!savedProfile) return;
     setProfileForm({
-      full_name: savedProfile.full_name || '',
+      ...splitPersonName(savedProfile.full_name || ''),
       bio: savedProfile.bio || '',
       location: savedProfile.location || '',
       age: savedProfile.age?.toString() || '',
@@ -228,7 +230,7 @@ export function DriverOnboardingPage() {
 
   const saveProfile = async () => {
     if (!user) return;
-    if (!hasFirstAndSecondName(profileForm.full_name)) {
+    if (!hasValidNameFields(profileForm.firstName, profileForm.secondName)) {
       toast('Enter both your first name and second name in About You.', 'error');
       return;
     }
@@ -249,7 +251,7 @@ export function DriverOnboardingPage() {
     }
     setSaving(true);
     const { error: profileError } = await supabase.from('profiles').update({
-      full_name: normalizePersonName(profileForm.full_name), bio: profileForm.bio, location: profileForm.location,
+      full_name: normalizePersonName(`${profileForm.firstName} ${profileForm.secondName}`), bio: profileForm.bio, location: profileForm.location,
       age: profileForm.age ? Number(profileForm.age) : null,
       driving_experience_years: experienceYears,
       languages,
@@ -268,7 +270,7 @@ export function DriverOnboardingPage() {
 
   const saveAbout = async () => {
     if (!user) return;
-    if (!hasFirstAndSecondName(profileForm.full_name) || !profileForm.location.trim() || profileForm.bio.trim().length < 20) {
+    if (!hasValidNameFields(profileForm.firstName, profileForm.secondName) || !profileForm.location.trim() || profileForm.bio.trim().length < 20) {
       toast('Add your first and second name, location, and an About Me description of at least 20 characters.', 'error'); return;
     }
     const age = Number(profileForm.age);
@@ -279,7 +281,7 @@ export function DriverOnboardingPage() {
     if (!experienceYears || experienceYears < 1 || experienceYears > 60) { toast('Driving experience must be between 1 and 60 years.', 'error'); return; }
     setSaving(true);
     const { error } = await supabase.from('profiles').update({
-      full_name: normalizePersonName(profileForm.full_name), bio: profileForm.bio.trim(), location: profileForm.location.trim(), age,
+      full_name: normalizePersonName(`${profileForm.firstName} ${profileForm.secondName}`), bio: profileForm.bio.trim(), location: profileForm.location.trim(), age,
       driving_experience_years: experienceYears,
       languages, preferred_locations: profileForm.preferred_locations.split(',').map((value) => value.trim()).filter(Boolean),
       platforms_worked: profileForm.platforms_worked, onboarding_completed: true,
@@ -417,8 +419,8 @@ export function DriverOnboardingPage() {
 
 function AboutFields({ profileForm, setProfileForm }: { profileForm: DriverAboutForm; setProfileForm: (value: DriverAboutForm) => void }) {
   return <Section title="About you" desc="This information is required before your driver profile can appear publicly.">
+    <div className="mb-4"><PersonNameFields firstName={profileForm.firstName} secondName={profileForm.secondName} onFirstNameChange={(firstName) => setProfileForm({ ...profileForm, firstName })} onSecondNameChange={(secondName) => setProfileForm({ ...profileForm, secondName })} /></div>
     <div className="grid gap-4 sm:grid-cols-2">
-      <Field label="First and second name" required hint="Enter at least two names, for example Jane Wanjiku."><input value={profileForm.full_name} onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })} className="input" placeholder="Jane Wanjiku" /></Field>
       <Field label="Age" required hint="Drivers must be between 18 and 85 years old."><input type="number" min={18} max={85} value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="input" /></Field>
       <Field label="Location" required hint="Enter the Kenyan town or neighbourhood where you are based."><PlaceAutocomplete value={profileForm.location} onChange={(location) => setProfileForm({ ...profileForm, location })} placeholder="e.g. Ongata Rongai" required /></Field>
       <Field label="Driving experience (years)" required hint="Enter completed years of driving experience; minimum 1."><input type="number" min={1} max={60} value={profileForm.driving_experience_years} onChange={(e) => setProfileForm({ ...profileForm, driving_experience_years: e.target.value })} className="input" /></Field>

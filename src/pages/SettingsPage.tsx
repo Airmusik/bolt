@@ -13,13 +13,14 @@ import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { Modal } from '@/components/Modal';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
 import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
-import { hasFirstAndSecondName, normalizePersonName, parseLanguages } from '@/lib/profileValidation';
+import { hasValidNameFields, normalizePersonName, parseLanguages, splitPersonName } from '@/lib/profileValidation';
+import { PersonNameFields } from '@/components/PersonNameFields';
 
 export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [fullName, setFullName] = useState(profile?.full_name || '');
+  const [nameFields, setNameFields] = useState(() => splitPersonName(profile?.full_name || ''));
   const [bio, setBio] = useState(profile?.bio || '');
   const [location, setLocation] = useState(profile?.location || '');
   const [languages, setLanguages] = useState((profile?.languages || []).join(', '));
@@ -49,7 +50,7 @@ export function SettingsPage() {
 
   const save = async () => {
     if (!user) return;
-    if (!hasFirstAndSecondName(fullName)) {
+    if (!hasValidNameFields(nameFields.firstName, nameFields.secondName)) {
       toast('Enter both your first name and second name.', 'error');
       return;
     }
@@ -64,7 +65,7 @@ export function SettingsPage() {
     }
     setSaving(true);
     const { error } = await supabase.from('profiles').update({
-      full_name: normalizePersonName(fullName),
+      full_name: normalizePersonName(`${nameFields.firstName} ${nameFields.secondName}`),
       bio: bio.trim(),
       location: location.trim(),
       languages: selectedLanguages,
@@ -196,7 +197,7 @@ export function SettingsPage() {
           {avatarIssue && <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 dark:bg-red-950/20 dark:text-red-100"><p className="font-semibold">Profile photo was not uploaded</p><p className="mt-1">{avatarIssue}</p></div>}
 
           <div className="mt-4 space-y-4">
-            <div><label className="label">First and second name <span className="text-danger">*</span></label><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="input" placeholder="Jane Wanjiku" /><p className="mt-1 text-xs text-ink-400">Enter at least two names. This is what other members see on your profile and in chat.</p></div>
+            <PersonNameFields {...nameFields} onFirstNameChange={(firstName) => setNameFields((current) => ({ ...current, firstName }))} onSecondNameChange={(secondName) => setNameFields((current) => ({ ...current, secondName }))} />
             <div><label className="label">Registered email address</label><div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={user?.email || profile?.email || ''} readOnly className="input pl-10 opacity-80" /></div><p className="mt-1 text-xs text-ink-400">This is the address you use to sign in.</p></div>
             <div>
               <label className="label">Location <span className="text-danger">*</span></label>
