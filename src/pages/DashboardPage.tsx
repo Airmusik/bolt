@@ -50,6 +50,11 @@ export function DashboardPage() {
 
   const load = useCallback(async () => {
     if (!user || !profile) return;
+    // Expire stale requests before loading the connection lists. Keeping this
+    // in the parent loader avoids a child effect that used to refresh after
+    // every render and could create an endless request/toast loop.
+    const { error: expiryError } = await supabase.rpc('expire_old_connections');
+    if (expiryError) console.error('connection expiry check failed', expiryError);
     if (profile.role === 'owner') {
       const [{ data: v }, { data: apps }, { data: drs }] = await Promise.all([
         supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).eq('owner_id', user.id).order('created_at', { ascending: false }),
@@ -80,7 +85,10 @@ export function DashboardPage() {
       .select(`*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
       .or(`driver_id.eq.${user.id},owner_id.eq.${user.id}`)
       .order('last_message_at', { ascending: false, nullsFirst: false });
-    if (conversationsError) toast('Could not load chat history: ' + conversationsError.message, 'error');
+    if (conversationsError) {
+      console.error('chat history load failed', conversationsError);
+      toast('Chat history could not be refreshed. Check your connection and try again.', 'error');
+    }
     setConversations((convs as ConversationWithRelations[]) || []);
 
     // connections
@@ -452,10 +460,6 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
   const expiredIn = incoming.filter((c) => c.status === 'expired');
   const [accepting, setAccepting] = useState<Connection | null>(null);
   const [confirmingAction, setConfirmingAction] = useState<{ connection: Connection; action: 'reject' | 'cancel' | 'end' } | null>(null);
-
-  useEffect(() => {
-    supabase.rpc('expire_old_connections').then(() => onAction());
-  }, [onAction]);
 
   const handleAccept = async (c: Connection) => {
     const { error } = await updateConnectionStatus(c.id, 'accepted');

@@ -1,19 +1,32 @@
-import { useCallback, useState, ReactNode } from 'react';
+import { useCallback, useRef, useState, ReactNode } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 import { ToastContext, type ToastType } from './toastContext';
 
-interface Toast { id: number; type: ToastType; message: string }
+interface Toast { id: number; key: string; type: ToastType; message: string }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const activeToastKeys = useRef(new Set<string>());
 
   const remove = useCallback((id: number) => {
-    setToasts((t) => t.filter((x) => x.id !== id));
+    setToasts((current) => {
+      const removed = current.find((item) => item.id === id);
+      if (removed) activeToastKeys.current.delete(removed.key);
+      return current.filter((item) => item.id !== id);
+    });
   }, []);
 
   const toast = useCallback((message: string, type: ToastType = 'success') => {
+    const key = `${type}:${message}`;
+    if (activeToastKeys.current.has(key)) return;
+    activeToastKeys.current.add(key);
     const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, type, message }]);
+    setToasts((current) => {
+      const next = [...current, { id, key, type, message }];
+      const dropped = next.slice(0, -4);
+      dropped.forEach((item) => activeToastKeys.current.delete(item.key));
+      return next.slice(-4);
+    });
     setTimeout(() => remove(id), 4000);
   }, [remove]);
 
