@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Download, FileText } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
 import type { DocumentRow } from '@/lib/types';
@@ -94,7 +95,7 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
     }
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[90] flex items-end justify-center overflow-hidden p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={doc.label || doc.type.replace(/_/g, ' ')}>
       <div className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-card-hover dark:bg-[#141416] sm:h-[88dvh] sm:rounded-2xl">
@@ -132,6 +133,7 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

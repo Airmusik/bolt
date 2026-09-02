@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 export function Modal({ title, onClose, children, size = 'md' }: { title: string; onClose: () => void; children: React.ReactNode; size?: 'md' | 'xl' }) {
   const titleId = useId();
@@ -21,7 +22,7 @@ export function Modal({ title, onClose, children, size = 'md' }: { title: string
     };
   }, []);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[80] flex items-end justify-center overflow-hidden p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby={titleId}>
       <button type="button" className="absolute inset-0 cursor-default bg-ink-950/40 backdrop-blur-sm" onClick={onClose} aria-label="Close dialog" />
       <div className={`relative flex max-h-[100dvh] w-full flex-col overflow-hidden ${size === 'xl' ? 'max-w-5xl' : 'max-w-md'} animate-scale-in rounded-t-2xl bg-white shadow-card-hover dark:bg-[#141416] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl`}>
@@ -31,6 +32,7 @@ export function Modal({ title, onClose, children, size = 'md' }: { title: string
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-4 sm:px-6 sm:pb-6">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

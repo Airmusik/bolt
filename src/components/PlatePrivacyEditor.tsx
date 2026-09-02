@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { EyeOff, Loader2, X } from 'lucide-react';
 
 interface Props {
@@ -92,7 +93,7 @@ export function PlatePrivacyEditor({ file, onCancel, onUploadOriginal, onComplet
     onComplete(new File([blob], `${baseName}-plate-hidden.${extension}`, { type: mimeType }));
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center overflow-hidden bg-black/70 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Hide number plate">
       <div className="flex max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-xl dark:bg-[#141416] sm:max-h-[calc(100dvh-2rem)] sm:rounded-2xl">
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-ink-100 px-4 py-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:px-5 sm:py-4">
@@ -118,7 +119,8 @@ export function PlatePrivacyEditor({ file, onCancel, onUploadOriginal, onComplet
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
