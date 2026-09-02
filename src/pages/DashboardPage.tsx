@@ -1,9 +1,8 @@
 import { PromotionLink as Link, PromotionBadge, PromoteListingLink } from '@/components/PromotionLink';
-import { PromotionAnalytics } from '@/components/PromotionAnalytics';
 import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Pause, Play } from 'lucide-react';
+import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Pause, Play, Megaphone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -165,7 +164,11 @@ export function DashboardPage() {
 
   return (
     <div className={cn('container-content py-2 sm:py-5', tab === 'overview' && 'overview-motion')} data-motion-paused={motionPaused ? 'true' : undefined}>
-      {(tab === 'overview' || tab === 'vehicles') && <PromotionAnalytics compact />}
+      <div className="mb-3 flex justify-end">
+        <Link to="/promotions" className="btn-secondary min-h-11 gap-2">
+          <Megaphone className="h-4 w-4" aria-hidden="true" /> Promotions
+        </Link>
+      </div>
       {tab === 'overview' && <>
       <section className="dashboard-panel overview-welcome relative isolate mt-3 overflow-hidden">
         <span aria-hidden="true" className="overview-ambient pointer-events-none absolute -right-8 -top-12 h-44 w-64 rounded-full" />
