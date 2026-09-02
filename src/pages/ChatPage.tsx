@@ -492,7 +492,7 @@ export function ChatPage() {
               <span className="flex items-center gap-2 text-sm font-semibold text-ink-900"><MessageCircle className="h-4 w-4 text-brand-600" /> Conversations</span>
               <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-700">{conversationGroups.length}</span>
             </div>
-            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={conversationSearch} onChange={(event) => setConversationSearch(event.target.value)} aria-label="Search conversations" placeholder="Search people or cars" className="input h-10 rounded-xl bg-ink-50 py-2 pl-9 pr-3 text-xs focus:bg-white" /></div>
+            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={conversationSearch} onChange={(event) => setConversationSearch(event.target.value)} aria-label="Search conversations" placeholder="Search people or cars" className="input h-10 rounded-xl bg-ink-50 py-2 pl-9 pr-3 text-xs focus:bg-ink-100" /></div>
           </div>
           {filteredConversationGroups.map((group) => {
             const c = group.latest;
@@ -629,7 +629,7 @@ export function ChatPage() {
                   onChange={(e) => { setText(e.target.value); broadcastTyping(e.target.value.trim().length > 0); }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
                   placeholder="Type a message…"
-                  className="input w-full rounded-2xl border-0 bg-ink-50 pr-16 ring-1 ring-ink-100 focus:bg-white focus:ring-brand-300"
+                  className="input w-full rounded-2xl border-0 bg-ink-50 pr-16 ring-1 ring-ink-100 focus:bg-ink-100 focus:ring-brand-300"
                   maxLength={1000}
                   autoFocus
                 /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-ink-300">{text.length}/1000</span></div>

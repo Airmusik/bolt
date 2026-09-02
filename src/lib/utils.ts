@@ -7,6 +7,10 @@ export function formatKES(n: number | null | undefined): string {
   return 'KES ' + Math.round(n).toLocaleString('en-KE');
 }
 
+export function formatMoney(n: number): string {
+  return new Intl.NumberFormat('en-KE', { style: 'currency', currency: 'KES', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+}
+
 export function timeAgo(iso: string): string {
   const d = new Date(iso).getTime();
   const diff = Date.now() - d;

@@ -18,6 +18,8 @@ import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import type { ToastType } from '@/components/toastContext';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { DeleteListingButton } from '@/components/DeleteListingButton';
+import { driverNeedsApproval, driverApprovalLabel, driverApprovalMessage } from '@/lib/driverEligibility';
 
 import { dashboardDestination, dashboardTabFromSearch, getDashboardTabs, type DashboardTab as Tab } from '@/lib/dashboardNavigation';
 type OwnerApplication = Application & { driver?: Profile; vehicle?: VehicleWithRelations };
@@ -65,9 +67,9 @@ export function DashboardPage() {
     if (expiryError) console.error('connection expiry check failed', expiryError);
     if (profile.role === 'owner') {
       const [{ data: v }, { data: apps }, { data: drs }] = await Promise.all([
-        supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).eq('owner_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).eq('owner_id', user.id).is('deleted_at', null).order('created_at', { ascending: false }),
         supabase.from('applications').select(`*, driver:profiles(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles(*, photos:vehicle_photos(*))`).eq('owner_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('role', 'driver').eq('onboarding_completed', true).order('is_verified', { ascending: false }).order('rating', { ascending: false }).order('created_at', { ascending: false }).limit(24),
+        supabase.rpc('discover_drivers', { p_limit: 24 }),
       ]);
       setVehicles((v as VehicleWithRelations[]) || []);
       setApplications((apps as OwnerApplication[]) || []);
@@ -79,13 +81,7 @@ export function DashboardPage() {
         .eq('driver_id', user.id)
         .order('created_at', { ascending: false });
       setMyApplications((apps as DriverApplication[]) || []);
-      const { data: cars } = await supabase
-        .from('vehicles')
-        .select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
-        .eq('status', 'active')
-        .eq('approval_status', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(24);
+      const { data: cars } = await supabase.rpc('discover_vehicles', { p_limit: 24 });
       setAvailableCars((cars as VehicleWithRelations[]) || []);
     }
     const { data: convs, error: conversationsError } = await supabase
@@ -143,8 +139,8 @@ export function DashboardPage() {
           : { eyebrow: 'Grow your shortlist', title: 'Discover available drivers', description: 'Browse reviewed profiles near your vehicle location.', label: 'Browse drivers', to: '/browse-drivers', tab: null, icon: Users }
     : !profile.onboarding_completed
       ? { eyebrow: 'Profile required', title: 'Complete your driver profile', description: 'Add your experience, preferred areas, platforms, and introduction to become visible.', label: 'Complete profile', to: '/onboarding', tab: null, icon: Pencil }
-      : !profile.is_verified
-        ? { eyebrow: 'Recommended next step', title: profile.verification_status === 'pending' ? 'Platform history under review' : 'Submit recent platform history', description: profile.verification_status === 'pending' ? 'An administrator is reviewing your history. You can view your submission or update it.' : 'Upload recent Uber, Bolt, Faras, Little Cab, or other platform history for admin review.', label: profile.verification_status === 'pending' ? 'View submission' : 'Manage history', to: '/onboarding', tab: null, icon: ShieldCheck }
+      : driverNeedsApproval(profile)
+        ? { eyebrow: 'Recommended next step', title: profile.platform_history_submitted ? 'Platform history under review' : 'Submit recent platform history', description: profile.verification_status === 'pending' ? 'An administrator is reviewing your history. You can view your submission or update it.' : 'Upload recent Uber, Bolt, Faras, Little Cab, or other platform history for admin review.', label: profile.verification_status === 'pending' ? 'View submission' : 'Manage history', to: '/onboarding', tab: null, icon: ShieldCheck }
         : profile.availability !== 'available'
           ? { eyebrow: 'Your status', title: profile.availability === 'busy' ? 'You are currently on a connection' : 'Your profile is not available', description: 'Manage your availability when you are ready to receive new requests.', label: 'Manage availability', to: '/settings', tab: null, icon: Clock }
           : { eyebrow: 'Ready for your next match', title: 'Explore cars available near you', description: 'Compare vehicle requirements and connect with an owner that suits you.', label: 'Browse cars', to: '/browse-cars', tab: null, icon: Car };
@@ -168,7 +164,7 @@ export function DashboardPage() {
         <span aria-hidden="true" className="overview-ambient pointer-events-none absolute -right-8 -top-12 h-44 w-64 rounded-full" />
         <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className="shrink-0"><Avatar name={profile.full_name} src={profile.avatar_url} size={48} verified={isDriver && profile.is_verified} /></div>
+            <div className="shrink-0"><Avatar name={profile.full_name} src={profile.avatar_url} size={48} verified={isDriver && profile.platform_history_approved} /></div>
             <div className="min-w-0 flex-1">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-500">Your dashboard</p>
               <h1 className="mt-0.5 break-words font-display text-xl font-bold leading-tight text-ink-950 sm:text-2xl">{profile.full_name}</h1>
@@ -176,12 +172,12 @@ export function DashboardPage() {
                 <span className="font-medium text-ink-700">{isOwner ? 'Car owner' : 'Driver'}</span>
                 {profile.location && <span className="inline-flex min-w-0 items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /><span className="break-words">{profile.location}</span></span>}
               </div>
-              {isDriver && <p className="mt-1 flex items-center gap-1.5 text-xs font-medium text-ink-600"><span aria-hidden="true" className={cn('h-1.5 w-1.5 shrink-0 rounded-full', profile.availability === 'available' ? 'overview-availability-dot bg-emerald-500' : profile.availability === 'busy' ? 'bg-amber-500' : 'bg-ink-400')} />{profile.availability === 'busy' ? 'Currently on a connection' : titleCase(profile.availability)}</p>}
+              {isDriver && <div className="mt-1"><AvailabilityBadge availability={profile.availability} profile={profile} /></div>}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             {isOwner && <Link to="/vehicles/new" className="btn-secondary min-h-11 px-3 py-2 text-xs"><Plus className="h-3.5 w-3.5" /> Add vehicle</Link>}
-            {isDriver && !profile.is_verified && <Link to="/onboarding" className="btn-ghost min-h-11 px-3 py-2 text-xs"><ShieldCheck className="h-3.5 w-3.5" /> My history</Link>}
+            {isDriver && !profile.platform_history_approved && <Link to="/onboarding" className="btn-ghost min-h-11 px-3 py-2 text-xs"><ShieldCheck className="h-3.5 w-3.5" /> My history</Link>}
             <button type="button" onClick={toggleOverviewMotion} aria-label={motionPaused ? 'Resume overview animations' : 'Pause overview animations'} title={motionPaused ? 'Resume overview animations' : 'Pause overview animations'} className="overview-motion-control ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">
               {motionPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
             </button>
@@ -220,7 +216,7 @@ export function DashboardPage() {
         {tab === 'overview' && <OverviewTab profile={profile} drivers={drivers} availableCars={availableCars} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
         {tab === 'drivers' && isOwner && <DriversTab users={drivers} loading={loading} siteName={settings.site_name} />}
         {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars} loading={loading} />}
-        {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} />}
+        {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} onDeleted={load} />}
         {tab === 'applications' && isOwner && <OwnerApplicationsTab applications={applications} onAction={load} toast={toast} />}
         {tab === 'applications' && isDriver && <DriverApplicationsTab applications={myApplications} />}
         {tab === 'connections' && <ConnectionsTab incoming={incomingConnections} outgoing={outgoingConnections} onAction={async () => { await load(); await refreshProfile(); }} onEnded={() => setTab('chats')} toast={toast} />}
@@ -244,15 +240,15 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
         {!isOwner && <div className="dashboard-panel">
           <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold text-ink-900">Profile status</h3><span className="dashboard-icon"><ShieldCheck className="h-4 w-4" /></span></div>
           <div className="mt-3 flex items-start gap-2">
-            {profile.is_verified ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <Clock className="mt-0.5 h-4 w-4 shrink-0 text-ink-500" />}
-            <div className="min-w-0"><p className="text-xs font-medium text-ink-700">{profile.is_verified ? 'Platform history approved' : profile.verification_status === 'pending' ? 'Platform history under review' : 'Platform history not yet reviewed'}</p><p className="mt-0.5 text-xs leading-5 text-ink-500">{profile.is_verified ? 'Your submitted driving activity has been reviewed.' : 'Your platform activity is reviewed privately by an administrator.'}</p></div>
+            {profile.platform_history_approved ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <Clock className="mt-0.5 h-4 w-4 shrink-0 text-ink-500" />}
+            <div className="min-w-0"><p className="text-xs font-medium text-ink-700">{profile.platform_history_approved ? 'Platform history approved' : profile.verification_status === 'pending' ? 'Platform history under review' : 'Platform history not yet reviewed'}</p><p className="mt-0.5 text-xs leading-5 text-ink-500">{profile.platform_history_approved ? 'Your submitted driving activity has been reviewed.' : 'Your platform activity is reviewed privately by an administrator.'}</p></div>
           </div>
-          {!profile.is_verified && (
+          {!profile.platform_history_approved && (
             <Link to="/onboarding" className="mt-1 inline-flex min-h-11 items-center gap-1 pl-6 text-xs font-semibold text-ink-700 hover:underline">View history details<ChevronRight className="h-3.5 w-3.5" /></Link>
           )}
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-3">
-            <div><p className="text-xs font-semibold text-ink-800">Availability</p><p className="mt-0.5 text-xs text-ink-500">{profile.availability === 'available' ? 'Open to new connections' : profile.availability === 'busy' ? 'Currently in a connection' : 'Not accepting connections'}</p></div>
-            <div className="flex max-w-full flex-wrap items-center gap-2"><AvailabilityBadge availability={profile.availability} /><Link to="/settings" className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-700 hover:underline">Manage</Link></div>
+            <div><p className="text-xs font-semibold text-ink-800">Availability</p><p className="mt-0.5 text-xs text-ink-500">{driverNeedsApproval(profile) ? driverApprovalLabel(profile) : profile.availability === 'available' ? 'Open to new connections' : profile.availability === 'busy' ? 'Currently in a connection' : 'Not accepting connections'}</p></div>
+            <div className="flex max-w-full flex-wrap items-center gap-2"><AvailabilityBadge availability={profile.availability} profile={profile} /><Link to="/settings" className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-700 hover:underline">Manage</Link></div>
           </div>
         </div>}
         <div className="dashboard-panel">
@@ -279,12 +275,13 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
             {drivers.slice(0, 8).map((d: Profile) => (
               <Link key={d.id} to={`/drivers/${d.id}`} className="card card-hover min-w-[82vw] snap-start p-4 sm:min-w-0">
                 <div className="flex items-center gap-3">
-                  <Avatar name={d.full_name} src={d.avatar_url} size={44} verified={d.is_verified} />
+                  <Avatar name={d.full_name} src={d.avatar_url} size={44} verified={d.platform_history_approved} />
                   <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">{d.full_name} <VerifiedBadge verified={d.is_verified} size={11} /></p>
+                    <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">{d.full_name} <VerifiedBadge verified={d.platform_history_approved} size={11} /></p>
                     <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
                   </div>
-                  <AvailabilityBadge availability={d.availability} />
+                  <AvailabilityBadge availability={d.availability} profile={d} />
+                  {d.sponsored && <span className="badge-accent">Sponsored</span>}
                 </div>
                 <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-2" />
                 <div className="mt-2 flex items-center gap-1 text-xs text-ink-500"><Briefcase className="h-3 w-3" /> {Math.max(1, d.driving_experience_years || 1)} {d.driving_experience_years === 1 ? 'year' : 'years'}</div>
@@ -320,12 +317,13 @@ function DriversTab({ users, loading, siteName }: { users: Profile[]; loading: b
         <div key={d.id} className="card p-4">
           <Link to={`/drivers/${d.id}`}>
             <div className="flex items-center gap-3">
-              <Avatar name={d.full_name} src={d.avatar_url} size={48} verified={d.is_verified} />
+              <Avatar name={d.full_name} src={d.avatar_url} size={48} verified={d.platform_history_approved} />
               <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">{d.full_name} <VerifiedBadge verified={d.is_verified} size={12} /></p>
+                <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">{d.full_name} <VerifiedBadge verified={d.platform_history_approved} size={12} /></p>
                 <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
               </div>
-              <AvailabilityBadge availability={d.availability} />
+              <AvailabilityBadge availability={d.availability} profile={d} />
+              {d.sponsored && <span className="badge-accent">Sponsored</span>}
             </div>
             <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-3" />
             <div className="mt-2 flex flex-wrap gap-1">
@@ -347,10 +345,10 @@ function AvailableCarsTab({ vehicles, loading }: { vehicles: VehicleWithRelation
   return <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <VehicleCard key={v.id} vehicle={v} />)}</div>;
 }
 
-function VehiclesTab({ vehicles, loading }: { vehicles: VehicleWithRelations[]; loading: boolean }) {
+function VehiclesTab({ vehicles, loading, onDeleted }: { vehicles: VehicleWithRelations[]; loading: boolean; onDeleted: () => void }) {
   if (loading) return <div className="card h-48 animate-pulse" />;
   if (vehicles.length === 0) return <EmptyState title="No vehicles yet" description="Add your first vehicle to start receiving applications." action={<Link to="/vehicles/new" className="btn-primary">Add vehicle</Link>} />;
-  return <div><div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">New listings require admin approval. Published listings can be edited at any time; rejected listings must be corrected and resubmitted.</div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <div key={v.id} className="space-y-2"><VehicleCard vehicle={v} showOwner={false} showApprovalStatus /><Link to={`/vehicles/${v.id}/edit`} className="btn-secondary w-full"><Pencil className="h-4 w-4" /> {v.approval_status === 'rejected' ? 'Edit & resubmit listing' : v.approval_status === 'approved' ? 'Edit published listing' : 'Edit submission'}</Link></div>)}</div></div>;
+  return <div><div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">New listings require admin approval. Published listings can be edited at any time; rejected listings must be corrected and resubmitted.</div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <div key={v.id} className="space-y-2"><VehicleCard vehicle={v} showOwner={false} showApprovalStatus /><Link to={`/vehicles/${v.id}/edit`} className="btn-secondary w-full"><Pencil className="h-4 w-4" /> {v.approval_status === 'rejected' ? 'Edit & resubmit listing' : v.approval_status === 'approved' ? 'Edit published listing' : 'Edit submission'}</Link>{v.approval_status === 'approved' && v.status === 'active' && <Link to={`/promotions?vehicle=${v.id}`} className="btn-ghost w-full">Promote listing</Link>}<DeleteListingButton id={v.id} onDeleted={onDeleted} /></div>)}</div></div>;
 }
 
 function OwnerApplicationsTab({ applications, onAction, toast }: { applications: OwnerApplication[]; onAction: () => void; toast: ToastFn }) {
@@ -376,9 +374,9 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
       {applications.map((a) => (
         <div key={a.id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <Link to={`/drivers/${a.driver_id}`} className="flex items-center gap-3">
-            <Avatar name={a.driver?.full_name || 'Driver'} src={a.driver?.avatar_url} size={44} verified={!!a.driver?.is_verified} />
+            <Avatar name={a.driver?.full_name || 'Driver'} src={a.driver?.avatar_url} size={44} verified={!!a.driver?.platform_history_approved} />
             <div>
-              <p className="flex items-center gap-1 font-semibold text-ink-900">{a.driver?.full_name} <VerifiedBadge verified={!!a.driver?.is_verified} size={12} /></p>
+              <p className="flex items-center gap-1 font-semibold text-ink-900">{a.driver?.full_name} <VerifiedBadge verified={!!a.driver?.platform_history_approved} size={12} /></p>
               <Rating value={a.driver?.rating || 0} size={11} showValue count={a.driver?.rating_count} />
             </div>
           </Link>
@@ -442,6 +440,7 @@ function DriverApplicationsTab({ applications }: { applications: DriverApplicati
 }
 
 function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { incoming: IncomingConnection[]; outgoing: OutgoingConnection[]; onAction: () => void | Promise<void>; onEnded: () => void; toast: ToastFn }) {
+  const { profile } = useAuth();
   const pendingIn = incoming.filter((c) => c.status === 'pending');
   const acceptedIn = incoming.filter((c) => c.status === 'accepted');
   const acceptedOut = outgoing.filter((c) => c.status === 'accepted');
@@ -480,13 +479,13 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
           <div className="mt-3 space-y-3">
             {pendingIn.map((c) => (
               <div key={c.id} className="card flex items-center gap-3 p-4">
-                <Avatar name={c.requester?.full_name || 'User'} src={c.requester?.avatar_url} size={44} verified={c.requester?.role === 'driver' && !!c.requester?.is_verified} />
+                <Avatar name={c.requester?.full_name || 'User'} src={c.requester?.avatar_url} size={44} verified={c.requester?.role === 'driver' && !!c.requester?.platform_history_approved} />
                 <div className="flex-1">
-                  <Link to={`/drivers/${c.requester_id}`} className="flex items-center gap-1 font-semibold text-ink-900 hover:underline">{c.requester?.full_name} <VerifiedBadge verified={!!c.requester?.is_verified} size={12} /></Link>
+                  <Link to={`/drivers/${c.requester_id}`} className="flex items-center gap-1 font-semibold text-ink-900 hover:underline">{c.requester?.full_name} <VerifiedBadge verified={!!c.requester?.platform_history_approved} size={12} /></Link>
                   {c.message && <p className="text-sm text-ink-600">"{c.message}"</p>}
                   <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
                 </div>
-                <button onClick={() => setAccepting(c)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
+                <button onClick={() => { if (driverNeedsApproval(profile)) toast(driverApprovalMessage(profile), 'error'); else if (driverNeedsApproval(c.requester)) toast('This driver needs approved platform history before connecting.', 'error'); else setAccepting(c); }} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Accept</button>
                 <button onClick={() => setConfirmingAction({ connection: c, action: 'reject' })} className="btn-secondary px-3 py-1.5 text-xs"><X className="h-3.5 w-3.5" /> Reject</button>
               </div>
             ))}
@@ -504,9 +503,9 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
             {[...acceptedIn.map((c) => ({ c, p: c.requester })), ...acceptedOut.map((c) => ({ c, p: c.recipient }))].map(({ c, p }) => (
               <div key={c.id} className="card flex flex-col gap-3 p-4">
                 <div className="flex items-center gap-3">
-                  <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={p?.role === 'driver' && !!p?.is_verified} />
+                  <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={p?.role === 'driver' && !!p?.platform_history_approved} />
                   <div className="flex-1 min-w-0">
-                    <Link to={`/drivers/${p?.id}`} className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900 hover:underline">{p?.full_name} <VerifiedBadge verified={!!p?.is_verified} size={11} /></Link>
+                    <Link to={`/drivers/${p?.id}`} className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900 hover:underline">{p?.full_name} <VerifiedBadge verified={!!p?.platform_history_approved} size={11} /></Link>
                     <p className="text-xs text-ink-500 capitalize">{p?.role}</p>
                     <p className="text-xs text-ink-400">Connected {formatDateTime(c.created_at)}</p>
                   </div>
@@ -528,7 +527,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
           <div className="mt-3 space-y-3">
             {outgoing.filter((c) => c.status === 'pending').map((c) => (
               <div key={c.id} className="card flex items-center gap-3 p-4">
-                <Avatar name={c.recipient?.full_name || 'User'} src={c.recipient?.avatar_url} size={40} verified={c.recipient?.role === 'driver' && !!c.recipient?.is_verified} />
+                <Avatar name={c.recipient?.full_name || 'User'} src={c.recipient?.avatar_url} size={40} verified={c.recipient?.role === 'driver' && !!c.recipient?.platform_history_approved} />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-ink-900">{c.recipient?.full_name}</p>
                   <p className="text-xs text-ink-500 capitalize">{c.recipient?.role} · waiting for response</p>
@@ -549,7 +548,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
           <div className="mt-3 space-y-3">
             {[...expiredIn.map((c) => ({ c, p: c.requester })), ...expiredOut.map((c) => ({ c, p: c.recipient }))].map(({ c, p }) => (
               <div key={c.id} className="card flex items-center gap-3 p-4 opacity-70">
-                <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={p?.role === 'driver' && !!p?.is_verified} />
+                <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={p?.role === 'driver' && !!p?.platform_history_approved} />
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-ink-900">{p?.full_name}</p>
                   <p className="text-xs text-ink-500 capitalize">{p?.role} · expired</p>
@@ -601,7 +600,7 @@ function ChatsTab({ conversations, loading, currentUserId }: { conversations: Co
     <div className="space-y-3">
       {threads.map(({ latest: c, count }) => (
         <Link key={c.id} to={`/chat/${c.id}`} className="card card-hover flex items-center gap-3 p-4">
-          <Avatar name={(c.driver?.full_name || c.owner?.full_name || 'User')} src={c.driver?.avatar_url || c.owner?.avatar_url} size={44} verified={!!c.driver?.is_verified} />
+          <Avatar name={(c.driver?.full_name || c.owner?.full_name || 'User')} src={c.driver?.avatar_url || c.owner?.avatar_url} size={44} verified={!!c.driver?.platform_history_approved} />
           <div className="flex-1">
             <p className="font-semibold text-ink-900">{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : `${c.driver?.full_name || 'Driver'} ↔ ${c.owner?.full_name || 'Owner'}`}</p>
             <p className="text-xs text-ink-400">{count > 1 ? 'Complete chat history preserved' : c.closed_at ? 'Ended · history preserved' : c.last_message_at ? timeAgo(c.last_message_at) : 'No messages yet'}</p>

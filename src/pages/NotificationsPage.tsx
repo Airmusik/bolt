@@ -26,7 +26,7 @@ function notificationDestination(notification: Notification): string | null {
     const vehicleId = typeof data.vehicle_id === 'string' ? data.vehicle_id : null;
     return vehicleId ? `/vehicles/${vehicleId}` : '/dashboard?tab=vehicles';
   }
-  if (notification.type === 'warning' || notification.type.includes('report')) return '/settings';
+  if (notification.type === 'warning' || notification.type.includes('report')) return `/members/${notification.user_id}`;
   return null;
 }
 

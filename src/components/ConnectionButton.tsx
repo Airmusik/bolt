@@ -10,6 +10,8 @@ import type { Connection, Profile } from '@/lib/types';
 import { Modal } from './Modal';
 import { cn } from '@/lib/utils';
 import { ConfirmDialog } from './ConfirmDialog';
+import { DriverApprovalNotice } from './DriverApprovalNotice';
+import { driverNeedsApproval } from '@/lib/driverEligibility';
 
 interface Props {
   otherUserId: string;
@@ -19,7 +21,8 @@ interface Props {
 }
 
 export function ConnectionButton({ otherUserId, vehicleId, size = 'md', className }: Props) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const [showApproval, setShowApproval] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
   const [connection, setConnection] = useState<Connection | null>(null);
@@ -93,6 +96,13 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   if (user.id === otherUserId) return null;
 
   if (loading) return <div className={cn('h-9 w-24 animate-pulse rounded-lg bg-ink-100', className)} />;
+
+  // Existing chats remain reachable even while replacement history is reviewed.
+  if (profile && driverNeedsApproval(profile) && connection?.status !== 'accepted') return <>
+    <button type="button" onClick={() => setShowApproval(true)} className={cn('btn-primary', btnSize, className)}><Link2 className="h-4 w-4" /> Connect</button>
+    {showApproval && <Modal title="Platform history approval required" onClose={() => setShowApproval(false)}><DriverApprovalNotice profile={profile} /></Modal>}
+  </>;
+  if (driverNeedsApproval(otherProfile) && connection?.status !== 'accepted') return <span className={cn('rounded-lg bg-amber-50 p-3 text-xs text-amber-800', className)}>This driver needs approved platform history before connecting.</span>;
 
   // If the other user is unavailable, don't show the connect button
   if (otherProfile && otherProfile.availability !== 'available' && (!connection || connection.status === 'rejected' || connection.status === 'withdrawn' || connection.status === 'ended')) {

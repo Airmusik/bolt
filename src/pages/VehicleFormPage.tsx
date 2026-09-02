@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, AlertTriangle, Upload, X, ArrowLeft } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -7,7 +7,6 @@ import { useToast } from '@/components/useToast';
 import type { Vehicle, VehicleIssue, VehiclePhoto } from '@/lib/types';
 import { VEHICLE_MAKES } from '@/lib/locations';
 import { cn } from '@/lib/utils';
-import { useSiteSettings } from '@/lib/siteSettings';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { PlatePrivacyEditor } from '@/components/PlatePrivacyEditor';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
@@ -30,11 +29,20 @@ export function VehicleFormPage() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const isEdit = Boolean(id);
-  const { settings } = useSiteSettings();
+  const [capacity, setCapacity] = useState<{ used: number; limit: number } | null>(null);
+  const [capacityError, setCapacityError] = useState('');
+  const loadCapacity = async () => {
+    const { data, error } = await supabase.rpc('my_listing_capacity');
+    if (error) { setCapacityError('Could not check your listing allowance. Please try again.'); return null; }
+    setCapacityError('');
+    setCapacity(data);
+    return data as { used: number; limit: number };
+  };
+  useEffect(() => { if (!id && user?.id) void loadCapacity(); }, [id, user?.id]);
 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    make: '', model: '', year: new Date().getFullYear(), transmission: 'automatic', fuel_type: 'petrol',
+    make: '', model: '', year: String(new Date().getFullYear()), transmission: 'automatic', fuel_type: 'petrol',
     location: '', weekly_target: '', monthly_target: '', deposit: '', minimum_driver_experience_years: '0', requirements: '',
     registered_platforms: [] as Vehicle['registered_platforms'],
     availability: 'available', insurance_type: 'third_party', insurance_expiry: '',
@@ -60,7 +68,7 @@ export function VehicleFormPage() {
         const veh = v as Vehicle;
         setOriginalApprovalStatus(veh.approval_status);
         setForm({
-          make: veh.make, model: veh.model, year: veh.year, transmission: veh.transmission, fuel_type: veh.fuel_type,
+          make: veh.make, model: veh.model, year: String(veh.year), transmission: veh.transmission, fuel_type: veh.fuel_type,
           location: veh.location, weekly_target: veh.weekly_target?.toString() || '', monthly_target: veh.monthly_target?.toString() || '',
           deposit: veh.deposit?.toString() || '', minimum_driver_experience_years: String(veh.minimum_driver_experience_years ?? 0), requirements: veh.requirements || '',
           registered_platforms: veh.registered_platforms || [],
@@ -132,18 +140,12 @@ export function VehicleFormPage() {
   const save = async () => {
     if (!user) return;
     if (!form.make || !form.model.trim() || !form.location.trim()) { toast('Make, model and location are required.', 'error'); return; }
+    if ([form.weekly_target, form.monthly_target, form.deposit].some(value => value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0))) { toast('Targets and deposit must be zero or a positive amount.', 'error'); return; }
+    if (!/^\d{4}$/.test(form.year) || Number(form.year) < 1900 || Number(form.year) > new Date().getFullYear() + 1) { toast('Enter a valid four-digit manufacture year.', 'error'); return; }
     if (photos.length === 0) { toast('At least one vehicle photo is required for security.', 'error'); return; }
     if (!isEdit) {
-      const maxVehicles = Number(settings.max_vehicles_per_owner || 10);
-      const { count, error } = await supabase
-        .from('vehicles')
-        .select('id', { count: 'exact', head: true })
-        .eq('owner_id', user.id);
-      if (error) { toast('Could not verify vehicle limit: ' + error.message, 'error'); return; }
-      if ((count ?? 0) >= maxVehicles) {
-        toast(`You can list up to ${maxVehicles} vehicles with the current site settings.`, 'error');
-        return;
-      }
+      const current = await loadCapacity();
+      if (!current || current.used >= current.limit) return;
     }
     setSaving(true);
     const payload = {
@@ -172,7 +174,7 @@ export function VehicleFormPage() {
       }
     } else {
       const { data, error } = await supabase.from('vehicles').insert(payload).select().maybeSingle();
-      if (error || !data) { toast('Could not save vehicle: ' + (error?.message || ''), 'error'); setSaving(false); return; }
+      if (error || !data) { toast('Could not save vehicle: ' + (error?.message || ''), 'error'); if (error?.message.includes('Listing limit')) await loadCapacity(); setSaving(false); return; }
       vehicleId = (data as Vehicle).id;
       const { error: photoError } = await supabase.from('vehicle_photos').insert(
         photos.map((photo) => ({ vehicle_id: vehicleId, photo_url: photo.photo_url, position: photo.position })),
@@ -212,6 +214,13 @@ export function VehicleFormPage() {
     toast(isEdit ? originalApprovalStatus === 'rejected' ? 'Changes submitted. The listing is pending admin approval again.' : 'Listing changes saved. New photos wait for admin approval.' : 'Vehicle submitted. It will go live after admin approval.');
     navigate('/dashboard');
   };
+
+  if (!isEdit && (!capacity || capacity.used >= capacity.limit)) return <div className="container-content py-8">
+    <Link to="/dashboard?tab=vehicles" className="btn-ghost"><ArrowLeft className="h-4 w-4" /> My vehicles</Link>
+    <div className="card mx-auto mt-6 max-w-xl p-6">
+      {capacity ? <><h1 className="font-display text-xl font-bold">Your {capacity.limit}-car allowance is full</h1><p className="mt-3 text-sm text-ink-600">You have {capacity.used} listings. Owners can list 3 cars by default, including pending listings. To add more, contact admin and request a higher allowance.</p><Link to="/contact?topic=listing-limit" className="btn-primary mt-5">Contact admin to list more cars</Link></> : capacityError ? <><p className="text-sm text-danger">{capacityError}</p><button type="button" onClick={() => void loadCapacity()} className="btn-secondary mt-3">Try again</button></> : <p role="status">Checking your listing allowance…</p>}
+    </div>
+  </div>;
 
   return (
     <div className="container-content py-8">
@@ -258,7 +267,7 @@ export function VehicleFormPage() {
               </select>
             </Field>
             <Field label="Model" htmlFor="vehicle-model" required hint="Start typing and choose a suggestion, or enter your exact model if it isn't listed."><VehicleModelInput id="vehicle-model" make={form.make} value={form.model} onChange={(model) => setForm({ ...form, model })} /></Field>
-            <Field label="Year" required hint="Enter the vehicle's manufacture year."><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} className="input" /></Field>
+            <Field label="Year" required hint="Enter the vehicle's four-digit manufacture year."><input type="number" min={1900} max={new Date().getFullYear() + 1} value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} className="input" /></Field>
             <Field label="Location" required hint="Enter where the vehicle is normally available.">
               <PlaceAutocomplete value={form.location} onChange={(location) => setForm({ ...form, location })} required />
               <p className="mt-1 text-xs text-ink-400">This is also your owner profile location, so members see one consistent area.</p>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en" class="dark">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Message field contrast regression check</title></head>
+<body>
+  <main class="mx-auto max-w-lg space-y-4 p-4">
+    <h1 class="text-xl font-bold">Message field contrast check</h1>
+    <p class="text-sm text-ink-500">Local-only fixture using the actual message fields' classes. No messages are sent.</p>
+    <button id="theme" class="btn-secondary" type="button">Switch theme</button>
+    <section id="fields" class="space-y-4"></section>
+  </main>
+  <script type="module">
+    import '/src/index.css';
+    import chat from '/src/pages/ChatPage.tsx?raw';
+    import admin from '/src/pages/AdminPage.tsx?raw';
+    import contact from '/src/pages/ContactPage.tsx?raw';
+    // Keep this tied to production field classes so later focus overrides are visible.
+    for (const [label, source, placeholder] of [
+      ['User chat', chat, 'Type a message…'],
+      ['Chat search', chat, 'Search people or cars'],
+      ['Admin chat', admin, 'Type a message…'],
+      ['Admin support reply', admin, 'Reply to this message…'],
+      ['User support reply', contact, 'Reply to support…'],
+    ]) {
+      const tag = [...source.matchAll(/<input[\s\S]*?\/>/g)].map(match => match[0]).find(tag => tag.includes(`placeholder="${placeholder}"`));
+      if (!tag) throw new Error(`Missing production field: ${label}`);
+      const field = document.createElement('input');
+      field.className = tag.match(/className="([^"]+)"/)[1];
+      field.placeholder = placeholder;
+      field.setAttribute('aria-label', label);
+      const wrapper = document.createElement('label');
+      wrapper.className = 'block text-sm';
+      wrapper.append(label, field);
+      document.getElementById('fields').append(wrapper);
+    }
+    document.getElementById('theme').addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+  </script>
+</body>
+</html>

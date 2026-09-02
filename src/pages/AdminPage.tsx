@@ -3,6 +3,7 @@ import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
+import { AdminPromotions, OwnerListingAllowance } from '@/components/AdminPromotions';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { cn, timeAgo, formatDate, formatDateTime } from '@/lib/utils';
@@ -63,9 +64,9 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings';
+type Tab = 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions';
 
-const ADMIN_TABS: Tab[] = ['overview', 'members', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings'];
+const ADMIN_TABS: Tab[] = ['overview', 'members', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions'];
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -110,7 +111,7 @@ export function AdminPage() {
   const load = useCallback(async () => {
     const [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, contactsResult] = await Promise.all([
       supabase.rpc('admin_list_profiles'),
-      supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).order('created_at', { ascending: false }),
+      supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('reports').select(`*, reporter:profiles!reports_reporter_id_fkey(${PUBLIC_PROFILE_FIELDS}), reported:profiles!reports_reported_id_fkey(${PUBLIC_PROFILE_FIELDS}), warnings:user_warnings(*)`).order('created_at', { ascending: false }),
       supabase.from('documents').select(`*, user:profiles!documents_user_id_fkey(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles!documents_vehicle_id_fkey(id,make,model,year)`).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false }),
       supabase.from('driver_platform_history').select(`*, driver:profiles!driver_platform_history_driver_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
@@ -433,6 +434,7 @@ export function AdminPage() {
     { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
     { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
+    { key: 'promotions', label: 'Promotions', icon: TrendingUp },
   ];
 
   const filteredDrivers = drivers.filter((d) => `${d.full_name} ${d.email || ''} ${d.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
@@ -771,6 +773,7 @@ export function AdminPage() {
 
         {/* ---------- Settings ---------- */}
         {tab === 'settings' && !loading && <AdminSettings />}
+        {tab === 'promotions' && !loading && <AdminPromotions />}
       </div>
 
       {/* Document viewer modal */}
@@ -1161,6 +1164,7 @@ function AdminSettings() {
     const updated_at = new Date().toISOString();
     const nextSettings = {
       ...settings,
+      max_vehicles_per_owner: '3',
       site_name: siteName,
       site_tagline: siteTagline,
       admin_contact_email: settings.admin_contact_email.trim().toLowerCase(),
@@ -1260,7 +1264,7 @@ function AdminSettings() {
           </div>
           <div>
             <label htmlFor="admin-max-vehicles" className="label">Max vehicles per owner</label>
-            <input id="admin-max-vehicles" type="number" value={settings['max_vehicles_per_owner'] || '10'} onChange={(e) => setSettings({ ...settings, max_vehicles_per_owner: e.target.value })} className="input" />
+            <input id="admin-max-vehicles" value="3 cars by default" readOnly className="input" /><p className="mt-1 text-xs text-ink-500">Open Members → View user → Car listing allowance to approve extra cars for a specific owner.</p>
           </div>
           <div>
             <label htmlFor="admin-contact-email" className="label">Admin contact email</label>
@@ -1287,11 +1291,11 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminV
   const [form, setForm] = useState({
     make: vehicle.make || '',
     model: vehicle.model || '',
-    year: vehicle.year || '',
+    year: String(vehicle.year ?? ''),
     location: vehicle.location || '',
     transmission: vehicle.transmission || 'manual',
     fuel_type: vehicle.fuel_type || 'petrol',
-    weekly_target: vehicle.weekly_target || 0,
+    weekly_target: String(vehicle.weekly_target ?? ''),
     status: vehicle.status || 'active',
     description: vehicle.description || '',
     registered_platforms: vehicle.registered_platforms || [] as Vehicle['registered_platforms'],
@@ -1322,8 +1326,10 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminV
   };
 
   const save = async () => {
+    if (!/^\d{4}$/.test(form.year) || Number(form.year) < 1900 || Number(form.year) > new Date().getFullYear() + 1) { toast('Enter a valid four-digit manufacture year.', 'error'); return; }
+    if (form.weekly_target && (!Number.isFinite(Number(form.weekly_target)) || Number(form.weekly_target) < 0)) { toast('Weekly target must be a positive amount or zero.', 'error'); return; }
     setSaving(true);
-    const { error } = await supabase.from('vehicles').update(form).eq('id', vehicle.id);
+    const { error } = await supabase.from('vehicles').update({ ...form, year: Number(form.year), weekly_target: form.weekly_target ? Number(form.weekly_target) : null }).eq('id', vehicle.id);
     setSaving(false);
     if (error) { toast('Failed to save vehicle: ' + error.message, 'error'); return; }
     toast('Vehicle updated.');
@@ -1335,11 +1341,11 @@ function EditVehicleModal({ vehicle, onClose, onDone, toast }: { vehicle: AdminV
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Make"><input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} className="input" /></Field>
         <Field label="Model"><input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} className="input" /></Field>
-        <Field label="Year"><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: +e.target.value })} className="input" /></Field>
+        <Field label="Year"><input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} className="input" /></Field>
         <Field label="Location"><PlaceAutocomplete value={form.location} onChange={(location) => setForm({ ...form, location })} /></Field>
         <Field label="Transmission"><select value={form.transmission} onChange={(e) => setForm({ ...form, transmission: e.target.value as Vehicle['transmission'] })} className="input"><option value="manual">Manual</option><option value="automatic">Automatic</option></select></Field>
         <Field label="Fuel type"><select value={form.fuel_type} onChange={(e) => setForm({ ...form, fuel_type: e.target.value as Vehicle['fuel_type'] })} className="input"><option value="petrol">Petrol</option><option value="diesel">Diesel</option><option value="hybrid">Hybrid</option><option value="electric">Electric</option></select></Field>
-        <Field label="Weekly target (KES)"><input type="number" value={form.weekly_target} onChange={(e) => setForm({ ...form, weekly_target: +e.target.value })} className="input" /></Field>
+        <Field label="Weekly target (KES)"><input type="number" value={form.weekly_target} onChange={(e) => setForm({ ...form, weekly_target: e.target.value })} className="input" /></Field>
         <Field label="Status"><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Vehicle['status'] })} className="input"><option value="active">Active</option><option value="closed">Closed</option></select></Field>
       </div>
       <Field label="Description"><textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="input mt-3" /></Field>
@@ -1463,6 +1469,7 @@ function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onCha
   return (
     <Modal title={`${user.full_name} — Profile`} onClose={onClose}>
       <div className="space-y-4 sm:max-h-[70dvh] sm:overflow-y-auto">
+        {user.role === 'owner' && <OwnerListingAllowance key={user.id} ownerId={user.id} />}
         {/* Profile info */}
         <div className="flex items-center gap-3">
           <Avatar name={user.full_name} src={user.avatar_url} size={64} verified={user.role === 'driver' && user.is_verified} />

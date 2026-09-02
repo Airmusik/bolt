@@ -6,7 +6,7 @@ export const DEFAULT_SITE_SETTINGS = {
   site_tagline: 'The right driver. The right car. A trusted connection.',
   site_logo_url: '',
   maintenance_mode: 'false',
-  max_vehicles_per_owner: '10',
+  max_vehicles_per_owner: '3',
   require_email: 'true',
   platform_fee_percent: '0',
   admin_contact_email: 'airmusikinc@gmail.com',

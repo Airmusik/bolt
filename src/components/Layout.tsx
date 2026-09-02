@@ -13,6 +13,11 @@ export function Layout({ children }: { children: ReactNode }) {
   const { settings } = useSiteSettings();
   const navigate = useNavigate();
   const location = useLocation();
+  useEffect(() => {
+    // Page changes must not inherit the footer's scroll position. Query-only
+    // navigation and authentication refreshes leave the current page alone.
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [location.pathname]);
   const showMemberNavigation = user && profile && user.id === profile.id
     && (profile.role === 'driver' || profile.role === 'owner') && !profile.is_suspended
     && settings.maintenance_mode !== 'true'
@@ -30,7 +35,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <Header />
       {showMemberNavigation && <DashboardNavigation key={user.id} role={profile.role as 'owner' | 'driver'} userId={user.id} />}
       <main key={location.pathname} className="page-enter flex-1">{children}</main>
-      <Footer />
+      <Footer key={`footer:${location.pathname}`} />
     </div>
   );
 }

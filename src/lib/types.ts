@@ -4,6 +4,9 @@ export type VerificationStatus = 'unverified' | 'pending' | 'approved' | 'reject
 export type ListingApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Profile {
+  platform_history_approved?: boolean;
+  platform_history_submitted?: boolean;
+  sponsored?: boolean;
   id: string;
   email: string | null;
   role: Role;
@@ -41,6 +44,8 @@ export interface Profile {
 }
 
 export interface Vehicle {
+  sponsored?: boolean;
+  deleted_at?: string | null;
   id: string;
   owner_id: string;
   make: string;

@@ -21,6 +21,7 @@ const ChatPage = lazy(() => import('@/pages/ChatPage').then((module) => ({ defau
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((module) => ({ default: module.NotificationsPage })));
 const SavedPage = lazy(() => import('@/pages/SavedPage').then((module) => ({ default: module.SavedPage })));
 const SettingsPage = lazy(() => import('@/pages/SettingsPage').then((module) => ({ default: module.SettingsPage })));
+const PromotionsPage = lazy(() => import('@/pages/PromotionsPage').then((module) => ({ default: module.PromotionsPage })));
 const HowItWorksPage = lazy(() => import('@/pages/HowItWorksPage').then((module) => ({ default: module.HowItWorksPage })));
 const HelpPage = lazy(() => import('@/pages/HelpPage').then((module) => ({ default: module.HelpPage })));
 const ContactPage = lazy(() => import('@/pages/ContactPage').then((module) => ({ default: module.ContactPage })));
@@ -85,6 +86,7 @@ export default function App() {
         <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
         <Route path="/saved" element={<ProtectedRoute><SavedPage /></ProtectedRoute>} />
         <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+        <Route path="/promotions" element={<ProtectedRoute roles={['owner', 'driver']}><PromotionsPage /></ProtectedRoute>} />
         <Route path="/suspended" element={<ProtectedRoute><SuspendedPage /></ProtectedRoute>} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
         <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminPage /></ProtectedRoute>} />

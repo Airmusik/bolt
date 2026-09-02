@@ -1,12 +1,16 @@
 import { cn } from '@/lib/utils';
+import type { Profile } from '@/lib/types';
+import { driverApprovalLabel, driverNeedsApproval } from '@/lib/driverEligibility';
 
 interface Props {
   availability?: string | null;
   size?: 'sm' | 'md';
   className?: string;
+  profile?: Profile;
 }
 
-export function AvailabilityBadge({ availability, size = 'sm', className }: Props) {
+export function AvailabilityBadge({ availability, size = 'sm', className, profile }: Props) {
+  if (driverNeedsApproval(profile) && availability !== 'busy') return <span className={cn('inline-flex rounded-full bg-amber-100 px-2 py-1 text-[11px] font-medium text-amber-800', className)}>{driverApprovalLabel(profile)}</span>;
   const isAvailable = availability === 'available';
   const isEngaged = availability === 'busy';
   return (

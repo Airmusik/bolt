@@ -12,7 +12,6 @@ import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { titleCase } from '@/lib/utils';
-import { BROWSE_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
@@ -32,21 +31,8 @@ export function HomePage() {
   useEffect(() => {
     (async () => {
       const [{ data: v }, { data: d }] = await Promise.all([
-        supabase
-          .from('vehicles')
-          .select(`*, owner:profiles!vehicles_owner_id_fkey(${BROWSE_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`)
-          .eq('status', 'active')
-          .eq('approval_status', 'approved')
-          .order('created_at', { ascending: false })
-          .limit(6),
-        supabase
-          .from('profiles')
-          .select(BROWSE_PROFILE_FIELDS)
-          .eq('role', 'driver')
-          .eq('onboarding_completed', true)
-          .eq('is_verified', true)
-          .order('rating', { ascending: false })
-          .limit(4),
+        supabase.rpc('discover_vehicles', { p_limit: 6 }),
+        supabase.rpc('discover_drivers', { p_limit: 4, p_verified_only: true }),
       ]);
       setFeatured((v as VehicleWithRelations[]) || []);
       setDrivers((d as Profile[]) || []);
@@ -189,7 +175,7 @@ export function HomePage() {
               { icon: MapPin, label: 'Built for Kenyan towns', value: 'Kenya only' },
               { icon: CheckCircle2, label: 'Vehicle photos and evidence', value: 'Admin reviewed' },
               { icon: ShieldCheck, label: 'Sensitive uploads', value: 'Kept private' },
-              { icon: MessageSquare, label: 'Members arrange terms directly', value: 'No payment handling' },
+              { icon: MessageSquare, label: 'Members arrange terms directly', value: 'Rental payments stay direct' },
             ].map((s) => (
               <div key={s.label} className="text-center">
                 <s.icon className="mx-auto h-7 w-7 text-brand-400" />
@@ -225,7 +211,7 @@ export function HomePage() {
             color="accent"
             steps={[
               { icon: Users, text: 'Register and build your Trust Passport' },
-              { icon: BadgeCheck, text: 'Add recent platform history & optional evidence' },
+              { icon: BadgeCheck, text: 'Submit recent platform history and wait for admin approval before connecting' },
               { icon: Search, text: 'Browse cars that match your needs' },
               { icon: TrendingUp, text: 'Apply and start earning' },
             ]}
@@ -253,9 +239,10 @@ export function HomePage() {
                   <Avatar name={d.full_name} src={d.avatar_url} size={72} verified className="mx-auto" />
                   <p className="mt-3 flex items-center justify-center gap-1 font-semibold text-ink-900">
                     {d.full_name}
+                    {d.sponsored && <span className="badge-accent ml-2">Sponsored</span>}
                   </p>
                   <p className="text-xs text-ink-500">{d.location || 'Location not provided'}</p>
-                  <div className="mt-1"><VerifiedBadge verified={d.is_verified} size={11} showLabel /></div>
+                  <div className="mt-1"><VerifiedBadge verified={d.platform_history_approved} size={11} showLabel /></div>
                   <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-2 justify-center" />
                   <div className="mt-3 flex flex-wrap justify-center gap-1">
                     {d.platforms_worked?.slice(0, 3).map((p) => (

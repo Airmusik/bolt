@@ -16,6 +16,7 @@ import { Modal } from '@/components/Modal';
 import { ConnectionButton } from '@/components/ConnectionButton';
 import { formatKES, formatDate, timeAgo, expiryStatus, titleCase, cn } from '@/lib/utils';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { DeleteListingButton } from '@/components/DeleteListingButton';
 
 export function VehicleDetailsPage() {
   const { id } = useParams();
@@ -123,7 +124,7 @@ export function VehicleDetailsPage() {
       </div>
     );
   }
-  if (!vehicle) {
+  if (!vehicle || vehicle.deleted_at) {
     return (
       <div className="container-content py-12">
         <EmptyState title="Vehicle not found" description="This listing may have been removed." action={<Link to="/browse-cars" className="btn-primary">Browse cars</Link>} />
@@ -321,7 +322,7 @@ export function VehicleDetailsPage() {
             {/* Actions */}
             <div className="mt-5 space-y-2">
               {isOwner ? (
-                <Link to={`/vehicles/${vehicle.id}/edit`} className="btn-secondary w-full">Edit listing</Link>
+                <><Link to={`/vehicles/${vehicle.id}/edit`} className="btn-secondary w-full">Edit listing</Link><DeleteListingButton id={vehicle.id} onDeleted={() => navigate('/dashboard?tab=vehicles')} /></>
               ) : !vehicle.owner ? (
                 <p className="rounded-lg bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-700">The owner profile is currently unavailable.</p>
               ) : (

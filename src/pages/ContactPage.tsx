@@ -17,7 +17,7 @@ export function ContactPage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [form, setForm] = useState({ name: profile?.full_name || '', email: user?.email || '', message: '' });
+  const [form, setForm] = useState({ name: profile?.full_name || '', email: user?.email || '', message: searchParams.get('topic') === 'listing-limit' ? 'Hello, I would like to request permission to list more than my current car allowance. Number of cars I would like to list: ' : searchParams.get('topic') === 'account-standing' ? 'Hello, I would like help understanding my rating or a warning on my account. Details: ' : '' });
   const [attachment, setAttachment] = useState<File | null>(null);
   const [threads, setThreads] = useState<ContactMessage[]>([]);
   const [loading, setLoading] = useState(false);

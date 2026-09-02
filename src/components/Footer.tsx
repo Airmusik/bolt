@@ -82,7 +82,7 @@ function FooterCol({ title, links }: { title: string; links: { to: string; label
       <ul className="mt-3 space-y-2">
         {links.map((l) => (
           <li key={l.to}>
-            <Link to={l.to} className="text-sm text-ink-500 hover:text-brand-700">{l.label}</Link>
+            <Link to={l.to} onClick={() => window.scrollTo({ top: 0, behavior: 'instant' })} className="text-sm text-ink-500 hover:text-brand-700">{l.label}</Link>
           </li>
         ))}
       </ul>

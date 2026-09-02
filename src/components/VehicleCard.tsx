@@ -42,7 +42,7 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
           {showApprovalStatus && vehicle.approval_status === 'pending' && <span className="badge-warning">Pending admin approval</span>}
           {showApprovalStatus && vehicle.approval_status === 'approved' && <span className="badge-success">Approved</span>}
           {showApprovalStatus && vehicle.approval_status === 'rejected' && <span className="badge-danger">Changes required</span>}
-          {vehicle.featured && <span className="badge-accent">Featured</span>}
+          {vehicle.sponsored ? <span className="badge-accent">Sponsored</span> : vehicle.featured && <span className="badge-accent">Featured</span>}
           {vehicle.availability === 'available' && <span className="badge-brand">Available</span>}
           {vehicle.availability !== 'available' && <span className="badge-neutral">Taken</span>}
         </div>

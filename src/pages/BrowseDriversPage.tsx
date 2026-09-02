@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, Languages, Briefcase } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { BROWSE_PROFILE_FIELDS } from '@/lib/profileSelect';
 import type { Profile } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
@@ -27,14 +26,7 @@ export function BrowseDriversPage() {
 
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(BROWSE_PROFILE_FIELDS)
-        .eq('role', 'driver')
-        .eq('onboarding_completed', true)
-        .order('is_verified', { ascending: false })
-        .order('rating', { ascending: false })
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.rpc('discover_drivers');
       if (error) toast('Could not load drivers: ' + error.message, 'error');
       setDrivers((data as Profile[]) || []);
       setLoading(false);
@@ -45,7 +37,7 @@ export function BrowseDriversPage() {
     return drivers.filter((d) => {
       if (location && !(d.location || '').toLowerCase().includes(location.toLowerCase()) && !location.toLowerCase().includes((d.location || '').toLowerCase())) return false;
       if (platform && !(d.platforms_worked || []).includes(platform)) return false;
-      if (verifiedOnly && !d.is_verified) return false;
+      if (verifiedOnly && !d.platform_history_approved) return false;
       return true;
     });
   }, [drivers, location, platform, verifiedOnly]);
@@ -79,12 +71,13 @@ export function BrowseDriversPage() {
               <div key={d.id} className="card card-hover p-5">
                 <Link to={`/drivers/${d.id}`}>
                   <div className="flex items-center gap-3">
-                    <Avatar name={d.full_name} src={d.avatar_url} size={56} verified={d.is_verified} />
+                    <Avatar name={d.full_name} src={d.avatar_url} size={56} verified={d.platform_history_approved} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-ink-900">{d.full_name}</p>
                       <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
                     </div>
-                    <AvailabilityBadge availability={d.availability} />
+                    <AvailabilityBadge availability={d.availability} profile={d} />
+                    {d.sponsored && <span className="badge-accent">Sponsored</span>}
                   </div>
                   <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-3" />
                   <div className="mt-3 space-y-1.5 text-xs text-ink-500">
@@ -99,7 +92,7 @@ export function BrowseDriversPage() {
                     ))}
                   </div>
                 </Link>
-                <div className="mt-3"><VerifiedBadge verified={d.is_verified} size={12} showLabel /></div>
+                <div className="mt-3"><VerifiedBadge verified={d.platform_history_approved} size={12} showLabel /></div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <Link to={`/members/${d.id}`} className="btn-secondary justify-center px-2 text-xs">View driver</Link>
                   <ConnectionButton otherUserId={d.id} size="sm" className="w-full" />

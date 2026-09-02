@@ -13,6 +13,7 @@ import { ConnectionButton } from '@/components/ConnectionButton';
 import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { ReportModal } from './VehicleDetailsPage';
 import { titleCase, timeAgo } from '@/lib/utils';
+import { AccountStanding } from '@/components/AccountStanding';
 
 export function DriverProfilePage() {
   const { id } = useParams();
@@ -59,7 +60,7 @@ export function DriverProfilePage() {
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
   if (loadError) return <div className="container-content py-12"><EmptyState title="Could not load this profile" description="Check your connection and try again." action={<button type="button" onClick={() => void loadProfile()} className="btn-primary">Try again</button>} /></div>;
   if (!profile) return <div className="container-content py-12"><EmptyState title="Profile not found" /></div>;
-  if (profile.role === 'driver' && !profile.onboarding_completed) return <div className="container-content py-12"><EmptyState title="Profile not public yet" description="This driver is still completing their About You information." /></div>;
+  if (profile.role === 'driver' && !profile.onboarding_completed && user?.id !== profile.id) return <div className="container-content py-12"><EmptyState title="Profile not public yet" description="This driver is still completing their About You information." /></div>;
 
   const isOwner = profile.role === 'owner';
   return (
@@ -73,11 +74,11 @@ export function DriverProfilePage() {
           {/* Header card */}
           <div className="card p-6">
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
-              <Avatar name={profile.full_name} src={profile.avatar_url} size={88} verified={!isOwner && profile.is_verified} />
+              <Avatar name={profile.full_name} src={profile.avatar_url} size={88} verified={!isOwner && profile.platform_history_approved} />
               <div className="flex-1">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-700">{profile.role} profile</p>
                 <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink-900">
-                  {profile.full_name} {!isOwner && <VerifiedBadge verified={profile.is_verified} size={18} showLabel />}
+                  {profile.full_name} {!isOwner && <VerifiedBadge verified={profile.platform_history_approved} size={18} showLabel />}
                 </h1>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
                   <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {profile.location || 'Location not provided'}</span>
@@ -88,7 +89,7 @@ export function DriverProfilePage() {
                 </div>
                 <Rating value={profile.rating} size={15} showValue count={profile.rating_count} className="mt-2" />
                 {!isOwner && <div className="mt-2">
-                  <AvailabilityBadge availability={profile.availability} size="md" />
+                  <AvailabilityBadge availability={profile.availability} profile={profile} size="md" />
                 </div>}
               </div>
               {user?.id !== profile.id && (
@@ -102,6 +103,9 @@ export function DriverProfilePage() {
               {!isOwner && (profile.platforms_worked || []).map((p) => <span key={p} className="badge-neutral">{titleCase(p)}</span>)}
             </div>}
           </div>
+
+          {user?.id === profile.id && <AccountStanding key={profile.id} />}
+          {user?.id === profile.id && profile.role === 'driver' && !profile.onboarding_completed && <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Your profile is not public yet. <Link to="/onboarding" className="font-semibold underline">Complete About You</Link> to publish it.</div>}
 
           {/* Languages */}
           {profile.languages?.length > 0 && (

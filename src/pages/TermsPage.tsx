@@ -17,7 +17,7 @@ export function TermsPage() {
         <p>Harassment, fraud and fake listings are prohibited. We may suspend or ban accounts that violate these terms.</p>
         <p>Connection chats may be retained after a connection ends for safety, support, and dispute resolution. Authorised administrators may review or join these chats when moderation or support is required.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">4. Payments</h2>
-        <p>{settings.site_name} does not handle payments. Any financial arrangements are between the owner and driver directly.</p>
+        <p>{settings.site_name} does not handle rental payments between members. Targets, deposits and other rental arrangements are agreed between the owner and driver directly. Optional paid promotions are separate and use the price, duration and terms shown in the promotion quote.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">5. Liability</h2>
         <p>{settings.site_name} is not liable for disputes, damages or losses arising from arrangements made through the platform.</p>
       </div>

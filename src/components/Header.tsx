@@ -160,6 +160,7 @@ export function Header() {
           { to: `/members/${user?.id}`, label: 'View profile', icon: User },
           { to: '/saved', label: 'Saved listings', icon: Heart },
           { to: '/settings', label: 'Settings', icon: Settings },
+          { to: '/promotions', label: 'Promotions', icon: LayoutDashboard },
           { to: '/help', label: 'Help center', icon: LifeBuoy },
         ];
 

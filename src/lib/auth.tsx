@@ -41,6 +41,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user, loadProfile]);
 
   useEffect(() => {
+    if (!user || DEMO_MODE) return;
+    const channel = supabase.channel(`my-history-approval-${user.id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, ({ new: next }) => {
+        // Do not clear the profile or remount an open mobile upload. Presence
+        // heartbeats must not trigger dashboard refetches or reset form drafts.
+        setProfile(current => {
+          if (!current || current.id !== user.id || typeof next.platform_history_approved !== 'boolean' || typeof next.platform_history_submitted !== 'boolean') return current;
+          if (current.platform_history_approved === next.platform_history_approved && current.platform_history_submitted === next.platform_history_submitted && current.is_verified === next.is_verified && current.verification_status === next.verification_status) return current;
+          return { ...current, platform_history_approved: next.platform_history_approved, platform_history_submitted: next.platform_history_submitted, is_verified: next.is_verified, verification_status: next.verification_status };
+        });
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [user]);
+
+  useEffect(() => {
     let mounted = true;
     if (DEMO_MODE && localStorage.getItem(DEMO_ADMIN_SESSION_KEY) === 'active') {
       activeUserId.current = DEMO_ADMIN_ID;

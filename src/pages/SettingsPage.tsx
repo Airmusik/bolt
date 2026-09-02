@@ -15,6 +15,9 @@ import { prepareChatImageUpload } from '@/lib/trustUpload';
 import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
 import { hasValidNameFields, normalizePersonName, parseLanguages, splitPersonName } from '@/lib/profileValidation';
 import { PersonNameFields } from '@/components/PersonNameFields';
+import { DriverApprovalNotice } from '@/components/DriverApprovalNotice';
+import { AvailabilityBadge } from '@/components/AvailabilityBadge';
+import { driverNeedsApproval, driverApprovalMessage } from '@/lib/driverEligibility';
 
 export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
@@ -126,6 +129,7 @@ export function SettingsPage() {
   };
 
   const applyAvailability = async (makeAvailable: boolean) => {
+    if (driverNeedsApproval(profile)) { toast(driverApprovalMessage(profile), 'error'); return; }
     if (!user) return;
     setChangingAvailability(true);
     const { data, error } = await supabase.rpc('set_my_availability', { p_available: makeAvailable });
@@ -182,14 +186,14 @@ export function SettingsPage() {
           {/* Avatar upload */}
           <div className="mt-4 flex items-center gap-4">
             <div className="relative">
-              <Avatar name={profile?.full_name || 'User'} src={profile?.avatar_url} size={72} verified={profile?.role === 'driver' && !!profile?.is_verified} />
+              <Avatar name={profile?.full_name || 'User'} src={profile?.avatar_url} size={72} verified={profile?.role === 'driver' && !!profile?.platform_history_approved} />
               <label className="absolute -bottom-1 -right-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-brand-600 text-white shadow-md ring-2 ring-white transition-transform hover:scale-110">
                 <input type="file" accept="image/*,.heic,.heif" className="hidden" onClick={() => rememberMobileUploadPicker('profile-photo')} onChange={(e) => { const f = e.target.files?.[0]; if (f) void prepareAndUploadAvatar(f); e.target.value = ''; }} disabled={uploadingAvatar || preparingAvatar} />
                 {uploadingAvatar || preparingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
               </label>
             </div>
             <div>
-              <p className="flex items-center gap-1 font-medium text-ink-900">{profile?.full_name} {profile?.role === 'driver' && <VerifiedBadge verified={profile?.is_verified} size={13} />}</p>
+              <p className="flex items-center gap-1 font-medium text-ink-900">{profile?.full_name} {profile?.role === 'driver' && <VerifiedBadge verified={profile?.platform_history_approved} size={13} />}</p>
               <p className="text-xs capitalize text-ink-500">{profile?.role} · {profile?.phone}</p>
               <p className="mt-0.5 text-xs text-ink-400">Phone photos, HEIC, HEIF, JPG, PNG, or WebP · compressed before upload</p>
             </div>
@@ -216,12 +220,9 @@ export function SettingsPage() {
         <div className="card p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink-900"><Bell className="h-5 w-5" /> Availability</h2>
           <p className="mt-2 text-sm text-ink-600">Control whether other users can see you as available for connections.</p>
-          <div className="mt-4 flex items-center justify-between">
+          {profile && driverNeedsApproval(profile) ? <div className="mt-4"><DriverApprovalNotice profile={profile} /><button type="button" disabled className="btn-secondary mt-3 w-full opacity-60">Availability locked until approval</button></div> : <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${availability === 'available' ? 'bg-green-100 text-green-700' : availability === 'busy' ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-700'}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${availability === 'available' ? 'bg-green-500' : availability === 'busy' ? 'bg-amber-500' : 'bg-red-500'}`} />
-                {availability === 'available' ? 'Available' : availability === 'busy' ? 'Currently on a connection' : 'Unavailable'}
-              </span>
+              <AvailabilityBadge availability={availability} profile={profile || undefined} />
             </div>
             <button onClick={toggleAvailability} disabled={changingAvailability} className="flex items-center gap-2 text-sm font-medium text-ink-700 hover:text-ink-900 disabled:opacity-50">
               {availability === 'available'
@@ -229,7 +230,7 @@ export function SettingsPage() {
                 : <ToggleLeft className="h-7 w-7 text-ink-400" />}
               {availability === 'available' ? 'Set unavailable' : availability === 'busy' ? 'End connection & become available' : 'Set available'}
             </button>
-          </div>
+          </div>}
         </div>
 
         <div className="card flex items-center justify-between gap-4 p-5">
