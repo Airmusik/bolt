@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Phone, Lock, Eye, EyeOff, ArrowRight, Check, Mail, Languages } from 'lucide-react';
+import { Phone, Lock, Eye, EyeOff, ArrowRight, Check, Mail, Languages, UserRound, Loader2 } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
@@ -41,6 +41,7 @@ export function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
     setError(null);
     if (!acceptedTerms) { setError('Read and accept the Terms of Service before creating an account.'); return; }
     const fullName = normalizePersonName(`${firstName} ${secondName}`);
@@ -70,128 +71,142 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="container-content flex min-h-[80vh] items-center justify-center py-12">
-      <div className="w-full max-w-md">
-        <BackButton to="/" className="mb-4" />
-        <div className="mb-8 text-center">
-          <Link to="/" className="inline-flex items-center gap-2">
+    <div className="auth-page">
+      <div className="w-full max-w-xl">
+        <BackButton to="/" className="mb-2 min-h-11" />
+        <div className="auth-heading">
+          <Link to="/" aria-label={`${settings.site_name} home`} className="inline-flex items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">
             <SiteLogo size="lg" />
           </Link>
-          <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Create your account</h1>
+          <h1 className="mt-3 font-display text-2xl font-bold text-ink-900 sm:text-3xl">Create your account</h1>
           <p className="mt-1 text-sm text-ink-500">Join {settings.site_name} as a driver or car owner.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="card p-6">
+        <form onSubmit={handleSubmit} className="auth-card" aria-busy={loading}>
           {error && <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-          <p className="mb-4 text-xs text-ink-400"><span className="font-bold text-danger">*</span> Required information</p>
+          <p className="mb-4 text-xs text-ink-500"><span className="font-bold text-danger">*</span> Required information</p>
 
-          <div className="mb-5">
-            <label className="label">I am a… <span className="text-danger">*</span></label>
-            <p className="mb-2 text-xs text-ink-400">Choose Driver if you need a vehicle, or Owner if you want to list a vehicle.</p>
-            <div className="grid grid-cols-2 gap-3">
+          <fieldset>
+            <legend className="label">I am a… <span className="text-danger">*</span></legend>
+            <p className="mb-3 text-xs leading-5 text-ink-500">Choose how you will use {settings.site_name}.</p>
+            <div className="grid grid-cols-2 gap-3" role="group" aria-label="Account type">
               {(['driver', 'owner'] as Role[]).map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => setRole(r)}
                   aria-pressed={role === r}
-                  className={`relative rounded-xl border p-4 text-left transition ${role === r ? 'border-brand-500 bg-brand-50 ring-2 ring-brand-500/30' : 'border-ink-200 bg-white hover:border-ink-300 dark:bg-[#141416]'}`}
+                  className={`relative rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 sm:p-4 ${role === r ? 'border-accent-500 bg-accent-50/70 dark:bg-accent-500/10' : 'border-ink-200 bg-white hover:border-ink-400 dark:bg-[#141416]'}`}
                 >
-                  <p className="font-semibold capitalize text-ink-900">{r}</p>
-                  <p className="text-xs text-ink-500">{r === 'driver' ? 'Looking for a car' : 'Have a car to rent'}</p>
-                  {role === r && <Check className="absolute right-3 top-3 h-4 w-4 text-brand-600" />}
+                  <span className="block pr-5 text-sm font-semibold text-ink-900">{r === 'driver' ? 'Driver' : 'Car owner'}</span>
+                  <span className="mt-1 block text-xs leading-5 text-ink-600">{r === 'driver' ? 'I need a car' : 'I need a driver'}</span>
+                  {role === r && <Check className="absolute right-3 top-3 h-4 w-4 text-accent-600 dark:text-accent-400" />}
                 </button>
               ))}
             </div>
+          </fieldset>
+
+          <div role="group" aria-labelledby="register-about" className="mt-6 border-t border-ink-100 pt-5">
+            <h2 id="register-about" className="auth-section-title"><UserRound className="h-4 w-4 text-ink-500" /> Your details</h2>
+            <PersonNameFields firstName={firstName} secondName={secondName} onFirstNameChange={setFirstName} onSecondNameChange={setSecondName} />
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="register-phone" className="label">Phone number <span className="text-danger">*</span></label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                  <input id="register-phone" aria-describedby="register-phone-hint" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712 345 678" type="tel" autoComplete="tel" inputMode="tel" className="input pl-10" required />
+                </div>
+                <p id="register-phone-hint" className="auth-hint">Your active Kenyan mobile number.</p>
+              </div>
+              <div>
+                <label htmlFor="register-email" className="label">Email address <span className="text-danger">*</span></label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                  <input id="register-email" aria-describedby="register-email-hint" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="input pl-10" required />
+                </div>
+                <p id="register-email-hint" className="auth-hint">For sign-in and password recovery. Not shown publicly.</p>
+              </div>
+            </div>
+            <div className="mt-4">
+              <label htmlFor="register-location" className="label">Town or neighbourhood <span className="text-danger">*</span></label>
+              <PlaceAutocomplete id="register-location" ariaLabel="Town or neighbourhood" ariaDescribedBy="register-location-hint" value={location} onChange={setLocation} placeholder="e.g. Ongata Rongai" required />
+              <p id="register-location-hint" className="auth-hint">Shown on your profile to help nearby members find you. Kenya only.</p>
+            </div>
+
+            <div className="mt-4">
+              <label htmlFor="register-languages" className="label">Languages spoken <span className="text-danger">*</span></label>
+              <div className="relative">
+                <Languages className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                <input id="register-languages" aria-describedby="register-languages-hint" value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder="English, Swahili" className="input pl-10" required />
+              </div>
+              <p id="register-languages-hint" className="auth-hint">At least two languages you speak, separated by commas.</p>
+            </div>
           </div>
 
-          <PersonNameFields firstName={firstName} secondName={secondName} onFirstNameChange={setFirstName} onSecondNameChange={setSecondName} />
-          <div className="mt-4">
-            <label className="label">Phone number <span className="text-danger">*</span></label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712 345 678" inputMode="tel" className="input pl-10" required />
+          <div role="group" aria-labelledby="register-security" className="mt-6 border-t border-ink-100 pt-5">
+            <h2 id="register-security" className="auth-section-title"><Lock className="h-4 w-4 text-ink-500" /> Account security</h2>
+            <div>
+              <label htmlFor="register-password" className="label">Password <span className="text-danger">*</span></label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                <input
+                  id="register-password"
+                  aria-describedby="register-password-hint"
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value)}
+                  type={showPin ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  placeholder="At least 10 characters"
+                  className="input pl-10 pr-12"
+                  required
+                />
+                <button type="button" onClick={() => setShowPin((v) => !v)} aria-label={showPin ? 'Hide password' : 'Show password'} aria-pressed={showPin} className="password-toggle">
+                  {showPin ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                </button>
+              </div>
+              <p id="register-password-hint" className="auth-hint">At least 10 characters, including uppercase, lowercase, and a number.</p>
             </div>
-            <p className="mt-1.5 text-xs text-ink-400">Enter an active Kenyan number, for example 0712 345 678.</p>
-          </div>
-          <div className="mt-4">
-            <label className="label">Email <span className="text-danger">*</span></label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="input pl-10" required />
+
+            <div className="mt-4">
+              <label htmlFor="register-confirm-password" className="label">Confirm password <span className="text-danger">*</span></label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
+                <input
+                  id="register-confirm-password"
+                  aria-describedby="register-confirm-hint"
+                  aria-invalid={confirmPin.length > 0 && pin !== confirmPin}
+                  value={confirmPin}
+                  onChange={(e) => setConfirmPin(e.target.value)}
+                  type={showPin ? 'text' : 'password'}
+                  autoComplete="new-password"
+                  placeholder="Repeat password"
+                  className="input pl-10"
+                  required
+                />
+              </div>
+              <p id="register-confirm-hint" className={`auth-hint ${confirmPin.length > 0 && pin !== confirmPin ? 'text-danger' : ''}`}>{confirmPin.length > 0 && pin !== confirmPin ? 'Passwords do not match.' : 'Enter the same password again.'}</p>
             </div>
-            <p className="mt-1.5 text-xs text-ink-400">You will use this email to sign in and reset your password.</p>
-          </div>
-          <div className="mt-4">
-            <label className="label">Town or neighbourhood <span className="text-danger">*</span></label>
-            <PlaceAutocomplete value={location} onChange={setLocation} placeholder="e.g. Ongata Rongai" required />
-            <p className="mt-1.5 text-xs text-ink-400">Shown publicly so nearby drivers and owners can find you. {settings.site_name} operates in Kenya only.</p>
           </div>
 
-          <div className="mt-4">
-            <label className="label">Languages spoken <span className="text-danger">*</span></label>
-            <div className="relative">
-              <Languages className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder="English, Swahili" className="input pl-10" required />
+          <div role="group" aria-labelledby="register-terms" className="mt-6 border-t border-ink-100 pt-5">
+            <h2 id="register-terms" className="auth-section-title">Before you join</h2>
+            <MemberSafetyNotice />
+            <div className="mt-5 rounded-xl border border-ink-200 p-4">
+              <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm"><button type="button" onClick={() => setShowTerms(true)} className="min-h-11 font-semibold text-ink-800 underline">Read Terms of Service</button><Link to="/privacy" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-ink-800 underline">Privacy Policy ↗</Link></div>
+              <label className="mt-2 flex cursor-pointer items-start gap-3 text-sm leading-6 text-ink-800"><input id="accept-terms" type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required className="mt-1 h-5 w-5 shrink-0 accent-orange-600" /><span>I am at least 18, have read and accept the Terms of Service, including my responsibility to check the other member and the limits of the platform's role, and acknowledge the Privacy Policy. <span className="text-danger">*</span></span></label>
+              <p className="mt-2 text-xs text-ink-500">Required · Terms version {TERMS_VERSION}. This does not waive your statutory rights or consent to marketing. Opening the terms keeps your form entries intact.</p>
             </div>
-            <p className="mt-1.5 text-xs text-ink-400">Add at least two languages and separate them with commas. This helps members communicate confidently.</p>
           </div>
-
-          <div className="mt-4">
-            <label className="label">Password <span className="text-danger">*</span></label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input
-                value={pin}
-                onChange={(e) => setPin(e.target.value)}
-                type={showPin ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="At least 10 characters"
-                className="input pl-10 pr-10"
-                required
-              />
-              <button type="button" onClick={() => setShowPin((v) => !v)} aria-label={showPin ? 'Hide password' : 'Show password'} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-700">
-                {showPin ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-              </button>
-            </div>
-            <p className="mt-1.5 text-xs text-ink-400">Use at least 10 characters with uppercase, lowercase, and a number.</p>
-          </div>
-
-          <div className="mt-4">
-            <label className="label">Confirm password <span className="text-danger">*</span></label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-              <input
-                value={confirmPin}
-                onChange={(e) => setConfirmPin(e.target.value)}
-                type={showPin ? 'text' : 'password'}
-                autoComplete="new-password"
-                placeholder="Repeat password"
-                className="input pl-10"
-                required
-              />
-            </div>
-            <p className="mt-1.5 text-xs text-ink-400">Type the same password again to prevent mistakes.</p>
-            {confirmPin.length > 0 && pin !== confirmPin && (
-              <p className="mt-1.5 text-xs text-danger">Passwords do not match.</p>
-            )}
-          </div>
-
-          <MemberSafetyNotice />
-          <div className="mt-5 rounded-xl border border-ink-200 p-4">
-            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm"><button type="button" onClick={() => setShowTerms(true)} className="min-h-11 font-semibold text-ink-800 underline">Read Terms of Service</button><Link to="/privacy" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-ink-800 underline">Privacy Policy ↗</Link></div>
-            <label className="mt-2 flex cursor-pointer items-start gap-3 text-sm leading-6 text-ink-800"><input id="accept-terms" type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required className="mt-1 h-5 w-5 shrink-0 accent-orange-600" /><span>I am at least 18, have read and accept the Terms of Service, including my responsibility to check the other member and the limits of the platform's role, and acknowledge the Privacy Policy. <span className="text-danger">*</span></span></label>
-            <p className="mt-2 text-xs text-ink-500">Required · Terms version {TERMS_VERSION}. This does not waive your statutory rights or consent to marketing. Opening the terms keeps your form entries intact.</p>
-          </div>
-          <button type="submit" disabled={loading || !acceptedTerms} className="btn-primary mt-6 w-full">
-            {loading ? 'Creating account…' : 'Create account'} <ArrowRight className="h-4 w-4" />
+          <button type="submit" disabled={loading || !acceptedTerms} className="btn-primary mt-6 min-h-12 w-full">
+            {loading ? 'Creating account…' : 'Create account'} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
           </button>
+          {!acceptedTerms && <p className="auth-hint text-center">Accept the terms above to create your account.</p>}
         </form>
         {showTerms && <Modal title="Terms of Service" size="xl" onClose={() => setShowTerms(false)}><TermsContent /><button type="button" onClick={() => setShowTerms(false)} className="btn-secondary mt-5 w-full">Back to registration</button></Modal>}
 
-        <p className="mt-6 text-center text-sm text-ink-500">
+        <p className="mt-4 text-center text-sm text-ink-500">
           Already have an account?{' '}
-          <Link to="/login" className="font-semibold text-brand-700 hover:text-brand-800">Sign in</Link>
+          <Link to="/login" className="inline-flex min-h-11 items-center font-semibold text-brand-700 underline-offset-4 hover:underline">Sign in</Link>
         </p>
       </div>
     </div>

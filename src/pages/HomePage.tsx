@@ -14,12 +14,14 @@ import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { titleCase } from '@/lib/utils';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { buildDiscoveryUrl, type DiscoveryIntent } from '@/lib/discoverySearch';
 
 export function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { settings } = useSiteSettings();
   const [query, setQuery] = useState('');
+  const [searchIntent, setSearchIntent] = useState<DiscoveryIntent>('car');
   const [location, setLocation] = useState('');
   const [featured, setFeatured] = useState<VehicleWithRelations[]>([]);
   const [drivers, setDrivers] = useState<Profile[]>([]);
@@ -61,75 +63,83 @@ export function HomePage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    const params = new URLSearchParams();
-    if (location) params.set('location', location);
-    if (query) params.set('q', query);
-    navigate(`/browse-cars?${params.toString()}`);
+    navigate(buildDiscoveryUrl(searchIntent, query, location));
   };
 
   return (
     <div>
       {/* HERO */}
       {!user && (
-      <section className="relative overflow-hidden bg-gradient-to-b from-brand-50/60 to-white dark:to-[#0b0b0d]">
-        <div className="absolute inset-0 -z-10">
-          <div className="absolute -top-24 left-1/2 h-72 w-[60rem] -translate-x-1/2 rounded-full bg-brand-100/50 blur-3xl" />
+      <section className="relative z-10 bg-gradient-to-b from-accent-50/60 to-white dark:from-brand-50/40 dark:to-[#0b0b0d]">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
+          <div className="hero-road hidden md:block"><Car className="hero-car h-6 w-6" /></div>
         </div>
-        <div className="hero-road pointer-events-none hidden md:block" aria-hidden="true"><Car className="hero-car h-6 w-6" /></div>
-        <div className="container-content py-16 md:py-24">
+        <div className="container-content relative py-9 sm:py-14 lg:py-16">
           <div className="mx-auto max-w-3xl text-center animate-slide-up">
-            <span className="badge-brand mx-auto mb-5">
-              <ShieldCheck className="h-3.5 w-3.5" /> Transparent driver Trust Passports across Kenya
+            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-ink-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-ink-700 dark:bg-[#141416]">
+              <ShieldCheck className="h-4 w-4 shrink-0 text-accent-600 dark:text-accent-400" /> Admin-reviewed driver history
             </span>
-            <h1 className="font-display text-4xl font-extrabold leading-[1.1] text-ink-950 sm:text-5xl md:text-6xl">
-              <span className="site-wordmark">{settings.site_name}</span>
-              <br />
-              <span className="text-ink-950">Find the Right Driver or the Right Car.</span>
+            <h1 className="font-display text-[clamp(1.75rem,7.8vw,3.75rem)] font-extrabold leading-[1.12] tracking-tight text-ink-950">
+              <span className="block">Find the right driver.</span>
+              <span className="block">Find the right car.</span>
             </h1>
-            <p className="mt-5 font-display text-xl font-bold tracking-tight text-ink-800 sm:text-2xl">{settings.site_tagline}</p>
-            <p className="mt-3 text-base text-ink-600">
-              {settings.site_name} connects car owners and ride-hailing drivers through approved platform history, reviews, and transparent activity.
+            <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-ink-600 sm:text-base">
+              Connect with car owners and ride-hailing drivers across Kenya. Compare platform history and reviews, then find your match.
             </p>
           </div>
 
           {/* Search bar */}
           <form
             onSubmit={handleSearch}
-            className="mx-auto mt-10 max-w-3xl animate-fade-in rounded-2xl bg-white p-3 shadow-card-hover ring-1 ring-ink-100 dark:bg-[#141416]"
+            role="search"
+            aria-label="Find a driver or car"
+            className="landing-search relative mx-auto mt-6 max-w-3xl rounded-2xl border border-ink-200 bg-white p-4 shadow-card sm:mt-8 sm:p-5 dark:bg-[#141416]"
           >
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Make, model, or keyword"
-                  className="w-full rounded-xl border-0 bg-ink-50 pl-10 pr-4 py-3 text-sm ring-1 ring-transparent focus:ring-brand-500 focus:outline-none"
-                />
+            <div role="group" aria-label="What are you looking for?" className="mb-4 grid grid-cols-2 gap-1 rounded-xl bg-ink-50 p-1 ring-1 ring-inset ring-ink-100">
+              {(['driver', 'car'] as const).map((intent) => (
+                <button key={intent} type="button" aria-pressed={searchIntent === intent} onClick={() => setSearchIntent(intent)} className={`flex min-h-11 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-1.5 py-2.5 text-[13px] font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 sm:gap-2 sm:px-2 sm:text-sm ${searchIntent === intent ? 'bg-white text-ink-900 shadow-soft ring-1 ring-ink-200 dark:bg-[#242426]' : 'text-ink-500 hover:text-ink-900'}`}>
+                  {intent === 'driver' ? <Users className={`h-4 w-4 shrink-0 ${searchIntent === intent ? 'text-accent-600 dark:text-accent-400' : ''}`} /> : <Car className={`h-4 w-4 shrink-0 ${searchIntent === intent ? 'text-accent-600 dark:text-accent-400' : ''}`} />}
+                  I need a {intent}
+                </button>
+              ))}
+            </div>
+            <div className={`grid gap-3 sm:items-end ${searchIntent === 'car' ? 'sm:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)_auto]' : 'sm:grid-cols-[minmax(0,1fr)_auto]'}`}>
+              {searchIntent === 'car' && <div>
+                <label htmlFor="home-car-query" className="label">Car or keyword</label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-500" />
+                  <input id="home-car-query" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="e.g. Toyota Axio" className="input pl-10" />
+                </div>
+              </div>}
+              <div>
+                <label htmlFor="home-location" className="label">{searchIntent === 'driver' ? 'Driver location' : 'Car location'}</label>
+                <PlaceAutocomplete id="home-location" ariaLabel={searchIntent === 'driver' ? 'Driver location' : 'Car location'} value={location} onChange={setLocation} placeholder="Any town in Kenya" />
               </div>
-              <div className="sm:w-64"><PlaceAutocomplete value={location} onChange={setLocation} placeholder="Any location" /></div>
-              <button type="submit" className="btn-primary sm:px-7">
+              <button type="submit" className="btn-primary min-h-12 sm:px-6" aria-label={`Search ${searchIntent === 'car' ? 'cars' : 'drivers'}`}>
                 <Search className="h-4 w-4" /> Search
               </button>
             </div>
+            <p className="mt-3 text-xs leading-5 text-ink-500">{searchIntent === 'car' ? 'Search by car, location, or both. Leave fields blank to explore all cars.' : 'Find drivers near you, then filter by platform or approved history.'}</p>
           </form>
 
-          <div className="mx-auto mt-5 flex max-w-3xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-ink-500">
-            <span className="inline-flex items-center gap-1.5"><BadgeCheck className="h-4 w-4 text-brand-600" /> Driver Trust Passports</span>
-            <span className="inline-flex items-center gap-1.5"><ShieldCheck className="h-4 w-4 text-brand-600" /> Insurance visible</span>
-            <span className="inline-flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-brand-600" /> Real-time chat</span>
-            <span className="inline-flex items-center gap-1.5"><Star className="h-4 w-4 text-brand-600" /> Two-way reviews</span>
+          <div className="mx-auto mt-5 grid max-w-3xl grid-cols-2 gap-x-3 gap-y-3 text-xs font-medium leading-5 text-ink-600 sm:grid-cols-4">
+            {[
+              { icon: BadgeCheck, label: 'Driver Trust Passports' },
+              { icon: ShieldCheck, label: 'Insurance visible' },
+              { icon: MessageSquare, label: 'Real-time chat' },
+              { icon: Star, label: 'Two-way reviews' },
+            ].map(({ icon: Icon, label }) => <span key={label} className="flex items-center gap-2 sm:justify-center"><Icon className="h-4 w-4 shrink-0 text-ink-500" />{label}</span>)}
           </div>
         </div>
       </section>
       )}
 
       {/* FEATURED LISTINGS */}
-      <section className="container-content py-16">
+      <section className="container-content py-10 sm:py-16">
         <div className="flex items-end justify-between gap-4">
           <div>
             <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">Featured cars</h2>
-            <p className="mt-1 text-sm text-ink-500">Available vehicles from trusted owners. Swipe or use the controls to explore.</p>
+            <p className="mt-2 text-sm leading-6 text-ink-500">Explore available cars. Swipe or use the arrows to see more.</p>
           </div>
           <div className="hidden items-center gap-2 sm:flex">
             {featured.length > 1 && <><button type="button" onClick={() => scrollFeatured(-1)} aria-label="Previous featured cars" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 hover:-translate-y-0.5 hover:shadow-card dark:bg-[#141416]"><ChevronLeft className="h-4 w-4" /></button><button type="button" onClick={() => setFeaturedPaused((value) => !value)} aria-label={featuredPaused ? 'Resume featured car scrolling' : 'Pause featured car scrolling'} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 hover:-translate-y-0.5 hover:shadow-card dark:bg-[#141416]">{featuredPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}</button><button type="button" onClick={() => scrollFeatured(1)} aria-label="Next featured cars" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 hover:-translate-y-0.5 hover:shadow-card dark:bg-[#141416]"><ChevronRight className="h-4 w-4" /></button></>}
@@ -153,12 +163,12 @@ export function HomePage() {
         ) : featured.length > 0 ? (
           <div className="relative mt-8">
             <div ref={featuredTrackRef} onPointerEnter={() => setFeaturedInteracting(true)} onPointerLeave={() => setFeaturedInteracting(false)} onTouchStart={() => setFeaturedInteracting(true)} onTouchEnd={() => setFeaturedInteracting(false)} onFocusCapture={() => setFeaturedInteracting(true)} onBlurCapture={() => setFeaturedInteracting(false)} className="-mx-4 flex snap-x snap-mandatory gap-5 overflow-x-auto px-4 pb-5 pt-1 scroll-smooth sm:mx-0 sm:px-1" aria-label="Featured cars carousel">
-              {featured.map((v) => <div key={v.id} data-featured-card className="min-w-[86vw] snap-start sm:min-w-[calc(50%-0.625rem)] lg:min-w-[calc(33.333%-0.875rem)]"><VehicleCard vehicle={v} /></div>)}
+              {featured.map((v) => <div key={v.id} data-featured-card className="min-w-0 flex-[0_0_88%] snap-start sm:basis-[calc(50%-0.625rem)] lg:basis-[calc(33.333%-0.875rem)]"><VehicleCard vehicle={v} /></div>)}
             </div>
             <div className="mt-1 flex items-center justify-between sm:hidden"><div className="flex items-center gap-2">{featured.length > 1 && <><button type="button" onClick={() => scrollFeatured(-1)} aria-label="Previous featured car" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 dark:bg-[#141416]"><ChevronLeft className="h-4 w-4" /></button><button type="button" onClick={() => setFeaturedPaused((value) => !value)} aria-label={featuredPaused ? 'Resume featured car scrolling' : 'Pause featured car scrolling'} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 dark:bg-[#141416]">{featuredPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}</button><button type="button" onClick={() => scrollFeatured(1)} aria-label="Next featured car" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 dark:bg-[#141416]"><ChevronRight className="h-4 w-4" /></button></>}</div><Link to="/browse-cars" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700">View all <ArrowRight className="h-4 w-4" /></Link></div>
           </div>
         ) : (
-          <div className="mt-8 rounded-2xl border border-dashed border-ink-200 bg-white p-12 text-center dark:bg-[#141416]">
+          <div className="mt-6 rounded-2xl border border-dashed border-ink-200 bg-white px-5 py-8 text-center dark:bg-[#141416]">
             <Car className="mx-auto h-10 w-10 text-ink-300" />
             <p className="mt-3 font-medium text-ink-700">No listings yet</p>
             <p className="text-sm text-ink-500">Be the first to list a vehicle on {settings.site_name}.</p>
@@ -168,19 +178,19 @@ export function HomePage() {
       </section>
 
       {/* STATS */}
-      <section className="bg-ink-950 text-white">
-        <div className="container-content py-14">
-          <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="bg-[#141416] text-white">
+        <div className="container-content py-8 sm:py-10">
+          <div className="grid grid-cols-2 gap-x-5 gap-y-7 lg:grid-cols-4">
             {[
               { icon: MapPin, label: 'Built for Kenyan towns', value: 'Kenya only' },
-              { icon: CheckCircle2, label: 'Vehicle photos and evidence', value: 'Admin reviewed' },
-              { icon: ShieldCheck, label: 'Sensitive uploads', value: 'Kept private' },
-              { icon: MessageSquare, label: 'Members arrange terms directly', value: 'Rental payments stay direct' },
+              { icon: CheckCircle2, label: 'Driver platform history', value: 'Admin reviewed' },
+              { icon: ShieldCheck, label: 'Platform-history uploads', value: 'Kept private' },
+              { icon: MessageSquare, label: 'Agree rental terms directly', value: 'You stay in control' },
             ].map((s) => (
               <div key={s.label} className="text-center">
-                <s.icon className="mx-auto h-7 w-7 text-brand-400" />
-                <p className="mt-3 font-display text-xl font-extrabold">{s.value}</p>
-                <p className="text-sm text-ink-300">{s.label}</p>
+                <s.icon className="mx-auto h-5 w-5 text-accent-400" />
+                <p className="mt-3 font-display text-sm font-semibold sm:text-base">{s.value}</p>
+                <p className="mt-1 text-xs leading-5 text-neutral-400">{s.label}</p>
               </div>
             ))}
           </div>
@@ -188,13 +198,13 @@ export function HomePage() {
       </section>
 
       {/* HOW IT WORKS */}
-      <section className="container-content py-16">
+      <section className="container-content py-10 sm:py-16">
         <div className="text-center">
           <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">How {settings.site_name} works</h2>
           <p className="mt-1 text-sm text-ink-500">Two simple paths to earning or renting out your car.</p>
         </div>
 
-        <div className="mt-12 grid gap-8 lg:grid-cols-2">
+        <div className="mt-6 grid gap-5 sm:mt-8 lg:grid-cols-2">
           <HowItWorksCard
             title="For car owners"
             color="brand"
@@ -222,12 +232,12 @@ export function HomePage() {
 
       {/* VERIFIED DRIVERS */}
       {drivers.length > 0 && (
-        <section className="bg-ink-50 py-16">
+        <section className="bg-ink-50 py-10 sm:py-16">
           <div className="container-content">
             <div className="flex items-end justify-between">
               <div>
                 <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">Trusted drivers</h2>
-                <p className="mt-1 text-sm text-ink-500">Top-rated drivers ready to work.</p>
+                <p className="mt-2 text-sm text-ink-500">Meet drivers with reviewed platform history.</p>
               </div>
               <Link to="/browse-drivers" className="hidden items-center gap-1 text-sm font-semibold text-brand-700 hover:text-brand-800 sm:flex">
                 View all <ArrowRight className="h-4 w-4" />
@@ -252,20 +262,21 @@ export function HomePage() {
                 </Link>
               ))}
             </div>
+            <Link to="/browse-drivers" className="btn-ghost mt-4 w-full sm:hidden">View all drivers <ArrowRight className="h-4 w-4" /></Link>
           </div>
         </section>
       )}
 
       {/* SAFETY */}
-      <section className="container-content py-16">
-        <div className="grid items-center gap-10 lg:grid-cols-2">
+      <section className="container-content py-10 sm:py-16">
+        <div className="grid items-center gap-7 lg:grid-cols-2 lg:gap-10">
           <div>
             <span className="badge-brand mb-4"><ShieldCheck className="h-3.5 w-3.5" /> Safety first</span>
             <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">
               Built for trust, end to end
             </h2>
-            <p className="mt-3 text-ink-600">
-              Trust is earned through account history, two-way reviews, recent platform activity, and optional evidence. Vehicle insurance and known issues are shown upfront. Report or block anyone, anytime.
+            <p className="mt-3 text-sm leading-6 text-ink-600 sm:text-base">
+              Compare recent platform activity, reviews, and owner-provided vehicle details. Check the other member and their information before agreeing terms—history approval is not identity verification or a safety guarantee.
             </p>
             <ul className="mt-6 space-y-3">
               {[
@@ -287,12 +298,12 @@ export function HomePage() {
               { icon: BadgeCheck, title: 'Driver Trust Passports', text: 'Activity, reviews & platform evidence' },
               { icon: ShieldCheck, title: 'Insurance shown', text: 'Third party or comprehensive' },
               { icon: MessageSquare, title: 'Secure chat', text: 'Only after a match is accepted' },
-              { icon: Bell, title: 'Stay informed', text: 'Notifications for every action' },
+              { icon: Bell, title: 'Stay informed', text: 'Messages and account updates' },
             ].map((c) => (
-              <div key={c.title} className="card p-5">
-                <c.icon className="h-7 w-7 text-brand-600" />
-                <p className="mt-3 font-semibold text-ink-900">{c.title}</p>
-                <p className="mt-1 text-xs text-ink-500">{c.text}</p>
+              <div key={c.title} className="card p-4 sm:p-5">
+                <c.icon className="h-6 w-6 text-ink-600" />
+                <p className="mt-3 text-sm font-semibold text-ink-900">{c.title}</p>
+                <p className="mt-1 text-xs leading-5 text-ink-500">{c.text}</p>
               </div>
             ))}
           </div>
@@ -300,13 +311,13 @@ export function HomePage() {
       </section>
 
       {/* MEMBER EXPECTATIONS */}
-      <section className="bg-ink-50 py-16">
+      <section className="bg-ink-50 py-10 sm:py-16">
         <div className="container-content">
           <div className="text-center">
             <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">Choose with more context</h2>
             <p className="mt-2 text-sm text-ink-500">No hidden scoring and no invented promises—just useful information for both sides.</p>
           </div>
-          <div className="mt-10 grid gap-6 md:grid-cols-3">
+          <div className="mt-6 grid gap-5 sm:mt-8 md:grid-cols-3">
             {[
               { icon: Users, title: 'Owners compare drivers', text: 'See location, experience, reviews, platform history, and whether trust evidence is approved.' },
               { icon: Car, title: 'Drivers compare cars', text: 'See targets, deposit, insurance status, required experience, approved photos, and disclosed issues.' },
@@ -315,7 +326,7 @@ export function HomePage() {
               <div key={item.title} className="card p-6">
                 <item.icon className="h-7 w-7 text-brand-600" />
                 <p className="mt-4 font-semibold text-ink-900">{item.title}</p>
-                <p className="mt-2 text-sm text-ink-600">{item.text}</p>
+                <p className="mt-2 text-sm leading-6 text-ink-600">{item.text}</p>
               </div>
             ))}
           </div>
@@ -323,20 +334,20 @@ export function HomePage() {
       </section>
 
       {/* CTA */}
-      <section className="container-content py-16">
-        <div className="relative overflow-hidden rounded-3xl bg-brand-700 px-6 py-14 text-center text-white md:px-12">
+      <section className="container-content py-10 sm:py-16">
+        <div className="relative overflow-hidden rounded-3xl bg-[#141416] px-5 py-9 text-center text-white sm:py-12 md:px-12">
           <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-brand-500/40 blur-3xl" />
           <div className="absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-brand-400/30 blur-3xl" />
           <div className="relative">
-            <h2 className="font-display text-3xl font-extrabold sm:text-4xl">Ready to get moving?</h2>
-            <p className="mx-auto mt-3 max-w-xl text-brand-50">
-              Join thousands of owners and drivers building trust on {settings.site_name}. It's free to get started.
+            <h2 className="font-display text-2xl font-bold sm:text-3xl">Ready to get moving?</h2>
+            <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-neutral-300 sm:text-base">
+              Find your next working partnership on {settings.site_name}. It's free to get started.
             </p>
             <div className="mt-7 flex flex-wrap justify-center gap-3">
-              <Link to="/register" className="btn bg-white text-brand-700 hover:bg-brand-50">
+              <Link to="/register" className="btn bg-white text-neutral-900 hover:bg-neutral-100">
                 Create your account <ArrowRight className="h-4 w-4" />
               </Link>
-              <Link to="/browse-cars" className="btn border border-brand-400 text-white hover:bg-brand-600">
+              <Link to="/browse-cars" className="btn border border-neutral-600 text-white hover:bg-white/10">
                 Browse cars
               </Link>
             </div>
@@ -356,22 +367,22 @@ function HowItWorksCard({
   cta: { to: string; label: string };
 }) {
   return (
-    <div className="card p-6 md:p-8">
+    <div className="card flex flex-col p-5 sm:p-6">
       <h3 className="font-display text-xl font-bold text-ink-900">{title}</h3>
-      <ol className="mt-6 space-y-5">
+      <ol className="mt-5 flex-1 space-y-4">
         {steps.map((s, i) => (
-          <li key={i} className="flex items-start gap-4">
+          <li key={i} className="flex items-start gap-3">
             <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold ${color === 'brand' ? 'bg-brand-100 text-brand-700' : 'bg-accent-100 text-accent-600'}`}>
               {i + 1}
             </span>
-            <div className="flex items-center gap-2 pt-1">
-              <s.icon className={`h-5 w-5 ${color === 'brand' ? 'text-brand-600' : 'text-accent-500'}`} />
-              <span className="text-sm text-ink-700">{s.text}</span>
+            <div className="flex items-start gap-2 pt-1.5">
+              <s.icon className={`mt-0.5 h-4 w-4 shrink-0 ${color === 'brand' ? 'text-brand-600' : 'text-accent-500'}`} />
+              <span className="text-sm leading-6 text-ink-700">{s.text}</span>
             </div>
           </li>
         ))}
       </ol>
-      <Link to={cta.to} className={`mt-7 ${color === 'brand' ? 'btn-primary' : 'btn bg-accent-500 text-white hover:bg-accent-600'}`}>
+      <Link to={cta.to} className={`mt-6 sm:self-start ${color === 'brand' ? 'btn-primary' : 'btn-secondary'}`}>
         {cta.label} <ArrowRight className="h-4 w-4" />
       </Link>
     </div>

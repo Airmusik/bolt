@@ -28,6 +28,7 @@ interface Props {
   id?: string;
   className?: string;
   ariaLabel?: string;
+  ariaDescribedBy?: string;
 }
 
 export function PlaceAutocomplete({
@@ -38,6 +39,7 @@ export function PlaceAutocomplete({
   id,
   className = '',
   ariaLabel = 'Location in Kenya',
+  ariaDescribedBy,
 }: Props) {
   const [suggestions, setSuggestions] = useState<google.maps.places.PlacePrediction[]>([]);
   const [open, setOpen] = useState(false);
@@ -121,6 +123,7 @@ export function PlaceAutocomplete({
         placeholder={placeholder}
         required={required}
         aria-label={ariaLabel}
+        aria-describedby={ariaDescribedBy}
         aria-expanded={open && (suggestions.length > 0 || fallbackSuggestions.length > 0)}
         className={`input pl-10 ${className}`}
       />

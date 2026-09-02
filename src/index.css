@@ -245,6 +245,31 @@
   }
 }
 
+@layer components {
+  /* Scoped to discovery and account forms; other app inputs keep their styles. */
+  .landing-search .input, .auth-page .input {
+    @apply min-h-12 bg-white text-base ring-ink-200 placeholder:text-ink-500 focus:ring-accent-500 dark:bg-[#1b1b1e];
+  }
+  .auth-page {
+    @apply container-content flex justify-center py-7 sm:py-12;
+  }
+  .auth-heading {
+    @apply mb-6 text-center;
+  }
+  .auth-card {
+    @apply card p-5 shadow-card sm:p-7;
+  }
+  .auth-hint {
+    @apply mt-1.5 text-xs leading-5 text-ink-500;
+  }
+  .password-toggle {
+    @apply absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-ink-500 hover:text-ink-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500;
+  }
+  .auth-section-title {
+    @apply mb-4 flex w-full items-center gap-2 text-sm font-semibold text-ink-900;
+  }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }

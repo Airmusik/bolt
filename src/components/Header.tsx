@@ -174,13 +174,13 @@ export function Header() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-1 md:flex">
+        <nav className={cn('hidden items-center gap-1', user ? 'md:flex' : 'lg:flex')}>
           {navLinks.map((l) => (
             <Link
               key={l.to}
               to={l.to}
               className={cn(
-                'flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-colors',
+                'flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors',
                 location.pathname === l.to || (l.to !== '/' && location.pathname.startsWith(l.to))
                   ? 'bg-brand-50 text-brand-700'
                   : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
@@ -221,7 +221,7 @@ export function Header() {
           <button
             ref={menuButtonRef}
             type="button"
-            className={cn('flex h-11 w-11 items-center justify-center rounded-full text-ink-700 hover:bg-ink-100', !user && 'md:hidden')}
+            className={cn('flex h-11 w-11 items-center justify-center rounded-full text-ink-700 hover:bg-ink-100', !user && 'lg:hidden')}
             onClick={() => setNavigationOpen((v) => !v)}
             aria-label={navigationOpen ? 'Close navigation menu' : 'Open navigation menu'}
             aria-expanded={navigationOpen}

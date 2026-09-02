@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { MapPin, Languages, Briefcase } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import type { Profile } from '@/lib/types';
@@ -18,9 +18,10 @@ const PLATFORMS = ['uber', 'bolt', 'little', 'faras'];
 
 export function BrowseDriversPage() {
   const { toast } = useToast();
+  const [params] = useSearchParams();
   const [drivers, setDrivers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
-  const [location, setLocation] = useState('');
+  const [location, setLocation] = useState(() => params.get('location') || '');
   const [platform, setPlatform] = useState('');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
 
