@@ -18,7 +18,7 @@ import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 
 export function HomePage() {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const { settings } = useSiteSettings();
   const [query, setQuery] = useState('');
   const [location, setLocation] = useState('');
@@ -28,12 +28,6 @@ export function HomePage() {
   const [featuredPaused, setFeaturedPaused] = useState(false);
   const [featuredInteracting, setFeaturedInteracting] = useState(false);
   const featuredTrackRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (user && profile?.role === 'admin') {
-      navigate('/admin', { replace: true });
-    }
-  }, [user, profile, navigate]);
 
   useEffect(() => {
     (async () => {

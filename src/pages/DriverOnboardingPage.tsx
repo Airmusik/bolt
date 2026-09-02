@@ -354,10 +354,9 @@ export function DriverOnboardingPage() {
 
         <Section title="Platform history and proof (required)" desc="Add at least one platform, enter your recent activity, and upload its latest Uber, Bolt, Faras, Little Cab, or other platform history. Admins see the private proof; other members only see approved activity.">
           <div className="space-y-3">{history.map((item) => <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
-            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
+            <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto]">
               <Field label="Platform" required hint="Select the app shown in your proof."><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select></Field>
               <Field label="Months active" required hint="Enter at least 1 month."><input type="number" min={1} value={item.months_active} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, months_active: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'months_active', Number(e.target.value))} className="input py-2" placeholder="e.g. 12" /></Field>
-              <Field label="Recent trips" hint="Optional activity total."><input type="number" min={0} value={item.trips} onChange={(e) => setHistory((items) => items.map((entry) => entry.id === item.id ? { ...entry, trips: Number(e.target.value) } : entry))} onBlur={(e) => updateHistory(item, 'trips', Number(e.target.value))} className="input py-2" placeholder="e.g. 250" /></Field>
               <button type="button" onClick={() => removeHistory(item)} aria-label={`Remove ${titleCase(item.platform)} history`} className="btn-ghost mb-4 self-center text-danger"><Trash2 className="h-4 w-4" /></button>
             </div>
             <div className="flex flex-wrap items-end gap-2">

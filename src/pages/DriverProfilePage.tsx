@@ -120,7 +120,7 @@ export function DriverProfilePage() {
                   <div key={h.id} className="flex items-center justify-between rounded-xl bg-white p-4 ring-1 ring-ink-100 dark:bg-[#141416]">
                     <div>
                       <p className="font-semibold text-ink-900">{titleCase(h.platform)}</p>
-                      <p className="text-xs text-ink-500">{h.months_active} months active · {h.trips} trips</p>
+                      <p className="text-xs text-ink-500">{h.months_active} {h.months_active === 1 ? 'month' : 'months'} active</p>
                       <p className="text-xs text-success"><ShieldCheck className="mr-1 inline h-3 w-3" /> Activity approved by admin</p>
                     </div>
                     {h.rating != null && (

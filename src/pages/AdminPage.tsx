@@ -753,7 +753,7 @@ export function AdminPage() {
               <div key={h.id} className="card flex items-center gap-3 p-4">
                 <div className="flex-1">
                   <p className="font-medium text-ink-900 capitalize">{h.platform} — {h.driver?.full_name || 'Unknown driver'}</p>
-                  <p className="text-xs text-ink-500">{h.months_active} months · {h.trips} trips{h.rating != null ? ` · ${h.rating.toFixed(1)} rating` : ''}</p>
+                  <p className="text-xs text-ink-500">{h.months_active} {h.months_active === 1 ? 'month' : 'months'} active{h.rating != null ? ` · ${h.rating.toFixed(1)} rating` : ''}</p>
                   {h.proof_url && <span className="text-xs text-brand-600">Private proof attached</span>}
                 </div>
                 {h.approved ? (
@@ -911,7 +911,6 @@ export function AdminPage() {
             <p><span className="text-ink-500">Driver:</span> {viewingHistory.driver?.full_name || 'Unknown'}</p>
             <p><span className="text-ink-500">Platform:</span> <span className="capitalize">{viewingHistory.platform}</span></p>
             <p><span className="text-ink-500">Months active:</span> {viewingHistory.months_active}</p>
-            <p><span className="text-ink-500">Trips:</span> {viewingHistory.trips}</p>
             {viewingHistory.rating != null && <p><span className="text-ink-500">Rating:</span> {viewingHistory.rating.toFixed(1)}</p>}
             {viewingHistory.proof_url && (
               <div>
