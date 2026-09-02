@@ -550,10 +550,12 @@ export function ChatPage() {
                 </div>
               )}
 
-              <div className="flex items-start gap-2 border-b border-violet-100 bg-violet-50/80 px-4 py-2.5 text-violet-900 dark:bg-violet-950/20 dark:text-violet-100">
-                <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
-                <p className="text-xs leading-5"><strong>Dispute support:</strong> An authorised administrator may review and join this chat if a report, safety concern, or dispute needs help resolving.</p>
-              </div>
+              {memberConnectionChat && !isDirectSupportConversation && (
+                <div className="flex items-start gap-2 border-b border-violet-100 bg-violet-50/80 px-4 py-2.5 text-violet-900 dark:bg-violet-950/20 dark:text-violet-100">
+                  <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p className="text-xs leading-5"><strong>Dispute support:</strong> An authorised administrator may review and join this chat if a report, safety concern, or dispute needs help resolving.</p>
+                </div>
+              )}
 
               {chatBlocked && (
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
