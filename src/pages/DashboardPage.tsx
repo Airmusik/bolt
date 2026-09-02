@@ -2,7 +2,7 @@ import { PromotionLink as Link, PromotionBadge, PromoteListingLink } from '@/com
 import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Pause, Play, Megaphone } from 'lucide-react';
+import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Megaphone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -52,16 +52,6 @@ export function DashboardPage() {
   const [incomingConnections, setIncomingConnections] = useState<IncomingConnection[]>([]);
   const [outgoingConnections, setOutgoingConnections] = useState<OutgoingConnection[]>([]);
   const [loading, setLoading] = useState(true);
-  const [motionPaused, setMotionPaused] = useState(() => {
-    try { return localStorage.getItem('overview-motion-paused') === 'true'; }
-    catch { return false; }
-  });
-  const toggleOverviewMotion = () => {
-    const paused = !motionPaused;
-    setMotionPaused(paused);
-    try { localStorage.setItem('overview-motion-paused', String(paused)); }
-    catch { /* The toggle still works when browser storage is unavailable. */ }
-  };
 
   const load = useCallback(async () => {
     if (!user || !profile) return;
@@ -163,7 +153,7 @@ export function DashboardPage() {
   };
 
   return (
-    <div className={cn('container-content py-2 sm:py-5', tab === 'overview' && 'overview-motion')} data-motion-paused={motionPaused ? 'true' : undefined}>
+    <div className={cn('container-content py-2 sm:py-5', tab === 'overview' && 'overview-motion')}>
       <div className="mb-3 flex justify-end">
         <Link to="/promotions" className="btn-secondary min-h-11 gap-2">
           <Megaphone className="h-4 w-4" aria-hidden="true" /> Promotions
@@ -188,9 +178,6 @@ export function DashboardPage() {
           <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             {isOwner && <Link to="/vehicles/new" className="btn-secondary min-h-11 px-3 py-2 text-xs"><Plus className="h-3.5 w-3.5" /> Add vehicle</Link>}
             {isDriver && !profile.platform_history_approved && <Link to="/onboarding" className="btn-ghost min-h-11 px-3 py-2 text-xs"><ShieldCheck className="h-3.5 w-3.5" /> My history</Link>}
-            <button type="button" onClick={toggleOverviewMotion} aria-label={motionPaused ? 'Resume overview animations' : 'Pause overview animations'} title={motionPaused ? 'Resume overview animations' : 'Pause overview animations'} className="overview-motion-control ml-auto flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-ink-100 hover:text-ink-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">
-              {motionPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
-            </button>
           </div>
         </div>
       </section>

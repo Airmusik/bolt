@@ -21,6 +21,7 @@ export function PromotionsPage() {
   const [target, setTarget] = useState(params.get('vehicle') || 'profile');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const promoted = matchingPromotions(campaigns, target === 'profile' ? 'profile' : 'listing', target === 'profile' ? user?.id || '' : target, user?.id).length > 0;
   const load = useCallback(async () => {
     if (!user) return;
@@ -62,7 +63,10 @@ export function PromotionsPage() {
         <p className="mt-2 text-xs text-ink-500">No charge on this button. Check the saved quote, pay using its instructions, then submit your transaction reference. Never share a payment PIN or password.</p>
       </>}
     </div>}
-    <PromotionAnalytics />
+    <button type="button" aria-expanded={showAnalytics} aria-controls="user-promotion-analytics" onClick={() => setShowAnalytics(value => !value)} className="btn-secondary mt-5 border-emerald-500 text-emerald-700 dark:text-emerald-300">
+      {showAnalytics ? 'Hide analytics' : 'View analytics'}
+    </button>
+    <div id="user-promotion-analytics">{showAnalytics && <PromotionAnalytics />}</div>
     <h2 className="mt-7 font-display text-lg font-bold">My promotion history</h2>
     {settings && requests.length === 0 && <p className="mt-3 text-sm text-ink-500">No promotion requests yet.</p>}
     <div className="mt-3 space-y-4">{requests.map(r => <PromotionRequestCard key={r.id} request={r} refresh={load} />)}</div>
