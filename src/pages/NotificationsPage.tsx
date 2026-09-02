@@ -31,7 +31,7 @@ function notificationDestination(notification: Notification): string | null {
 }
 
 export function NotificationsPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -51,6 +51,14 @@ export function NotificationsPage() {
   }, [user, toast]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase.channel(`notifications-page-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => void load())
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [user, load]);
 
   const markRead = async (notification: Notification) => {
     if (notification.read) return notification;
@@ -95,7 +103,7 @@ export function NotificationsPage() {
 
   return (
     <div className="container-content py-8">
-      <BackButton to="/dashboard" />
+      <BackButton to={profile?.role === 'admin' ? '/admin' : '/dashboard'} />
       <div className="mt-4 flex items-center justify-between">
         <h1 className="font-display text-2xl font-bold text-ink-900">Notifications</h1>
         {notifications.some((n) => !n.read) && <button onClick={markAllRead} className="btn-secondary text-sm"><Check className="h-4 w-4" /> Mark all read</button>}

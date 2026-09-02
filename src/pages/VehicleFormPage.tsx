@@ -45,6 +45,7 @@ export function VehicleFormPage() {
   const [preparingPhoto, setPreparingPhoto] = useState(false);
   const [photoForPrivacyReview, setPhotoForPrivacyReview] = useState<File | null>(null);
   const [photoIssue, setPhotoIssue] = useState<string | null>(() => consumeInterruptedMobileUpload('vehicle-photo'));
+  const [originalApprovalStatus, setOriginalApprovalStatus] = useState<Vehicle['approval_status'] | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -56,6 +57,7 @@ export function VehicleFormPage() {
       ]);
       if (v) {
         const veh = v as Vehicle;
+        setOriginalApprovalStatus(veh.approval_status);
         setForm({
           make: veh.make, model: veh.model, year: veh.year, transmission: veh.transmission, fuel_type: veh.fuel_type,
           location: veh.location, weekly_target: veh.weekly_target?.toString() || '', monthly_target: veh.monthly_target?.toString() || '',
@@ -163,6 +165,10 @@ export function VehicleFormPage() {
     if (isEdit && id) {
       const { error } = await supabase.from('vehicles').update(payload).eq('id', id);
       if (error) { toast('Could not update vehicle: ' + error.message, 'error'); setSaving(false); return; }
+      if (originalApprovalStatus === 'rejected') {
+        const { error: resubmitError } = await supabase.rpc('resubmit_vehicle_listing', { p_vehicle_id: id });
+        if (resubmitError) { toast('Changes were saved, but the listing could not be resubmitted: ' + resubmitError.message, 'error'); setSaving(false); return; }
+      }
     } else {
       const { data, error } = await supabase.from('vehicles').insert(payload).select().maybeSingle();
       if (error || !data) { toast('Could not save vehicle: ' + (error?.message || ''), 'error'); setSaving(false); return; }
@@ -202,7 +208,7 @@ export function VehicleFormPage() {
       await refreshProfile();
     }
     setSaving(false);
-    toast(isEdit ? 'Changes saved. Text updates stay live; only new photos wait for admin approval.' : 'Vehicle submitted. It will go live after admin approval.');
+    toast(isEdit ? originalApprovalStatus === 'rejected' ? 'Changes submitted. The listing is pending admin approval again.' : 'Listing changes saved. New photos wait for admin approval.' : 'Vehicle submitted. It will go live after admin approval.');
     navigate('/dashboard');
   };
 
@@ -346,7 +352,7 @@ export function VehicleFormPage() {
 
         <div className="flex justify-end gap-3">
           <button onClick={() => navigate(-1)} className="btn-secondary">Cancel</button>
-          <button onClick={save} disabled={saving} className="btn-primary">{saving ? 'Saving…' : (isEdit ? 'Submit changes' : 'Submit for approval')}</button>
+          <button onClick={save} disabled={saving} className="btn-primary">{saving ? 'Saving…' : isEdit ? originalApprovalStatus === 'rejected' ? 'Save & resubmit for approval' : 'Save listing changes' : 'Submit for approval'}</button>
         </div>
       </div>
       {photoForPrivacyReview && (

@@ -123,12 +123,30 @@ export interface PlatformHistory {
 
 export interface ContactMessage {
   id: string;
+  user_id: string | null;
   name: string;
   email: string;
   message: string;
-  status: 'new' | 'resolved';
+  status: 'new' | 'open' | 'resolved';
   created_at: string;
+  updated_at: string;
   resolved_at: string | null;
+  user?: Profile;
+  entries?: ContactMessageEntry[];
+}
+
+export interface ContactMessageEntry {
+  id: string;
+  contact_message_id: string;
+  sender_id: string | null;
+  sender_role: 'guest' | 'user' | 'admin';
+  body: string | null;
+  attachment_path: string | null;
+  attachment_name: string | null;
+  attachment_type: string | null;
+  attachment_size: number | null;
+  created_at: string;
+  sender?: Profile;
 }
 
 export interface TrustPassport {

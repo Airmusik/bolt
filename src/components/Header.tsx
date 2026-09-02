@@ -93,7 +93,8 @@ export function Header() {
         .eq('read', false);
       if (active) setUnread(count ?? 0);
     };
-    load();
+    void load();
+    const fallbackPoll = window.setInterval(() => void load(), 20_000);
     window.addEventListener(NOTIFICATIONS_CHANGED_EVENT, load);
     const channel = supabase
       .channel('notif-unread')
@@ -106,6 +107,7 @@ export function Header() {
       .subscribe();
     return () => {
       active = false;
+      window.clearInterval(fallbackPoll);
       window.removeEventListener(NOTIFICATIONS_CHANGED_EVENT, load);
       supabase.removeChannel(channel);
     };

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
-import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, UserWarning } from '@/lib/types';
+import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
@@ -31,6 +31,7 @@ import { ModeratedImage } from '@/components/ModeratedImage';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { ChatMediaImage } from '@/components/ChatMediaImage';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
+import { openContactAttachment, uploadContactAttachment } from '@/lib/contactAttachments';
 
 type AdminVehicle = Vehicle & { owner?: Profile; photos?: VehiclePhoto[]; issues?: VehicleIssue[]; description?: string };
 type AdminDocument = DocumentRow & { user?: Profile; vehicle?: Pick<Vehicle, 'id' | 'make' | 'model' | 'year'> };
@@ -113,7 +114,7 @@ export function AdminPage() {
       supabase.from('reports').select(`*, reporter:profiles!reports_reporter_id_fkey(${PUBLIC_PROFILE_FIELDS}), reported:profiles!reports_reported_id_fkey(${PUBLIC_PROFILE_FIELDS}), warnings:user_warnings(*)`).order('created_at', { ascending: false }),
       supabase.from('documents').select(`*, user:profiles!documents_user_id_fkey(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles!documents_vehicle_id_fkey(id,make,model,year)`).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false }),
       supabase.from('driver_platform_history').select(`*, driver:profiles!driver_platform_history_driver_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('created_at', { ascending: false }),
-      supabase.from('contact_messages').select('*').order('created_at', { ascending: false }),
+      supabase.from('contact_messages').select(`*, user:profiles!contact_messages_user_id_fkey(${PUBLIC_PROFILE_FIELDS}), entries:contact_message_entries(*, sender:profiles!contact_message_entries_sender_id_fkey(${PUBLIC_PROFILE_FIELDS}))`).order('updated_at', { ascending: false }),
     ]);
     const loadError = [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, contactsResult].find((result) => result.error)?.error;
     if (loadError) toast('Some admin data could not be loaded: ' + loadError.message, 'error');
@@ -134,10 +135,22 @@ export function AdminPage() {
     })));
     setDocuments((d as AdminDocument[]) || []);
     setHistory((h as AdminHistory[]) || []);
-    setContactMessages((contacts as ContactMessage[]) || []);
+    setContactMessages(((contacts as ContactMessage[]) || []).map((message) => ({
+      ...message,
+      entries: [...(message.entries || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+    })));
     setLoading(false);
   }, [toast]);
   useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const channel = supabase.channel('admin-work-queues')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_messages' }, () => void load())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'contact_message_entries' }, () => void load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => void load())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, () => void load())
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [load]);
 
   const drivers = users.filter((u) => u.role === 'driver');
   const owners = users.filter((u) => u.role === 'owner');
@@ -418,7 +431,7 @@ export function AdminPage() {
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: unsolvedReports.length },
-    { key: 'contact', label: 'Contact forms', icon: Mail, badge: newContactMessages.length },
+    { key: 'contact', label: 'Messages', icon: Mail, badge: newContactMessages.length },
     { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => !h.approved).length },
     { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
@@ -714,27 +727,7 @@ export function AdminPage() {
         )}
 
         {/* ---------- Reports ---------- */}
-        {tab === 'contact' && !loading && (
-          <div className="space-y-3">
-            {contactMessages.map((message) => (
-              <div key={message.id} className="card p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-ink-900">{message.name} <span className={message.status === 'new' ? 'badge-warning ml-2' : 'badge-success ml-2'}>{message.status}</span></p>
-                    <a href={`mailto:${message.email}`} className="text-sm text-brand-700 hover:underline">{message.email}</a>
-                    <p className="mt-2 whitespace-pre-wrap text-sm text-ink-700">{message.message}</p>
-                    <p className="mt-2 text-xs text-ink-400">{formatDateTime(message.created_at)}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    {message.status === 'new' && <button onClick={() => resolveContactMessage(message)} className="btn-primary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Resolve</button>}
-                    <button onClick={() => setConfirmAction({ message: `Delete the message from ${message.name}?`, label: 'Delete', onConfirm: () => deleteContactMessage(message) })} className="btn-ghost px-3 py-1.5 text-xs text-danger"><Trash2 className="h-3.5 w-3.5" /> Delete</button>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {contactMessages.length === 0 && <p className="text-sm text-ink-500">No contact messages yet.</p>}
-          </div>
-        )}
+        {tab === 'contact' && !loading && <AdminMessageInbox messages={contactMessages} adminId={user?.id || null} siteName={siteSettings.site_name} onRefresh={load} onResolve={resolveContactMessage} onDelete={(message) => setConfirmAction({ message: `Permanently delete the message history from ${message.name}?`, label: 'Delete', onConfirm: () => deleteContactMessage(message) })} onViewUser={setViewingUser} />}
 
         {/* ---------- Reports ---------- */}
         {tab === 'reports' && !loading && (
@@ -776,7 +769,7 @@ export function AdminPage() {
         )}
 
         {/* ---------- Chat ---------- */}
-        {tab === 'chat' && !loading && <AdminChat user={user} onDataChange={load} />}
+        {tab === 'chat' && !loading && <AdminChat user={user} onDataChange={load} onViewUser={setViewingUser} />}
 
         {/* ---------- Settings ---------- */}
         {tab === 'settings' && !loading && <AdminSettings />}
@@ -1579,7 +1572,116 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 }
 
 // ---------- Admin Chat component ----------
-function AdminChat({ user, onDataChange }: { user: { id: string; email: string } | null; onDataChange: () => void | Promise<void> }) {
+function lastContactEntry(message: ContactMessage) {
+  const entries = message.entries || [];
+  return entries[entries.length - 1];
+}
+
+function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, onDelete, onViewUser }: {
+  messages: ContactMessage[];
+  adminId: string | null;
+  siteName: string;
+  onRefresh: () => void | Promise<void>;
+  onResolve: (message: ContactMessage) => void | Promise<void>;
+  onDelete: (message: ContactMessage) => void;
+  onViewUser: (profile: Profile) => void;
+}) {
+  const { toast } = useToast();
+  const requestedId = new URLSearchParams(window.location.search).get('message');
+  const [activeId, setActiveId] = useState<string | null>(requestedId);
+  const [reply, setReply] = useState('');
+  const [attachment, setAttachment] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const active = messages.find((message) => message.id === activeId) || null;
+  const entries = [...(active?.entries || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+  const sendReply = async () => {
+    if (!active || !adminId || sending || (!reply.trim() && !attachment)) return;
+    setSending(true);
+    try {
+      if (reply.trim()) {
+        const { error } = await supabase.from('contact_message_entries').insert({
+          contact_message_id: active.id,
+          sender_id: adminId,
+          sender_role: 'admin',
+          body: reply.trim(),
+        });
+        if (error) throw error;
+      }
+      if (attachment) {
+        const uploaded = await uploadContactAttachment(active.id, adminId, attachment);
+        const { error } = await supabase.from('contact_message_entries').insert({
+          contact_message_id: active.id,
+          sender_id: adminId,
+          sender_role: 'admin',
+          body: null,
+          attachment_path: uploaded.path,
+          attachment_name: uploaded.name,
+          attachment_type: uploaded.type,
+          attachment_size: uploaded.size,
+        });
+        if (error) throw error;
+      }
+      setReply('');
+      setAttachment(null);
+      if (fileRef.current) fileRef.current.value = '';
+      toast(active.user_id ? 'Reply sent. The member was notified immediately.' : 'Reply stored. Use email to deliver it to this guest.');
+      await onRefresh();
+    } catch (error) {
+      toast(`Could not send reply: ${error instanceof Error ? error.message : 'Please try again.'}`, 'error');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const openAttachment = async (entry: ContactMessageEntry) => {
+    if (!entry.attachment_path) return;
+    try { await openContactAttachment(entry.attachment_path); }
+    catch (error) { toast(error instanceof Error ? error.message : 'Could not open attachment.', 'error'); }
+  };
+
+  if (messages.length === 0) return <div className="card p-8 text-center"><Mail className="mx-auto h-10 w-10 text-ink-300" /><p className="mt-3 text-sm text-ink-500">No messages yet.</p></div>;
+
+  return (
+    <div className="grid min-h-[68vh] gap-4 lg:grid-cols-[320px_1fr]">
+      <div className={cn('card overflow-y-auto', active && 'hidden lg:block')}>
+        <div className="border-b border-ink-100 p-4"><h2 className="font-semibold text-ink-900">Messages</h2><p className="mt-1 text-xs text-ink-500">Direct support requests, replies, and attachments</p></div>
+        {messages.map((message) => (
+          <button key={message.id} type="button" onClick={() => setActiveId(message.id)} className={cn('flex w-full items-start gap-3 border-b border-ink-50 p-4 text-left hover:bg-ink-50', activeId === message.id && 'bg-brand-50')}>
+            <Avatar name={message.name} src={message.user?.avatar_url} size={40} verified={message.user?.role === 'driver' && message.user?.is_verified} />
+            <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-semibold text-ink-900">{message.name}</p><span className={cn('badge shrink-0 text-[10px] capitalize', message.status === 'new' ? 'badge-warning' : message.status === 'resolved' ? 'badge-success' : 'badge-brand')}>{message.status}</span></div><p className="mt-0.5 truncate text-xs text-ink-600">{lastContactEntry(message)?.body || lastContactEntry(message)?.attachment_name || message.message}</p><p className="mt-1 text-[10px] text-ink-400">{formatDateTime(message.updated_at || message.created_at)}</p></div>
+          </button>
+        ))}
+      </div>
+
+      <div className={cn('card flex flex-col overflow-hidden', !active && 'hidden lg:flex')}>
+        {active ? <>
+          <div className="flex flex-wrap items-center gap-3 border-b border-ink-100 p-4">
+            <button type="button" onClick={() => setActiveId(null)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-100"><ArrowLeft className="h-4 w-4" /> Back</button>
+            <Avatar name={active.name} src={active.user?.avatar_url} size={42} verified={active.user?.role === 'driver' && active.user?.is_verified} />
+            <div className="min-w-0"><p className="font-semibold text-ink-900">{active.name}</p><p className="truncate text-xs text-ink-500">{active.email} · {active.user ? active.user.role === 'owner' ? 'Car owner' : 'Driver' : 'Guest message'}</p></div>
+            <div className="ml-auto flex flex-wrap gap-2">{active.user && <button type="button" onClick={() => onViewUser(active.user!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View user</button>}<a href={`mailto:${active.email}`} className="btn-secondary px-3 py-1.5 text-xs"><Mail className="h-3.5 w-3.5" /> Email</a>{active.status !== 'resolved' && <button type="button" onClick={() => void onResolve(active)} className="btn-secondary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Resolve</button>}<button type="button" onClick={() => onDelete(active)} className="btn-ghost px-3 py-1.5 text-xs text-danger"><Trash2 className="h-3.5 w-3.5" /></button></div>
+          </div>
+          <div className="flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4">
+            {entries.map((entry) => {
+              const mine = entry.sender_role === 'admin';
+              return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[80%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{mine ? `Official ${siteName} Support` : entry.sender?.full_name || active.name}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}</p></div></div>;
+            })}
+          </div>
+          <div className="border-t border-ink-100 p-3">
+            {!active.user_id && <div className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">This guest is not signed in. Replies are stored here, but use the Email button to deliver the response.</div>}
+            {attachment && <div className="mb-2 flex items-center justify-between rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800"><span className="truncate">{attachment.name}</span><button type="button" onClick={() => { setAttachment(null); if (fileRef.current) fileRef.current.value = ''; }} className="font-bold">Remove</button></div>}
+            <div className="flex items-center gap-2"><input ref={fileRef} type="file" accept="image/*,.heic,.heif,.pdf,.txt,.doc,.docx" className="hidden" onChange={(event) => setAttachment(event.target.files?.[0] || null)} /><button type="button" onClick={() => fileRef.current?.click()} className="rounded-full p-2 text-ink-500 hover:bg-ink-100" aria-label="Attach file"><Upload className="h-5 w-5" /></button><input value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendReply(); } }} className="input flex-1" placeholder="Reply to this message…" maxLength={5000} /><button type="button" onClick={() => void sendReply()} disabled={sending || (!reply.trim() && !attachment)} className="btn-primary px-3">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button></div>
+            <p className="mt-2 text-[11px] text-ink-400">Replies, images, PDFs, text, and Word files are stored privately in this history.</p>
+          </div>
+        </> : <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-ink-500">Select a message to see its complete history and reply.</div>}
+      </div>
+    </div>
+  );
+}
+
+function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; email: string } | null; onDataChange: () => void | Promise<void>; onViewUser: (profile: Profile) => void }) {
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
   const [conversations, setConversations] = useState<(Conversation & { driver?: Profile; owner?: Profile })[]>([]);
@@ -1606,13 +1708,16 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
       supabase.from('reports').select('target_id').eq('target_type', 'conversation').eq('reason', 'Support requested').in('status', ['open', 'reviewing']),
     ]);
     const supportIds = new Set<string>((supportRequests || []).map((request) => request.target_id).filter((id): id is string => Boolean(id)));
-    const nextConversations = ((data as (Conversation & { driver?: Profile; owner?: Profile })[]) || []).sort((a, b) => {
+    const joinedIds = new Set<string>((memberships || []).map((membership) => membership.conversation_id));
+    const nextConversations = ((data as (Conversation & { driver?: Profile; owner?: Profile })[]) || [])
+      .filter((conversation) => conversation.admin_id === user.id || joinedIds.has(conversation.id) || supportIds.has(conversation.id))
+      .sort((a, b) => {
       const supportPriority = Number(supportIds.has(b.id)) - Number(supportIds.has(a.id));
       if (supportPriority !== 0) return supportPriority;
       return new Date(b.last_message_at || b.created_at).getTime() - new Date(a.last_message_at || a.created_at).getTime();
     });
     setConversations(nextConversations);
-    setJoinedConversationIds(new Set((memberships || []).map((membership) => membership.conversation_id)));
+    setJoinedConversationIds(joinedIds);
     setSupportRequestedIds(supportIds);
     setLoading(false);
   }, [user]);
@@ -1756,7 +1861,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
     return (
       <div className="card p-8 text-center">
         <MessageSquare className="mx-auto h-10 w-10 text-ink-300" />
-        <p className="mt-3 text-sm text-ink-500">No conversations yet. Member chats and direct support conversations will appear here.</p>
+        <p className="mt-3 text-sm text-ink-500">No support invitations yet. Member conversations only appear after support is requested or an administrator joins.</p>
       </div>
     );
   }
@@ -1796,7 +1901,7 @@ function AdminChat({ user, onDataChange }: { user: { id: string; email: string }
                 <p className="font-semibold text-ink-900">{active.driver && active.owner ? `Driver: ${active.driver.full_name} ↔ Car owner: ${active.owner.full_name}` : other.full_name}</p>
                 <p className="text-xs text-brand-600">{active.closed_at ? 'Ended · preserved history' : supportSessionActive ? 'Reopened support session · members can chat' : active.driver && active.owner ? 'Active driver and car-owner chat' : `${other.role === 'owner' ? 'Car owner' : 'Driver'} · direct support`}</p>
               </div>
-              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{active.closed_at ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><Headphones className="h-4 w-4" /> {joining ? 'Reopening…' : 'Reopen with support'}</button> : !activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}{canLeaveLiveChat && <button onClick={() => setConfirmLeaveChat(true)} disabled={leaving} className="btn-secondary text-xs"><UserMinus className="h-4 w-4" /> Leave chat</button>}{active.driver && active.owner && !active.closed_at && <button onClick={() => setConfirmCloseChat(true)} className="btn-secondary text-xs"><LockKeyhole className="h-4 w-4" /> {supportSessionActive ? 'End support chat' : 'Close chat'}</button>}</div>
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{active.driver && <button type="button" onClick={() => onViewUser(active.driver!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View driver</button>}{active.owner && <button type="button" onClick={() => onViewUser(active.owner!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View owner</button>}{active.closed_at ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><Headphones className="h-4 w-4" /> {joining ? 'Reopening…' : 'Reopen with support'}</button> : !activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}{canLeaveLiveChat && <button onClick={() => setConfirmLeaveChat(true)} disabled={leaving} className="btn-secondary text-xs"><UserMinus className="h-4 w-4" /> Leave chat</button>}{active.driver && active.owner && !active.closed_at && <button onClick={() => setConfirmCloseChat(true)} className="btn-secondary text-xs"><LockKeyhole className="h-4 w-4" /> {supportSessionActive ? 'End support chat' : 'Close chat'}</button>}</div>
             </div>
             <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-ink-50/50 p-4">
               {messages.map((m) => {
