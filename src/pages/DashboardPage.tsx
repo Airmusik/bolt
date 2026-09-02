@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, BadgeCheck, Link2, MapPin, Briefcase, Pencil } from 'lucide-react';
+import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, BadgeCheck, Link2, MapPin, Briefcase, Pencil, ArrowRight, Sparkles, ShieldCheck, Activity, ChevronRight } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -117,6 +117,23 @@ export function DashboardPage() {
     { label: 'Rating', value: profile.rating > 0 ? profile.rating.toFixed(1) : 'New', icon: Star, tab: null },
   ];
 
+  const pendingApplications = isOwner ? applications.filter((application) => application.status === 'pending').length : 0;
+  const recommendedAction = isOwner
+    ? vehicles.length === 0
+      ? { eyebrow: 'Start here', title: 'List your first vehicle', description: 'Add photos and requirements so suitable drivers can find it.', label: 'Add vehicle', to: '/vehicles/new', tab: null as Tab | null, icon: Car }
+      : pendingConnections.length > 0
+        ? { eyebrow: 'Needs your attention', title: `${pendingConnections.length} connection request${pendingConnections.length === 1 ? '' : 's'} waiting`, description: 'Review the request before the driver accepts another connection.', label: 'Review requests', to: null, tab: 'connections' as Tab, icon: Link2 }
+        : pendingApplications > 0
+          ? { eyebrow: 'Next best action', title: `${pendingApplications} application${pendingApplications === 1 ? '' : 's'} to review`, description: 'Compare profiles and start a conversation with a suitable driver.', label: 'View applications', to: null, tab: 'applications' as Tab, icon: Users }
+          : { eyebrow: 'Grow your shortlist', title: 'Discover available drivers', description: 'Browse reviewed profiles near your vehicle location.', label: 'Browse drivers', to: '/browse-drivers', tab: null, icon: Users }
+    : !profile.onboarding_completed
+      ? { eyebrow: 'Profile required', title: 'Complete your driver profile', description: 'Add your experience, preferred areas, platforms, and introduction to become visible.', label: 'Complete profile', to: '/onboarding', tab: null, icon: Pencil }
+      : !profile.is_verified
+        ? { eyebrow: 'Build confidence', title: 'Submit recent platform history', description: 'An approved Uber, Bolt, Faras, Little Cab, or other platform record helps owners trust your profile.', label: 'Manage history', to: '/onboarding', tab: null, icon: ShieldCheck }
+        : profile.availability !== 'available'
+          ? { eyebrow: 'Your status', title: profile.availability === 'busy' ? 'You are currently on a connection' : 'Your profile is not available', description: 'Manage your availability when you are ready to receive new requests.', label: 'Manage availability', to: '/settings', tab: null, icon: Clock }
+          : { eyebrow: 'Ready for your next match', title: 'Explore cars available near you', description: 'Compare vehicle requirements and connect with an owner that suits you.', label: 'Browse cars', to: '/browse-cars', tab: null, icon: Car };
+
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'overview', label: 'Overview' },
     ...(isOwner
@@ -129,40 +146,62 @@ export function DashboardPage() {
   ];
 
   return (
-    <div className="container-content py-8">
+    <div className="container-content py-6 sm:py-8">
       <BackButton to="/" />
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-ink-900">Dashboard</h1>
-          <p className="mt-1 text-sm text-ink-500">Welcome back, {profile.full_name.split(' ')[0]}.</p>
+      <div className="dashboard-hero relative mt-4 overflow-hidden rounded-3xl bg-ink-950 px-5 py-6 text-white shadow-card-hover sm:px-8 sm:py-8 dark:bg-[#171719]">
+        <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-accent-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-24 left-1/3 h-52 w-52 rounded-full bg-white/10 blur-3xl" />
+        <div className="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-4">
+            <div className="rounded-2xl bg-white/10 p-1 ring-1 ring-white/15 backdrop-blur"><Avatar name={profile.full_name} src={profile.avatar_url} size={64} verified={isDriver && profile.is_verified} /></div>
+            <div>
+              <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/60"><Sparkles className="h-3.5 w-3.5 text-accent-400" /> Your workspace</p>
+              <h1 className="mt-1 font-display text-2xl font-bold sm:text-3xl">Welcome back, {profile.full_name.split(' ')[0]}</h1>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-white/70">
+                <span className="rounded-full bg-white/10 px-2.5 py-1 capitalize ring-1 ring-white/10">{profile.role}</span>
+                {profile.location && <span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {profile.location}</span>}
+                {isDriver && <span className="inline-flex items-center gap-1"><span className={cn('h-2 w-2 rounded-full', profile.availability === 'available' ? 'bg-emerald-400' : profile.availability === 'busy' ? 'bg-amber-400' : 'bg-white/40')} /> {profile.availability === 'busy' ? 'Currently on a connection' : titleCase(profile.availability)}</span>}
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link to="/settings" className="btn border border-white/15 bg-white/10 text-white hover:bg-white/15"><Pencil className="h-4 w-4" /> Profile settings</Link>
+            {isOwner && <Link to="/vehicles/new" className="btn bg-white text-ink-950 hover:-translate-y-0.5 hover:bg-white/90"><Plus className="h-4 w-4" /> Add vehicle</Link>}
+            {isDriver && !profile.is_verified && <Link to="/onboarding" className="btn bg-accent-500 text-white hover:-translate-y-0.5 hover:bg-accent-600"><BadgeCheck className="h-4 w-4" /> Platform history</Link>}
+          </div>
         </div>
-        {isOwner && <Link to="/vehicles/new" className="btn-primary"><Plus className="h-4 w-4" /> Add vehicle</Link>}
-        {isDriver && !profile.is_verified && <Link to="/onboarding" className="btn-primary"><BadgeCheck className="h-4 w-4" /> Submit platform history</Link>}
       </div>
 
       {/* Stats */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((s) => (
+      <div className="-mx-4 mt-5 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-4">
+        {stats.map((s, index) => (
           s.tab ? (
-            <button key={s.label} onClick={() => setTab(s.tab!)} className="card p-5 text-left transition-shadow hover:shadow-md hover:ring-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-400">
-              <s.icon className="h-6 w-6 text-ink-900" />
-              <p className="mt-3 font-display text-2xl font-bold text-ink-900">{s.value}</p>
+            <button key={s.label} onClick={() => setTab(s.tab!)} className="card group min-w-[76vw] snap-start p-4 text-left hover:-translate-y-1 hover:shadow-card-hover hover:ring-brand-300 focus:outline-none focus:ring-2 focus:ring-brand-400 sm:min-w-0 sm:p-5">
+              <div className="flex items-start justify-between"><span className={cn('flex h-10 w-10 items-center justify-center rounded-xl', index === 0 ? 'bg-emerald-50 text-emerald-700' : index === 1 ? 'bg-amber-50 text-amber-700' : index === 2 ? 'bg-violet-50 text-violet-700' : 'bg-blue-50 text-blue-700')}><s.icon className="h-5 w-5" /></span><ChevronRight className="h-4 w-4 text-ink-300 transition group-hover:translate-x-1 group-hover:text-ink-600" /></div>
+              <p className="metric-value mt-4 font-display text-2xl font-bold text-ink-900">{s.value}</p>
               <p className="text-sm text-ink-500">{s.label}</p>
             </button>
           ) : (
-            <div key={s.label} className="card p-5">
-              <s.icon className="h-6 w-6 text-ink-900" />
-              <p className="mt-3 font-display text-2xl font-bold text-ink-900">{s.value}</p>
+            <div key={s.label} className="card min-w-[76vw] snap-start p-4 sm:min-w-0 sm:p-5">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-amber-700"><s.icon className="h-5 w-5" /></span>
+              <p className="metric-value mt-4 font-display text-2xl font-bold text-ink-900">{s.value}</p>
               <p className="text-sm text-ink-500">{s.label}</p>
             </div>
           )
         ))}
       </div>
 
+      <div className="mt-4 overflow-hidden rounded-2xl border border-accent-200 bg-gradient-to-r from-accent-50 via-white to-white p-4 shadow-soft dark:border-accent-500/20 dark:from-accent-500/10 dark:via-[#141416] dark:to-[#141416] sm:p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-accent-500 text-white shadow-lg shadow-accent-500/20"><recommendedAction.icon className="h-5 w-5" /></span><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-accent-600">{recommendedAction.eyebrow}</p><h2 className="mt-0.5 font-display text-lg font-bold text-ink-900">{recommendedAction.title}</h2><p className="mt-1 max-w-2xl text-sm text-ink-500">{recommendedAction.description}</p></div></div>
+          {recommendedAction.to ? <Link to={recommendedAction.to} className="btn-primary w-full shrink-0 sm:w-auto">{recommendedAction.label}<ArrowRight className="h-4 w-4" /></Link> : <button type="button" onClick={() => recommendedAction.tab && setTab(recommendedAction.tab)} className="btn-primary w-full shrink-0 sm:w-auto">{recommendedAction.label}<ArrowRight className="h-4 w-4" /></button>}
+        </div>
+      </div>
+
       {/* Tabs */}
-      <div className="mt-8 flex gap-1 overflow-x-auto border-b border-ink-100">
+      <div className="mt-7 flex gap-1 overflow-x-auto rounded-xl bg-ink-50 p-1 ring-1 ring-ink-100 dark:bg-[#101012]">
         {tabs.map((t) => (
-          <button key={t.id} onClick={() => { if (tab !== t.id) setTab(t.id); }} className={cn('flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors', tab === t.id ? 'border-ink-900 text-ink-900' : 'border-transparent text-ink-500 hover:text-ink-800')}>
+          <button key={t.id} onClick={() => { if (tab !== t.id) setTab(t.id); }} className={cn('flex items-center gap-1.5 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all', tab === t.id ? 'bg-white text-ink-900 shadow-soft ring-1 ring-ink-100 dark:bg-[#1d1d20]' : 'text-ink-500 hover:bg-white/70 hover:text-ink-800 dark:hover:bg-[#1d1d20]/70')}>
             {t.label}{!loading && t.badge !== undefined && t.badge > 0 && <span className="rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{t.badge}</span>}
           </button>
         ))}
@@ -192,9 +231,9 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
 }) {
   return (
     <div className="space-y-6">
-      <div className="grid gap-6 lg:grid-cols-2">
-        {!isOwner && <div className="card p-5">
-          <h3 className="font-semibold text-ink-900">Driver platform history</h3>
+      <div className="grid gap-5 lg:grid-cols-2">
+        {!isOwner && <div className="card overflow-hidden p-5">
+          <div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-400">Profile confidence</p><h3 className="mt-1 font-semibold text-ink-900">Driver platform history</h3></div><span className={cn('flex h-10 w-10 items-center justify-center rounded-xl', profile.is_verified ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700')}>{profile.is_verified ? <ShieldCheck className="h-5 w-5" /> : <Clock className="h-5 w-5" />}</span></div>
           <div className="mt-3 flex items-center gap-2">
             {profile.is_verified ? (
               <><VerifiedBadge verified size={18} showLabel /><span className="text-sm text-ink-700">Your recent platform history has been approved.</span></>
@@ -207,14 +246,14 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
           )}
         </div>}
         <div className="card p-5">
-          <h3 className="font-semibold text-ink-900">Recent activity</h3>
-          <div className="mt-3 space-y-2 text-sm">
-            {pendingConnections.length === 0 && conversations.length === 0 && <p className="text-ink-500">No activity yet.</p>}
+          <div className="flex items-center justify-between"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-ink-400">What is happening</p><h3 className="mt-1 font-semibold text-ink-900">Recent activity</h3></div><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-700"><Activity className="h-5 w-5" /></span></div>
+          <div className="mt-4 space-y-1 text-sm">
+            {pendingConnections.length === 0 && conversations.length === 0 && <div className="rounded-xl bg-ink-50 px-4 py-5 text-center"><Sparkles className="mx-auto h-5 w-5 text-ink-300" /><p className="mt-2 font-medium text-ink-700">Nothing needs your attention</p><p className="mt-1 text-xs text-ink-400">New requests and conversations will appear here.</p></div>}
             {pendingConnections.slice(0, 3).map((c: Connection) => (
-              <p key={c.id} className="text-ink-600">New connection request from {c.requester?.full_name || 'a member'} {timeAgo(c.created_at)}</p>
+              <div key={c.id} className="flex items-start gap-3 rounded-xl px-2 py-2.5 hover:bg-ink-50"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700"><Link2 className="h-4 w-4" /></span><div><p className="font-medium text-ink-800">New request from {c.requester?.full_name || 'a member'}</p><p className="text-xs text-ink-400">{timeAgo(c.created_at)}</p></div></div>
             ))}
             {conversations.slice(0, 3).map((c: Conversation) => (
-              <Link key={c.id} to={`/chat/${c.id}`} className="block text-ink-900 hover:underline">Chat about {c.vehicle?.make} {c.vehicle?.model}</Link>
+              <Link key={c.id} to={`/chat/${c.id}`} className="group flex items-start gap-3 rounded-xl px-2 py-2.5 hover:bg-ink-50"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><MessageSquare className="h-4 w-4" /></span><div className="min-w-0 flex-1"><p className="truncate font-medium text-ink-800 group-hover:text-brand-700">Chat about {c.vehicle?.make || 'your connection'} {c.vehicle?.model}</p><p className="text-xs text-ink-400">{timeAgo(c.last_message_at || c.created_at)}</p></div><ChevronRight className="mt-2 h-4 w-4 text-ink-300" /></Link>
             ))}
           </div>
         </div>
@@ -222,16 +261,13 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
 
       {/* Driver availability status */}
       {!isOwner && (
-        <div className="card p-5">
-          <h3 className="font-semibold text-ink-900">Your availability</h3>
-          <div className="mt-3 flex items-center gap-2">
-            <AvailabilityBadge availability={profile.availability} />
-            <span className="text-sm text-ink-600">
+        <div className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3"><span className={cn('mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', profile.availability === 'available' ? 'bg-emerald-50 text-emerald-700' : profile.availability === 'busy' ? 'bg-amber-50 text-amber-700' : 'bg-ink-100 text-ink-500')}><Activity className="h-5 w-5" /></span><div><h3 className="font-semibold text-ink-900">Your availability</h3><span className="mt-1 block text-sm text-ink-600">
               {profile.availability === 'available' && 'You are available for new connections.'}
               {profile.availability === 'busy' && 'You are currently in an active connection.'}
               {profile.availability === 'unavailable' && 'You are not available for new connections.'}
-            </span>
-          </div>
+            </span></div></div>
+          <div className="flex items-center gap-3"><AvailabilityBadge availability={profile.availability} /><Link to="/settings" className="text-xs font-semibold text-brand-700 hover:underline">Manage</Link></div>
         </div>
       )}
 
@@ -241,9 +277,9 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
           <div className="flex items-center justify-between">
             <h3 className="font-display text-lg font-bold text-ink-900">Available drivers</h3>
           </div>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="-mx-4 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3 xl:grid-cols-4">
             {drivers.slice(0, 8).map((d: Profile) => (
-              <Link key={d.id} to={`/drivers/${d.id}`} className="card card-hover p-4">
+              <Link key={d.id} to={`/drivers/${d.id}`} className="card card-hover min-w-[82vw] snap-start p-4 sm:min-w-0">
                 <div className="flex items-center gap-3">
                   <Avatar name={d.full_name} src={d.avatar_url} size={44} verified={d.is_verified} />
                   <div className="min-w-0 flex-1">
@@ -266,9 +302,9 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
           <div className="flex items-center justify-between">
             <h3 className="font-display text-lg font-bold text-ink-900">Available cars</h3>
           </div>
-          <div className="mt-4 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="-mx-4 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3">
             {availableCars.slice(0, 6).map((v: VehicleWithRelations) => (
-              <VehicleCard key={v.id} vehicle={v} />
+              <div key={v.id} className="min-w-[86vw] snap-start sm:min-w-0"><VehicleCard vehicle={v} /></div>
             ))}
           </div>
         </div>

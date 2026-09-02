@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole, Headphones, ImagePlus, Loader2 } from 'lucide-react';
+import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole, Headphones, ImagePlus, Loader2, Search, ShieldCheck } from 'lucide-react';
 import { CHAT_MEDIA_BUCKET, supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -79,6 +79,7 @@ export function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [showEmoji, setShowEmoji] = useState(false);
+  const [conversationSearch, setConversationSearch] = useState('');
   const [showReport, setShowReport] = useState(false);
   const [showSupportRequest, setShowSupportRequest] = useState(false);
   const [supportRequest, setSupportRequest] = useState('');
@@ -132,6 +133,22 @@ export function ChatPage() {
       })
       .sort((a, b) => conversationActivity(b.latest) - conversationActivity(a.latest));
   }, [conversations, user]);
+
+  const filteredConversationGroups = useMemo(() => {
+    const query = conversationSearch.trim().toLowerCase();
+    if (!query || !user) return conversationGroups;
+    return conversationGroups.filter((group) => {
+      const conversation = group.latest;
+      const member = user.id === conversation.driver_id
+        ? (conversation.owner || conversation.admin)
+        : user.id === conversation.owner_id
+          ? (conversation.driver || conversation.admin)
+          : (conversation.driver || conversation.owner);
+      return [member?.full_name, conversation.vehicle?.make, conversation.vehicle?.model]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(query));
+    });
+  }, [conversationGroups, conversationSearch, user]);
 
   const activeGroup = useMemo(() => {
     if (!active || !user) return null;
@@ -445,36 +462,40 @@ export function ChatPage() {
   const memberConnectionChat = Boolean(active?.driver_id && active?.owner_id);
 
   return (
-    <div className="container-content py-6">
+    <div className="container-content py-4 sm:py-6">
       <div className="mb-4 flex items-end justify-between gap-4">
-        <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-600">Your connections</p><h1 className="font-display text-2xl font-bold text-ink-900">Messages</h1></div>
-        <span className="hidden items-center gap-1.5 rounded-full bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 ring-1 ring-brand-100 sm:inline-flex"><Sparkles className="h-3.5 w-3.5" /> Private member chat</span>
+        <div><p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand-600"><Sparkles className="h-3.5 w-3.5 text-accent-500" /> Your connections</p><h1 className="font-display text-2xl font-bold text-ink-900">Messages</h1></div>
+        <span className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 sm:inline-flex"><ShieldCheck className="h-3.5 w-3.5" /> Private & saved</span>
       </div>
-      <div className="grid h-[72vh] min-h-[540px] gap-4 lg:grid-cols-[320px_1fr]">
+      <div className="grid h-[calc(100dvh-9.5rem)] min-h-[520px] max-h-[820px] gap-4 lg:grid-cols-[320px_1fr]">
         {/* Conversation list */}
         <div className={cn('card overflow-y-auto bg-gradient-to-b from-white to-ink-50/60 dark:from-[#141416] dark:to-[#101012]', active && 'hidden lg:block')}>
-          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-100 bg-white/90 px-4 py-3 backdrop-blur dark:bg-[#141416]/90">
-            <span className="flex items-center gap-2 text-sm font-semibold text-ink-900"><MessageCircle className="h-4 w-4 text-brand-600" /> Conversations</span>
-            <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-700">{conversationGroups.length}</span>
+          <div className="sticky top-0 z-10 border-b border-ink-100 bg-white/90 p-3 backdrop-blur-xl dark:bg-[#141416]/90">
+            <div className="flex items-center justify-between px-1 pb-3">
+              <span className="flex items-center gap-2 text-sm font-semibold text-ink-900"><MessageCircle className="h-4 w-4 text-brand-600" /> Conversations</span>
+              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-700">{conversationGroups.length}</span>
+            </div>
+            <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={conversationSearch} onChange={(event) => setConversationSearch(event.target.value)} aria-label="Search conversations" placeholder="Search people or cars" className="input h-10 rounded-xl bg-ink-50 py-2 pl-9 pr-3 text-xs focus:bg-white" /></div>
           </div>
-          {conversationGroups.map((group) => {
+          {filteredConversationGroups.map((group) => {
             const c = group.latest;
             const otherUser = user?.id === c.driver_id ? (c.owner || c.admin) : user?.id === c.owner_id ? (c.driver || c.admin) : (c.driver || c.owner);
             const online = isProfileOnline(otherUser);
             return (
-              <button key={group.key} onClick={() => { setActive(group.activeConversation); navigate(`/chat/${group.activeConversation.id}`); }} className={cn('group relative flex w-full items-center gap-3 border-b border-ink-50 p-3 text-left transition hover:bg-brand-50/60', activeGroup?.key === group.key && 'bg-brand-50 shadow-[inset_3px_0_0_0_theme(colors.brand.500)] dark:bg-brand-950/25')}>
-                <Avatar name={otherUser?.full_name || 'User'} src={otherUser?.avatar_url} size={44} verified={otherUser?.role === 'driver' && !!otherUser?.is_verified} />
+              <button key={group.key} onClick={() => { setActive(group.activeConversation); navigate(`/chat/${group.activeConversation.id}`); }} className={cn('group relative mx-2 mt-2 flex w-[calc(100%-1rem)] items-center gap-3 rounded-xl p-3 text-left transition hover:bg-brand-50/70', activeGroup?.key === group.key && 'bg-white shadow-soft ring-1 ring-brand-100 dark:bg-[#1d1d20] dark:ring-brand-900')}>
+                <span className="relative shrink-0"><Avatar name={otherUser?.full_name || 'User'} src={otherUser?.avatar_url} size={46} verified={otherUser?.role === 'driver' && !!otherUser?.is_verified} />{online && <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#141416]" />}</span>
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
                     {otherUser?.full_name} <VerifiedBadge verified={otherUser?.is_verified} size={11} />
                   </p>
                   <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-500">{c.vehicle?.make && <CarFront className="h-3 w-3 shrink-0" />}{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : c.admin_id ? `${settings.site_name} Admin` : 'Conversation'}{group.items.length > 1 ? ` · ${group.items.length} connections` : ''}</p>
-                  <p className={cn('mt-0.5 flex items-center gap-1 text-[10px]', online ? 'font-semibold text-emerald-600' : 'text-ink-400')}><span className={cn('h-1.5 w-1.5 rounded-full', online ? 'bg-emerald-500' : 'bg-ink-300')} />{lastSeenText(otherUser)}</p>
+                  <p className={cn('mt-1 text-[10px]', online ? 'font-semibold text-emerald-600' : 'text-ink-400')}>{lastSeenText(otherUser)}</p>
                 </div>
-                {c.last_message_at && <span className="text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}
+                {c.last_message_at && <span className="self-start whitespace-nowrap text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}
               </button>
             );
           })}
+          {filteredConversationGroups.length === 0 && <div className="px-6 py-12 text-center"><Search className="mx-auto h-7 w-7 text-ink-300" /><p className="mt-3 text-sm font-semibold text-ink-700">No matching conversations</p><p className="mt-1 text-xs text-ink-400">Try a different person, vehicle make, or model.</p></div>}
         </div>
 
         {/* Chat window */}
@@ -482,15 +503,15 @@ export function ChatPage() {
           {active && other ? (
             <>
               {/* Header */}
-              <div className="flex items-center justify-between border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-violet-50 p-4 dark:from-brand-950/30 dark:via-[#141416] dark:to-violet-950/20">
-                <div className="flex items-center gap-3">
-                  <button onClick={() => { setActive(null); navigate('/chat'); }} aria-label="Back to conversations" className="lg:hidden"><ArrowLeft className="h-5 w-5 text-ink-500" /></button>
+              <div className="flex items-center justify-between border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-violet-50 p-3 sm:p-4 dark:from-brand-950/30 dark:via-[#141416] dark:to-violet-950/20">
+                <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+                  <button onClick={() => { setActive(null); navigate('/chat'); }} aria-label="Back to conversations" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-500 hover:bg-white/80 lg:hidden"><ArrowLeft className="h-5 w-5" /></button>
                   <Link to={`/members/${other.id}`} title={`View ${other.full_name}'s profile`} aria-label={`View ${other.full_name}'s profile`} className="rounded-full transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-400">
                     <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.role === 'driver' && other.is_verified} />
                   </Link>
-                  <div>
-                    <Link to={`/members/${other.id}`} className="flex items-center gap-1 font-semibold text-ink-900 hover:text-brand-700 hover:underline">{other.full_name} <VerifiedBadge verified={other.is_verified} size={12} /></Link>
-                    <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-ink-500">{active.vehicle_id ? <><CarFront className="h-3 w-3" /> Vehicle conversation</> : active.admin_id ? `${settings.site_name} support` : 'Member conversation'}<span aria-hidden="true">·</span><span className={cn('inline-flex items-center gap-1', isProfileOnline(other) ? 'font-semibold text-emerald-600' : 'text-ink-400')}><span className={cn('h-1.5 w-1.5 rounded-full', isProfileOnline(other) ? 'bg-emerald-500' : 'bg-ink-300')} />{lastSeenText(other)}</span></p>
+                  <div className="min-w-0">
+                    <Link to={`/members/${other.id}`} className="flex items-center gap-1 truncate font-semibold text-ink-900 hover:text-brand-700 hover:underline">{other.full_name} <VerifiedBadge verified={other.is_verified} size={12} /></Link>
+                    <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-ink-500"><span className={cn('inline-flex shrink-0 items-center gap-1', isProfileOnline(other) ? 'font-semibold text-emerald-600' : 'text-ink-400')}><span className={cn('h-1.5 w-1.5 rounded-full', isProfileOnline(other) ? 'bg-emerald-500' : 'bg-ink-300')} />{lastSeenText(other)}</span><span aria-hidden="true">·</span><span className="truncate">{active.vehicle_id ? 'Vehicle conversation' : active.admin_id ? `${settings.site_name} support` : 'Member conversation'}</span></p>
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -536,7 +557,7 @@ export function ChatPage() {
               )}
 
               {/* Messages */}
-              <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-[radial-gradient(circle_at_top_left,rgba(34,197,94,0.08),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(139,92,246,0.08),transparent_36%)] bg-ink-50/50 p-4 sm:p-5">
+              <div ref={scrollRef} className="chat-canvas flex-1 space-y-2 overflow-y-auto bg-ink-50/50 p-3 sm:p-5">
                 {messages.length === 0 && <div className="flex h-full flex-col items-center justify-center text-center"><span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-brand-600 shadow-sm ring-1 ring-brand-100 dark:bg-[#1d1d20]"><Sparkles className="h-6 w-6" /></span><p className="mt-3 text-sm font-semibold text-ink-800">Start the conversation</p><p className="mt-1 max-w-xs text-xs text-ink-500">Keep arrangements in chat so both members have a clear record.</p></div>}
                 {messages.map((m, index) => {
                   const mine = m.sender_id === user?.id;
@@ -580,10 +601,10 @@ export function ChatPage() {
               {imageUploadIssue && !chatClosed && !chatBlocked && <div role="alert" className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs text-red-800 dark:bg-red-950/20 dark:text-red-100"><span className="font-semibold">Image not sent:</span> {imageUploadIssue}</div>}
 
               {/* Input */}
-              {!chatClosed && !chatBlocked && <div className="flex items-center gap-2 border-t border-ink-100 bg-white p-3 dark:bg-[#141416]">
-                <button onClick={() => setShowEmoji((v) => !v)} aria-label="Choose emoji" className="rounded-full p-2 text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
+              {!chatClosed && !chatBlocked && <div className="flex items-center gap-1.5 border-t border-ink-100 bg-white px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:gap-2 sm:p-3 dark:bg-[#141416]">
+                <button onClick={() => setShowEmoji((v) => !v)} aria-label="Choose emoji" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
                 <input ref={imageInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onClick={() => rememberMobileUploadPicker('chat-image')} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadChatImage(file); }} />
-                <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Send an image" title="Send an image" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
+                <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Send an image" title="Send an image" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
                 <div className="relative flex-1"><input
                   ref={inputRef}
                   value={text}
