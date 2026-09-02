@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, ShieldCheck, Pencil, Clock3, History, FileText } from 'lucide-react';
+import { Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, ShieldCheck, Pencil, Clock3, History, FileText, Loader2, Upload } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -344,22 +344,25 @@ export function DriverOnboardingPage() {
             </div>
             <div className="flex flex-wrap items-end gap-2">
               <div className="w-full sm:max-w-sm">
-                <label htmlFor={`history-proof-${item.id}`} className="mb-1 block text-xs font-semibold text-ink-700">{item.proof_url ? 'Choose replacement proof' : 'Choose proof'} <span className="text-danger">*</span></label>
-                <input
-                  id={`history-proof-${item.id}`}
-                  type="file"
-                  accept={TRUST_FILE_ACCEPT}
-                  aria-label={`Choose ${titleCase(item.platform)} platform proof`}
-                  className="block w-full rounded-xl border border-ink-200 bg-white text-xs text-ink-600 file:mr-3 file:border-0 file:border-r file:border-ink-200 file:bg-ink-50 file:px-4 file:py-3 file:text-xs file:font-semibold file:text-ink-800 hover:file:bg-ink-100 disabled:opacity-50 dark:bg-[#141416]"
-                  disabled={uploadingType === `history-${item.id}`}
-                  onClick={(event) => { event.currentTarget.value = ''; rememberMobileUploadPicker('driver-proof'); }}
-                  onChange={(event) => {
-                    const file = event.currentTarget.files?.item(0);
-                    if (file) void chooseUpload(file, { kind: 'history', item, label: `${titleCase(item.platform)} platform proof` });
-                  }}
-                />
+                <p className="mb-1 block text-xs font-semibold text-ink-700">{item.proof_url ? 'Choose replacement proof' : 'Choose proof'} <span className="text-danger">*</span></p>
+                <label className="btn-secondary flex min-h-11 w-full cursor-pointer justify-center text-sm">
+                  <input
+                    type="file"
+                    accept={TRUST_FILE_ACCEPT}
+                    aria-label={`Choose ${titleCase(item.platform)} platform proof`}
+                    className="hidden"
+                    disabled={uploadingType === `history-${item.id}`}
+                    onClick={() => rememberMobileUploadPicker('driver-proof')}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.item(0);
+                      if (file) void chooseUpload(file, { kind: 'history', item, label: `${titleCase(item.platform)} platform proof` });
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                  {uploadingType === `history-${item.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  {uploadingType === `history-${item.id}` ? 'Preparing preview…' : item.proof_url ? 'Choose replacement proof' : 'Choose proof'}
+                </label>
               </div>
-              {uploadingType === `history-${item.id}` && <span className="text-xs font-semibold text-brand-700">Preparing preview…</span>}
               {item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}
               <span className="basis-full text-[11px] text-ink-400">Upload your latest platform activity screen. Phone photos, HEIC, JPG, PNG, WebP, or PDF · preview before submission · maximum 8 MB.</span>
             </div>
