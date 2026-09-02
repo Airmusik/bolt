@@ -10,6 +10,10 @@ import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { SiteLogo } from '@/components/SiteLogo';
 import { hasValidNameFields, normalizePersonName, parseLanguages } from '@/lib/profileValidation';
 import { PersonNameFields } from '@/components/PersonNameFields';
+import { Modal } from '@/components/Modal';
+import { TermsContent } from '@/components/TermsContent';
+import { MemberSafetyNotice } from '@/components/MemberSafetyNotice';
+import { TERMS_VERSION } from '@/lib/legal';
 
 export function RegisterPage() {
   const { signUp, user } = useAuth();
@@ -27,6 +31,8 @@ export function RegisterPage() {
   const [role, setRole] = useState<Role>('driver');
   const [showPin, setShowPin] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -36,6 +42,7 @@ export function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!acceptedTerms) { setError('Read and accept the Terms of Service before creating an account.'); return; }
     const fullName = normalizePersonName(`${firstName} ${secondName}`);
     if (!hasValidNameFields(firstName, secondName)) { setError('Enter both your first name and second name.'); return; }
     if (pin !== confirmPin) { setError('Passwords do not match. Please re-enter.'); return; }
@@ -45,7 +52,7 @@ export function RegisterPage() {
     if (selectedLanguages.length < 2) { setError('Add at least two languages you speak, separated with commas.'); return; }
     setLoading(true);
     try {
-      const result = await signUp(phone, pin, fullName, role, email, location, selectedLanguages);
+      const result = await signUp(phone, pin, fullName, role, email, location, selectedLanguages, acceptedTerms ? TERMS_VERSION : null);
       if (result.error) {
         setError(result.error);
       } else if (result.requiresEmailConfirmation) {
@@ -170,13 +177,17 @@ export function RegisterPage() {
             )}
           </div>
 
-          <button type="submit" disabled={loading} className="btn-primary mt-6 w-full">
+          <MemberSafetyNotice />
+          <div className="mt-5 rounded-xl border border-ink-200 p-4">
+            <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm"><button type="button" onClick={() => setShowTerms(true)} className="min-h-11 font-semibold text-ink-800 underline">Read Terms of Service</button><Link to="/privacy" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-ink-800 underline">Privacy Policy ↗</Link></div>
+            <label className="mt-2 flex cursor-pointer items-start gap-3 text-sm leading-6 text-ink-800"><input id="accept-terms" type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required className="mt-1 h-5 w-5 shrink-0 accent-orange-600" /><span>I am at least 18, have read and accept the Terms of Service, including my responsibility to check the other member and the limits of the platform's role, and acknowledge the Privacy Policy. <span className="text-danger">*</span></span></label>
+            <p className="mt-2 text-xs text-ink-500">Required · Terms version {TERMS_VERSION}. This does not waive your statutory rights or consent to marketing. Opening the terms keeps your form entries intact.</p>
+          </div>
+          <button type="submit" disabled={loading || !acceptedTerms} className="btn-primary mt-6 w-full">
             {loading ? 'Creating account…' : 'Create account'} <ArrowRight className="h-4 w-4" />
           </button>
-          <p className="mt-4 text-center text-xs text-ink-400">
-            By continuing you agree to our <Link to="/terms" className="underline">Terms</Link> and <Link to="/privacy" className="underline">Privacy Policy</Link>.
-          </p>
         </form>
+        {showTerms && <Modal title="Terms of Service" size="xl" onClose={() => setShowTerms(false)}><TermsContent /><button type="button" onClick={() => setShowTerms(false)} className="btn-secondary mt-5 w-full">Back to registration</button></Modal>}
 
         <p className="mt-6 text-center text-sm text-ink-500">
           Already have an account?{' '}

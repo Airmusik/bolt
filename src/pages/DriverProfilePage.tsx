@@ -14,6 +14,7 @@ import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { ReportModal } from './VehicleDetailsPage';
 import { titleCase, timeAgo } from '@/lib/utils';
 import { AccountStanding } from '@/components/AccountStanding';
+import { MemberSafetyNotice } from '@/components/MemberSafetyNotice';
 
 export function DriverProfilePage() {
   const { id } = useParams();
@@ -35,7 +36,7 @@ export function DriverProfilePage() {
     setLoadError('');
     const profileRequest = user?.id === id
       ? supabase.rpc('get_my_profile').maybeSingle()
-      : supabase.from('profiles').select(BROWSE_PROFILE_FIELDS).eq('id', id).maybeSingle();
+      : supabase.from('profiles').select(BROWSE_PROFILE_FIELDS).eq('id', id).in('role', ['driver', 'owner']).maybeSingle();
     const [profileResult, historyResult, reviewsResult, trustResult] = await Promise.all([
       profileRequest,
       supabase.from('driver_platform_history').select('id,driver_id,platform,months_active,trips,rating,approved,created_at').eq('driver_id', id).eq('approved', true),
@@ -60,6 +61,7 @@ export function DriverProfilePage() {
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
   if (loadError) return <div className="container-content py-12"><EmptyState title="Could not load this profile" description="Check your connection and try again." action={<button type="button" onClick={() => void loadProfile()} className="btn-primary">Try again</button>} /></div>;
   if (!profile) return <div className="container-content py-12"><EmptyState title="Profile not found" /></div>;
+  if (profile.role === 'admin') return <div className="container-content py-12"><EmptyState title="Support has no member profile" description="Use Messages to speak with the support team." action={<Link to="/contact" className="btn-primary">Contact support</Link>} /></div>;
   if (profile.role === 'driver' && !profile.onboarding_completed && user?.id !== profile.id) return <div className="container-content py-12"><EmptyState title="Profile not public yet" description="This driver is still completing their About You information." /></div>;
 
   const isOwner = profile.role === 'owner';
@@ -150,6 +152,7 @@ export function DriverProfilePage() {
             </Section>
           )}
 
+          <MemberSafetyNotice />
           {/* Reviews */}
           <Section title={`Reviews (${reviews.length})`} icon={<Star className="h-5 w-5" />}>
             {reviews.length > 0 ? (

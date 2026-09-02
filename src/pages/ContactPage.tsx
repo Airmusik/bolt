@@ -3,6 +3,7 @@ import { FileText, Loader2, Mail, MapPin, MessageSquare, Paperclip, Phone, Send 
 import { useSearchParams } from 'react-router-dom';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
+import { SiteLogo } from '@/components/SiteLogo';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -182,7 +183,7 @@ export function ContactPage() {
 
         {active && user ? (
           <div className="card flex min-h-[560px] flex-col overflow-hidden">
-            <div className="flex items-start justify-between gap-3 border-b border-ink-100 p-4"><div><h2 className="font-semibold text-ink-900">Conversation with support</h2><p className="mt-1 text-xs text-ink-500">Started {formatDateTime(active.created_at)} · history is saved</p></div><button type="button" onClick={() => setSearchParams({})} className="btn-secondary px-3 py-1.5 text-xs">New message</button></div>
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-100 p-4"><div className="flex min-w-0 items-center gap-3"><SiteLogo size={40} /><div><h2 className="text-sm font-semibold text-ink-900">Official {settings.site_name} Support</h2><p className="mt-1 text-xs text-ink-500">Started {formatDateTime(active.created_at)} · history is saved</p></div></div><button type="button" onClick={() => setSearchParams({})} className="btn-secondary px-3 py-1.5 text-xs">New message</button></div>
             <div className="flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4">
               {(active.entries || []).map((entry) => {
                 const mine = entry.sender_role === 'user';

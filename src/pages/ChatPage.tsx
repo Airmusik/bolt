@@ -18,6 +18,9 @@ import { ChatMediaImage } from '@/components/ChatMediaImage';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
 import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
 import { endConnection } from '@/lib/connections';
+import { isSupportPartner } from '@/lib/supportIdentity';
+import { SiteLogo } from '@/components/SiteLogo';
+import { ChatPartnerIdentity } from '@/components/ChatPartnerIdentity';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
@@ -146,11 +149,11 @@ export function ChatPage() {
         : user.id === conversation.owner_id
           ? (conversation.driver || conversation.admin)
           : (conversation.driver || conversation.owner);
-      return [member?.full_name, conversation.vehicle?.make, conversation.vehicle?.model]
+      return [isSupportPartner(conversation, user.id, member) ? `Official ${settings.site_name} Support` : member?.full_name, conversation.vehicle?.make, conversation.vehicle?.model]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(query));
     });
-  }, [conversationGroups, conversationSearch, user]);
+  }, [conversationGroups, conversationSearch, user, settings.site_name]);
 
   const activeGroup = useMemo(() => {
     if (!active || !user) return null;
@@ -471,7 +474,7 @@ export function ChatPage() {
 
   const other = active ? (user?.id === active.driver_id ? (active.owner || active.admin) : user?.id === active.owner_id ? (active.driver || active.admin) : active.driver || active.owner) : null;
   const chatClosed = !activeGroup?.items.some((conversation) => !conversation.closed_at);
-  const isDirectSupportConversation = Boolean(active?.admin_id && !(active.driver_id && active.owner_id));
+  const isDirectSupportConversation = Boolean(active && isSupportPartner(active, user?.id, other));
   const chatBlocked = !isDirectSupportConversation && (blockStatus.i_blocked_other || blockStatus.blocked_by_other);
   const supportSessionActive = Boolean(activeGroup?.items.some((conversation) => conversation.support_reopened_at && !conversation.support_resolved_at && !conversation.closed_at));
   const adminClosedChat = Boolean(activeGroup?.items.some((conversation) => conversation.closed_at && conversation.admin_closed_at));
@@ -498,12 +501,13 @@ export function ChatPage() {
             const c = group.latest;
             const otherUser = user?.id === c.driver_id ? (c.owner || c.admin) : user?.id === c.owner_id ? (c.driver || c.admin) : (c.driver || c.owner);
             const online = isProfileOnline(otherUser);
+            const support = isSupportPartner(c, user?.id, otherUser);
             return (
               <button key={group.key} onClick={() => { setActive(group.activeConversation); navigate(`/chat/${group.activeConversation.id}`); }} className={cn('group relative mx-2 mt-2 flex w-[calc(100%-1rem)] items-center gap-3 rounded-xl p-3 text-left transition hover:bg-brand-50/70', activeGroup?.key === group.key && 'bg-white shadow-soft ring-1 ring-brand-100 dark:bg-[#1d1d20] dark:ring-brand-900')}>
-                <span className="relative shrink-0"><Avatar name={otherUser?.full_name || 'User'} src={otherUser?.avatar_url} size={46} verified={otherUser?.role === 'driver' && !!otherUser?.is_verified} />{online && <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#141416]" />}</span>
+                <span className="relative shrink-0">{support ? <SiteLogo size={46} /> : <Avatar name={otherUser?.full_name || 'User'} src={otherUser?.avatar_url} size={46} verified={otherUser?.role === 'driver' && !!otherUser?.platform_history_approved} />}{online && <span className="absolute bottom-0 right-0 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-500 dark:border-[#141416]" />}</span>
                 <div className="min-w-0 flex-1">
                   <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">
-                    {otherUser?.full_name} <VerifiedBadge verified={otherUser?.is_verified} size={11} />
+                    {support ? `Official ${settings.site_name} Support` : otherUser?.full_name} {!support && <VerifiedBadge verified={otherUser?.platform_history_approved} size={11} />}
                   </p>
                   <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-ink-500">{c.vehicle?.make && <CarFront className="h-3 w-3 shrink-0" />}{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : c.admin_id ? `${settings.site_name} Admin` : 'Conversation'}</p>
                   <p className={cn('mt-1 text-[10px]', online ? 'font-semibold text-emerald-600' : 'text-ink-400')}>{lastSeenText(otherUser)}</p>
@@ -523,18 +527,14 @@ export function ChatPage() {
               <div className="flex items-center justify-between border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-violet-50 p-3 sm:p-4 dark:from-brand-950/30 dark:via-[#141416] dark:to-violet-950/20">
                 <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                   <button onClick={() => { setActive(null); navigate('/chat'); }} aria-label="Back to conversations" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-500 hover:bg-white/80 lg:hidden"><ArrowLeft className="h-5 w-5" /></button>
-                  <Link to={`/members/${other.id}`} title={`View ${other.full_name}'s profile`} aria-label={`View ${other.full_name}'s profile`} className="rounded-full transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-brand-400">
-                    <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.role === 'driver' && other.is_verified} />
-                  </Link>
-                  <div className="min-w-0">
-                    <Link to={`/members/${other.id}`} className="flex items-center gap-1 truncate font-semibold text-ink-900 hover:text-brand-700 hover:underline">{other.full_name} <VerifiedBadge verified={other.is_verified} size={12} /></Link>
+                  <ChatPartnerIdentity member={other} support={isDirectSupportConversation}>
                     <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-ink-500"><span className={cn('inline-flex shrink-0 items-center gap-1', isProfileOnline(other) ? 'font-semibold text-emerald-600' : 'text-ink-400')}><span className={cn('h-1.5 w-1.5 rounded-full', isProfileOnline(other) ? 'bg-emerald-500' : 'bg-ink-300')} />{lastSeenText(other)}</span><span aria-hidden="true">·</span><span className="truncate">{active.vehicle_id ? 'Vehicle conversation' : active.admin_id ? `${settings.site_name} support` : 'Member conversation'}</span></p>
-                  </div>
+                  </ChatPartnerIdentity>
                 </div>
                 <div className="flex gap-1">
                   {canEndConnection && <button onClick={() => setShowEndConnection(true)} aria-label="End connection" title="End connection" className="inline-flex items-center gap-1 rounded-full px-2 py-2 text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/30"><Power className="h-4 w-4" /><span className="hidden text-xs font-semibold sm:inline">End</span></button>}
                   {memberConnectionChat && <button onClick={() => setShowSupportRequest(true)} aria-label="Contact support about this conversation" title="Contact support about this conversation" className="inline-flex items-center gap-1 rounded-full px-2 py-2 text-violet-600 hover:bg-violet-100 dark:text-violet-300"><Headphones className="h-4 w-4" /><span className="hidden text-xs font-semibold sm:inline">Support</span></button>}
-                  <button onClick={() => setShowReport(true)} aria-label="Report conversation" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><Flag className="h-4 w-4" /></button>
+                  {!isDirectSupportConversation && <button onClick={() => setShowReport(true)} aria-label="Report conversation" className="rounded-full p-2 text-ink-400 hover:bg-ink-100 hover:text-ink-700"><Flag className="h-4 w-4" /></button>}
                   {!isDirectSupportConversation && (blockStatus.i_blocked_other ? (
                     <button onClick={() => setConfirmSafetyAction('unblock')} aria-label="Unblock user" title="Unblock user" className="rounded-full bg-amber-50 p-2 text-amber-700 hover:bg-amber-100"><Ban className="h-4 w-4" /></button>
                   ) : (
@@ -636,7 +636,7 @@ export function ChatPage() {
                 <button onClick={() => send()} disabled={!text.trim()} className="btn-primary h-10 w-10 rounded-full p-0 shadow-lg shadow-brand-600/20" aria-label="Send message"><Send className="h-4 w-4" /></button>
               </div>}
               {!chatClosed && !chatBlocked && otherTyping && <div className="border-t border-ink-100 bg-white px-4 pb-2 text-xs font-medium text-brand-700 dark:bg-[#141416]">
-                <span className="inline-flex items-center gap-1"><span>{other.full_name} is typing</span><span className="animate-pulse">•••</span></span>
+                <span className="inline-flex items-center gap-1"><span>{isDirectSupportConversation ? `${settings.site_name} Support` : other.full_name} is typing</span><span className="animate-pulse">•••</span></span>
               </div>}
             </>
           ) : (
@@ -648,7 +648,7 @@ export function ChatPage() {
         </div>
       </div>
 
-      {showReport && active && other && (
+      {showReport && active && other && !isDirectSupportConversation && (
         <ReportModal targetType="conversation" targetId={active.id} reportedId={other.id} onClose={() => setShowReport(false)} onDone={() => { setShowReport(false); toast('Conversation reported.'); }} />
       )}
       {showSupportRequest && active && (

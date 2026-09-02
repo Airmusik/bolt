@@ -10,7 +10,7 @@ export function PrivacyPage() {
       <div className="mt-6 space-y-4 text-sm text-ink-700">
         <p>{settings.site_name} respects your privacy. This policy explains what we collect and how we use it.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">Information we collect</h2>
-        <p>Your name, phone number, location, profile details, platform history and optional trust evidence. Profile photos appear immediately; vehicle photos remain private until an admin approves them.</p>
+        <p>Your name, registered email, phone number, town or neighbourhood, profile details, platform-history submissions, messages and attachments. We also record the terms version and server time of acceptance at registration. We do not request identity cards, driving licences or logbooks for KYC. Profile photos appear immediately; listing and platform-history approval are separate moderation steps, not guarantees of authenticity.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">How we use it</h2>
         <p>To operate driver trust profiles, show listings, enable chat, moderate platform-history uploads and improve the platform. We do not sell your data.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">Evidence visibility</h2>
@@ -18,7 +18,8 @@ export function PrivacyPage() {
         <h2 className="font-display text-lg font-bold text-ink-900">Chat history and support access</h2>
         <p>Conversation history, including privately shared chat images, remains stored after a connection ends to support safety reviews and dispute resolution. Ended chats become read-only for the two members. Chat images are available only to conversation participants and authorised administrators who join for support or moderation.</p>
         <h2 className="font-display text-lg font-bold text-ink-900">Your rights</h2>
-        <p>You can request deletion of your account and data at any time from Settings.</p>
+        <p>You can request deletion from Settings, and contact us to request access, correction, or exercise other applicable data-protection rights. Records should be kept only as long as needed for their stated purposes or lawful obligations, including a relevant dispute. Ending a connection does not itself delete its messages. Accepting the terms is not blanket consent to marketing or a waiver of privacy rights.</p>
+        <p>Privacy requests: <a href={`mailto:${settings.admin_contact_email}`} className="break-all underline">{settings.admin_contact_email}</a> · <a href={`tel:${settings.admin_contact_phone}`} className="underline">{settings.admin_contact_phone}</a>.</p>
       </div>
     </div>
   );

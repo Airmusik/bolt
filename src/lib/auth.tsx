@@ -6,6 +6,7 @@ import type { Profile } from './types';
 import { AuthContext, type AuthContextValue } from './authContext';
 import { createDemoAdminProfile, DEMO_ADMIN_EMAIL, DEMO_ADMIN_ID, DEMO_ADMIN_SESSION_KEY, DEMO_MODE } from './demoMode';
 import { hasFirstAndSecondName, normalizePersonName } from './profileValidation';
+import { TERMS_VERSION } from './legal';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthContextValue['user']>(null);
@@ -136,7 +137,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
-  const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail, userLocation, languages) => {
+  const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail, userLocation, languages, acceptedTermsVersion) => {
+    if (acceptedTermsVersion !== TERMS_VERSION) return { error: 'Read and accept the current Terms of Service before creating an account.' };
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number (e.g. 0712 345 678).' };
     if (!isValidPin(pin)) return { error: 'Password must be at least 10 characters and include uppercase, lowercase, and a number.' };
     if (!hasFirstAndSecondName(fullName)) return { error: 'Enter both your first name and second name.' };
@@ -153,10 +155,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!phoneCheckError && phoneAvailable === false) {
         return { error: 'This phone number is already registered. Sign in instead of creating another account.' };
       }
+      const { data: termsCurrent, error: termsError } = await supabase.rpc('check_registration_terms', { p_version: acceptedTermsVersion });
+      if (termsError) return { error: 'Could not check the registration terms. Check your connection and try again.' };
+      if (!termsCurrent) return { error: 'The terms have changed. Reload this page, review the current terms and accept them before signing up.' };
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { full_name: normalizePersonName(fullName), role, phone: normalized, email, location: userLocation.trim(), languages } },
+        options: { data: { full_name: normalizePersonName(fullName), role, phone: normalized, email, location: userLocation.trim(), languages, terms_accepted: true, terms_version: acceptedTermsVersion } },
       });
       if (error) return { error: getAuthErrorMessage(error, 'signup') };
 

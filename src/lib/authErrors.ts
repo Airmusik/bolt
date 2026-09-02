@@ -36,7 +36,7 @@ export function getAuthErrorMessage(error: unknown, action: AuthAction): string 
     return 'New account registration is temporarily unavailable. Please contact platform support.';
   }
   if (message.includes('database error saving new user') || message.includes('unexpected_failure')) {
-    return 'This email or phone number may already be registered. Sign in instead, or reset your password.';
+    return 'Account creation could not finish. Reload the registration page, check your details and accept the current terms, then retry. If this continues, contact support.';
   }
   if (message.includes('failed to fetch') || message.includes('network') || message.includes('fetch')) {
     return 'Could not reach the platform. Check your internet connection and try again.';

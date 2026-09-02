@@ -17,6 +17,7 @@ import { ConnectionButton } from '@/components/ConnectionButton';
 import { formatKES, formatDate, timeAgo, expiryStatus, titleCase, cn } from '@/lib/utils';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { DeleteListingButton } from '@/components/DeleteListingButton';
+import { MemberSafetyNotice } from '@/components/MemberSafetyNotice';
 
 export function VehicleDetailsPage() {
   const { id } = useParams();
@@ -184,6 +185,7 @@ export function VehicleDetailsPage() {
             </div>
           </div>
 
+          <MemberSafetyNotice />
           {/* Key facts */}
           <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Fact icon={<MapPin className="h-4 w-4" />} label="Location" value={vehicle.location} />

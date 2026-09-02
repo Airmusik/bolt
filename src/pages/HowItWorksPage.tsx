@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Car, Users, BadgeCheck, Bell, CheckCircle2, Search, TrendingUp, ArrowRight } from 'lucide-react';
 import { BackButton } from '@/components/BackButton';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { MemberSafetyNotice } from '@/components/MemberSafetyNotice';
 
 export function HowItWorksPage() {
   const { settings } = useSiteSettings();
@@ -16,16 +17,17 @@ export function HowItWorksPage() {
           { icon: Users, text: 'Register and create your owner profile.' },
           { icon: Car, text: 'Add your vehicle; admins approve its photos before they are public.' },
           { icon: Bell, text: 'Compare applications using reviews, activity and approved trust signals.' },
-          { icon: CheckCircle2, text: 'Choose your driver and start earning.' },
+          { icon: CheckCircle2, text: 'Check the driver independently and agree written terms before handover.' },
         ]} cta="List your car" />
         <Path title="For drivers" color="accent" steps={[
           { icon: Users, text: 'Register and complete your profile—no identity document is required.' },
-          { icon: BadgeCheck, text: 'Add your latest platform history and optional evidence for admin approval.' },
+          { icon: BadgeCheck, text: 'Submit your latest platform history for admin review; this is not identity verification.' },
           { icon: Search, text: 'Browse cars that match your needs and location.' },
-          { icon: TrendingUp, text: 'Apply and start earning.' },
+          { icon: TrendingUp, text: 'Check the owner, vehicle and insurance, then agree written working terms.' },
         ]} cta="Find a car" />
       </div>
 
+      <MemberSafetyNotice />
       <div className="mt-12 rounded-2xl bg-brand-700 p-8 text-center text-white">
         <h2 className="font-display text-2xl font-bold">Ready to get started?</h2>
         <Link to="/register" className="btn mt-4 bg-white text-brand-700 hover:bg-brand-50">Create your account <ArrowRight className="h-4 w-4" /></Link>

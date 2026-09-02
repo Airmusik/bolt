@@ -1,26 +1,6 @@
 import { BackButton } from '@/components/BackButton';
-import { useSiteSettings } from '@/lib/siteSettings';
+import { TermsContent } from '@/components/TermsContent';
 
 export function TermsPage() {
-  const { settings } = useSiteSettings();
-  return (
-    <div className="container-content py-12 prose max-w-3xl">
-      <BackButton to="/" />
-      <h1 className="font-display text-3xl font-bold text-ink-900">Terms of Service</h1>
-      <div className="mt-6 space-y-4 text-sm text-ink-700">
-        <p>By using {settings.site_name}, you agree to these terms. {settings.site_name} is a connection platform only and does not process payments between users.</p>
-        <h2 className="font-display text-lg font-bold text-ink-900">1. Accounts</h2>
-        <p>You must provide accurate information and must not submit misleading platform history or trust evidence. You are responsible for keeping your password secure.</p>
-        <h2 className="font-display text-lg font-bold text-ink-900">2. Listings & applications</h2>
-        <p>Owners must disclose known vehicle issues and accurate insurance information. Members must have permission to share any uploaded evidence.</p>
-        <h2 className="font-display text-lg font-bold text-ink-900">3. Conduct</h2>
-        <p>Harassment, fraud and fake listings are prohibited. We may suspend or ban accounts that violate these terms.</p>
-        <p>Connection chats may be retained after a connection ends for safety, support, and dispute resolution. Authorised administrators may review or join these chats when moderation or support is required.</p>
-        <h2 className="font-display text-lg font-bold text-ink-900">4. Payments</h2>
-        <p>{settings.site_name} does not handle rental payments between members. Targets, deposits and other rental arrangements are agreed between the owner and driver directly. Optional paid promotions are separate and use the price, duration and terms shown in the promotion quote.</p>
-        <h2 className="font-display text-lg font-bold text-ink-900">5. Liability</h2>
-        <p>{settings.site_name} is not liable for disputes, damages or losses arising from arrangements made through the platform.</p>
-      </div>
-    </div>
-  );
+  return <div className="container-content max-w-3xl py-8 sm:py-12"><BackButton to="/" /><h1 className="mt-3 font-display text-3xl font-bold text-ink-900">Terms of Service</h1><div className="mt-6"><TermsContent /></div></div>;
 }
