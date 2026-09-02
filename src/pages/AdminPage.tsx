@@ -394,28 +394,26 @@ export function AdminPage() {
     const prefill = report
       ? `I am contacting you about a ${report.target_type} report: "${report.reason}".${report.description ? ` Report details: ${report.description}` : ''} `
       : '';
-    // Check if conversation already exists
     const { data: existing } = await supabase
-      .from('conversations')
+      .from('contact_messages')
       .select('id')
-      .eq('admin_id', user.id)
-      .or(`driver_id.eq.${targetUser.id},owner_id.eq.${targetUser.id}`)
+      .eq('user_id', targetUser.id)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
-    if (existing) {
-      setTab('chat');
-      window.setTimeout(() => window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: { conversationId: existing.id, prefill } })), 50);
-      return;
+    let threadId = existing?.id || null;
+    if (!threadId) {
+      const { data, error } = await supabase.rpc('admin_start_support_thread', {
+        p_user_id: targetUser.id,
+        p_message: `Hello ${targetUser.full_name}, ${siteSettings.site_name} Support opened this conversation to assist you.`,
+      });
+      if (error) { toast('Could not start support message: ' + error.message, 'error'); return; }
+      threadId = typeof data === 'string' ? data : null;
     }
-    // Create new conversation
-    const isDriver = targetUser.role === 'driver';
-    const { data: conv, error } = await supabase
-      .from('conversations')
-      .insert({ admin_id: user.id, driver_id: isDriver ? targetUser.id : null, owner_id: isDriver ? null : targetUser.id })
-      .select()
-      .maybeSingle();
-    if (error) { toast('Could not start chat: ' + error.message, 'error'); return; }
-    setTab('chat');
-    if (conv?.id) window.setTimeout(() => window.dispatchEvent(new CustomEvent('admin-open-chat', { detail: { conversationId: conv.id, prefill } })), 50);
+    if (!threadId) { toast('Could not open the support message.', 'error'); return; }
+    window.history.replaceState(null, '', `/admin?tab=contact&message=${threadId}`);
+    setTab('contact');
+    window.setTimeout(() => window.dispatchEvent(new CustomEvent('admin-open-message', { detail: { threadId, prefill } })), 50);
   };
 
   const stats: { label: string; value: number; icon: LucideIcon }[] = [
@@ -596,7 +594,7 @@ export function AdminPage() {
                   <button onClick={() => setViewingUser(u)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
                   {!u.is_suspended && u.verification_status !== 'approved' && <button onClick={() => setTab('history')} className="btn-primary px-3 py-1 text-xs">Review uploads</button>}
                   <button onClick={() => setEditingUser(u)} aria-label={`Edit ${u.full_name}`} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
+                  <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Message</button>
                   <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
@@ -626,7 +624,7 @@ export function AdminPage() {
                   {u.is_suspended && <span className="badge badge-danger"><Ban className="inline h-3 w-3" /> Suspended</span>}
                   <button onClick={() => setViewingUser(u)} className="btn-ghost text-sm"><Eye className="h-4 w-4" /> View</button>
                   <button onClick={() => setEditingUser(u)} aria-label={`Edit ${u.full_name}`} className="btn-ghost text-sm"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Chat</button>
+                  <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Message</button>
                   <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
                   {u.is_suspended ? (
                     <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
@@ -1596,6 +1594,16 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
   const active = messages.find((message) => message.id === activeId) || null;
   const entries = [...(active?.entries || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ threadId: string; prefill?: string }>).detail;
+      setActiveId(detail.threadId);
+      if (detail.prefill) setReply(detail.prefill);
+    };
+    window.addEventListener('admin-open-message', handler);
+    return () => window.removeEventListener('admin-open-message', handler);
+  }, []);
+
   const sendReply = async () => {
     if (!active || !adminId || sending || (!reply.trim() && !attachment)) return;
     setSending(true);
@@ -1649,8 +1657,8 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
         <div className="border-b border-ink-100 p-4"><h2 className="font-semibold text-ink-900">Messages</h2><p className="mt-1 text-xs text-ink-500">Direct support requests, replies, and attachments</p></div>
         {messages.map((message) => (
           <button key={message.id} type="button" onClick={() => setActiveId(message.id)} className={cn('flex w-full items-start gap-3 border-b border-ink-50 p-4 text-left hover:bg-ink-50', activeId === message.id && 'bg-brand-50')}>
-            <Avatar name={message.name} src={message.user?.avatar_url} size={40} verified={message.user?.role === 'driver' && message.user?.is_verified} />
-            <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-semibold text-ink-900">{message.name}</p><span className={cn('badge shrink-0 text-[10px] capitalize', message.status === 'new' ? 'badge-warning' : message.status === 'resolved' ? 'badge-success' : 'badge-brand')}>{message.status}</span></div><p className="mt-0.5 truncate text-xs text-ink-600">{lastContactEntry(message)?.body || lastContactEntry(message)?.attachment_name || message.message}</p><p className="mt-1 text-[10px] text-ink-400">{formatDateTime(message.updated_at || message.created_at)}</p></div>
+            <Avatar name={message.user?.full_name || message.name} src={message.user?.avatar_url} size={40} verified={message.user?.role === 'driver' && message.user?.is_verified} />
+            <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-semibold text-ink-900">{message.user?.full_name || message.name}</p><span className={cn('badge shrink-0 text-[10px] capitalize', message.status === 'new' ? 'badge-warning' : message.status === 'resolved' ? 'badge-success' : 'badge-brand')}>{message.status}</span></div><p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">{message.user?.role === 'owner' ? 'Car owner' : message.user?.role === 'driver' ? 'Driver' : 'Guest'}</p><p className="mt-0.5 truncate text-xs text-ink-600">{lastContactEntry(message)?.body || lastContactEntry(message)?.attachment_name || message.message}</p><p className="mt-1 text-[10px] text-ink-400">{formatDateTime(message.updated_at || message.created_at)}</p></div>
           </button>
         ))}
       </div>
@@ -1659,8 +1667,8 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
         {active ? <>
           <div className="flex flex-wrap items-center gap-3 border-b border-ink-100 p-4">
             <button type="button" onClick={() => setActiveId(null)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-100"><ArrowLeft className="h-4 w-4" /> Back</button>
-            <Avatar name={active.name} src={active.user?.avatar_url} size={42} verified={active.user?.role === 'driver' && active.user?.is_verified} />
-            <div className="min-w-0"><p className="font-semibold text-ink-900">{active.name}</p><p className="truncate text-xs text-ink-500">{active.email} · {active.user ? active.user.role === 'owner' ? 'Car owner' : 'Driver' : 'Guest message'}</p></div>
+            <Avatar name={active.user?.full_name || active.name} src={active.user?.avatar_url} size={42} verified={active.user?.role === 'driver' && active.user?.is_verified} />
+            <div className="min-w-0"><p className="font-semibold text-ink-900">{active.user?.full_name || active.name}</p><p className="truncate text-xs text-ink-500">{active.email} · {active.user ? active.user.role === 'owner' ? 'Car owner' : 'Driver' : 'Guest message'}</p></div>
             <div className="ml-auto flex flex-wrap gap-2">{active.user && <button type="button" onClick={() => onViewUser(active.user!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View user</button>}<a href={`mailto:${active.email}`} className="btn-secondary px-3 py-1.5 text-xs"><Mail className="h-3.5 w-3.5" /> Email</a>{active.status !== 'resolved' && <button type="button" onClick={() => void onResolve(active)} className="btn-secondary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Resolve</button>}<button type="button" onClick={() => onDelete(active)} className="btn-ghost px-3 py-1.5 text-xs text-danger"><Trash2 className="h-3.5 w-3.5" /></button></div>
           </div>
           <div className="flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4">
@@ -1705,12 +1713,13 @@ function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; ema
     const [{ data }, { data: memberships }, { data: supportRequests }] = await Promise.all([
       supabase.from('conversations').select(`*, driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS})`).order('last_message_at', { ascending: false, nullsFirst: false }),
       supabase.from('conversation_admins').select('conversation_id').eq('admin_id', user.id),
-      supabase.from('reports').select('target_id').eq('target_type', 'conversation').eq('reason', 'Support requested').in('status', ['open', 'reviewing']),
+      supabase.from('reports').select('target_id, status').eq('target_type', 'conversation').eq('reason', 'Support requested'),
     ]);
-    const supportIds = new Set<string>((supportRequests || []).map((request) => request.target_id).filter((id): id is string => Boolean(id)));
+    const invitedIds = new Set<string>((supportRequests || []).map((request) => request.target_id).filter((id): id is string => Boolean(id)));
+    const supportIds = new Set<string>((supportRequests || []).filter((request) => ['open', 'reviewing'].includes(request.status)).map((request) => request.target_id).filter((id): id is string => Boolean(id)));
     const joinedIds = new Set<string>((memberships || []).map((membership) => membership.conversation_id));
     const nextConversations = ((data as (Conversation & { driver?: Profile; owner?: Profile })[]) || [])
-      .filter((conversation) => conversation.admin_id === user.id || joinedIds.has(conversation.id) || supportIds.has(conversation.id))
+      .filter((conversation) => Boolean(conversation.driver && conversation.owner) && invitedIds.has(conversation.id))
       .sort((a, b) => {
       const supportPriority = Number(supportIds.has(b.id)) - Number(supportIds.has(a.id));
       if (supportPriority !== 0) return supportPriority;
@@ -1882,7 +1891,7 @@ function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; ema
               <Avatar name={u?.full_name || 'User'} src={u?.avatar_url} size={44} verified={u?.role === 'driver' && u?.is_verified} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-semibold text-ink-900">{c.driver && c.owner ? `Driver: ${c.driver.full_name} ↔ Car owner: ${c.owner.full_name}` : u?.full_name}</p>
-                <p className="text-xs text-ink-500">{c.driver && c.owner ? 'Driver and car-owner conversation' : `${u?.role === 'owner' ? 'Car owner' : u?.role === 'driver' ? 'Driver' : 'Member'} · direct support`}</p>
+                <p className="text-xs text-ink-500">Driver and car-owner conversation · support invited</p>
                 <p className="mt-0.5 text-[10px] text-ink-400">{formatDateTime(c.last_message_at || c.created_at)}</p>
               </div>
               <div className="text-right">{supportRequestedIds.has(c.id) && !(c.support_reopened_at && !c.support_resolved_at && !c.closed_at) ? <span className="badge bg-amber-100 text-[10px] text-amber-800">Support requested</span> : c.support_reopened_at && !c.support_resolved_at && !c.closed_at ? <span className="badge bg-violet-100 text-[10px] text-violet-700">Support open</span> : joined && <span className="badge badge-success text-[10px]">Joined</span>}{c.last_message_at && <span className="mt-1 block text-[10px] text-ink-400">{timeAgo(c.last_message_at)}</span>}</div>
@@ -1899,7 +1908,7 @@ function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; ema
               <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.role === 'driver' && other.is_verified} />
               <div>
                 <p className="font-semibold text-ink-900">{active.driver && active.owner ? `Driver: ${active.driver.full_name} ↔ Car owner: ${active.owner.full_name}` : other.full_name}</p>
-                <p className="text-xs text-brand-600">{active.closed_at ? 'Ended · preserved history' : supportSessionActive ? 'Reopened support session · members can chat' : active.driver && active.owner ? 'Active driver and car-owner chat' : `${other.role === 'owner' ? 'Car owner' : 'Driver'} · direct support`}</p>
+                <p className="text-xs text-brand-600">{active.closed_at ? 'Ended · preserved history' : supportSessionActive ? 'Reopened support session · members can chat' : 'Active driver and car-owner chat · support invited'}</p>
               </div>
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{active.driver && <button type="button" onClick={() => onViewUser(active.driver!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View driver</button>}{active.owner && <button type="button" onClick={() => onViewUser(active.owner!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View owner</button>}{active.closed_at ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><Headphones className="h-4 w-4" /> {joining ? 'Reopening…' : 'Reopen with support'}</button> : !activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}{canLeaveLiveChat && <button onClick={() => setConfirmLeaveChat(true)} disabled={leaving} className="btn-secondary text-xs"><UserMinus className="h-4 w-4" /> Leave chat</button>}{active.driver && active.owner && !active.closed_at && <button onClick={() => setConfirmCloseChat(true)} className="btn-secondary text-xs"><LockKeyhole className="h-4 w-4" /> {supportSessionActive ? 'End support chat' : 'Close chat'}</button>}</div>
             </div>

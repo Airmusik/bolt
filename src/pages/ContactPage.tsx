@@ -90,8 +90,8 @@ export function ContactPage() {
     setLoading(true);
     const payload = {
       user_id: user?.id || null,
-      name: form.name.trim(),
-      email: form.email.trim().toLowerCase(),
+      name: user ? profile?.full_name || form.name.trim() : form.name.trim(),
+      email: user ? user.email || form.email.trim().toLowerCase() : form.email.trim().toLowerCase(),
       message: form.message.trim(),
     };
     const result = user
@@ -199,7 +199,7 @@ export function ContactPage() {
           <form onSubmit={submit} className="card self-start p-6">
             <h2 className="font-display text-xl font-bold text-ink-900">Start a message</h2>
             <p className="mt-1 text-xs text-ink-500">{user ? 'Your message, attachments, and all support replies will remain in your history.' : 'Sign in if you want attachments and in-app reply history. Support uses the supplied email address for guest responses.'}</p>
-            <div className="mt-5"><label className="label">Name <span className="text-danger">*</span></label><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="input" required /><p className="mt-1.5 text-xs text-ink-400">Tell support what name to use when replying.</p></div>
+            <div className="mt-5"><label className="label">Name <span className="text-danger">*</span></label><input value={user ? profile?.full_name || form.name : form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="input" required readOnly={Boolean(user)} /><p className="mt-1.5 text-xs text-ink-400">{user ? 'Your registered account name is used so support can identify you correctly.' : 'Tell support what name to use when replying.'}</p></div>
             <div className="mt-4"><label className="label">Email <span className="text-danger">*</span></label><input type="email" value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} className="input" required readOnly={Boolean(user?.email)} /><p className="mt-1.5 text-xs text-ink-400">Support notifications and replies are associated with this address.</p></div>
             <div className="mt-4"><label className="label">Message <span className="text-danger">*</span></label><textarea value={form.message} onChange={(event) => setForm({ ...form, message: event.target.value })} rows={5} className="input" required minLength={5} maxLength={5000} /><p className="mt-1.5 text-xs text-ink-400">Describe what happened, what you expected, and the help you need.</p></div>
             {user && <div className="mt-4"><input ref={newFileRef} type="file" accept={CONTACT_FILE_ACCEPT} className="block w-full rounded-xl border border-ink-200 bg-white text-xs text-ink-600 file:mr-3 file:border-0 file:border-r file:border-ink-200 file:bg-ink-50 file:px-4 file:py-3 file:font-semibold dark:bg-[#141416]" onChange={(event) => setAttachment(event.target.files?.[0] || null)} /><p className="mt-1.5 text-xs text-ink-400">Optional image, PDF, text, or Word file · maximum 8 MB.</p></div>}

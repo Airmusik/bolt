@@ -113,7 +113,6 @@ export function LoginPage() {
   return (
     <div className="container-content flex min-h-[80vh] items-center justify-center py-12">
       <div className="w-full max-w-md">
-        <BackButton to="/" className="mb-4" />
         <div className="mb-8 text-center">
           <Link to="/" className="inline-flex items-center gap-2">
             <SiteLogo size="lg" />
