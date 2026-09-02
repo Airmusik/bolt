@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Trash2, CheckCircle2, ArrowRight, AlertCircle, ShieldCheck, Pencil, Clock3, History, FileText, Loader2, Upload } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
@@ -10,15 +10,11 @@ import { BackButton } from '@/components/BackButton';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { isPreviewableTrustImage, isTrustImageFile, prepareTrustUpload } from '@/lib/trustUpload';
-import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras', 'other'];
-const TRUST_FILE_ACCEPT = 'image/*,application/pdf,.pdf,.heic,.heif';
-const PROOF_PICKER_ITEM_KEY = 'drivevell-driver-proof-picker-item';
-
-function savedProofPickerItem() {
-  try { return sessionStorage.getItem(PROOF_PICKER_ITEM_KEY); } catch { return null; }
-}
+const TRUST_FILE_ACCEPT = 'image/*,.pdf';
+const MAX_PDF_BYTES = 8 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 24 * 1024 * 1024;
 
 interface DriverAboutForm {
   full_name: string;
@@ -57,9 +53,6 @@ export function DriverOnboardingPage() {
   const [editingPassport, setEditingPassport] = useState(false);
   const [loadingSavedProfile, setLoadingSavedProfile] = useState(false);
   const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null);
-  const [uploadIssue, setUploadIssue] = useState<string | null>(() => consumeInterruptedMobileUpload('driver-proof'));
-  const [proofPickerItemId, setProofPickerItemId] = useState<string | null>(savedProofPickerItem);
-  const proofInputRef = useRef<HTMLInputElement>(null);
 
   const hydrateProfileForm = useCallback((savedProfile: typeof profile) => {
     if (!savedProfile) return;
@@ -119,52 +112,37 @@ export function DriverOnboardingPage() {
     }
   };
 
-  const chooseUpload = async (
+  const chooseUpload = (
     file: File,
     target: { kind: 'history'; item: PlatformHistory; label: string },
   ) => {
     const uploadKey = `history-${target.item.id}`;
-    setUploadingType(uploadKey);
-    setUploadIssue(null);
-    rememberMobileUploadAttempt('driver-proof', file);
-    try {
-      const preparedFile = await prepareTrustUpload(file);
-      const imageFile = isTrustImageFile(preparedFile);
-      setPendingUpload({
-        ...target,
-        file: preparedFile,
-        previewUrl: imageFile ? URL.createObjectURL(preparedFile) : null,
-        previewReady: !imageFile,
-        previewFailed: false,
-        uploadKey,
-      } as PendingUpload);
-      clearMobileUploadAttempt();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'The image could not be prepared.';
-      clearMobileUploadAttempt();
-      setUploadIssue(message);
-      toast('Could not preview this upload: ' + message, 'error');
-    } finally {
-      setUploadingType(null);
+    const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+    const isImage = isTrustImageFile(file);
+    if (!isImage && !isPdf) {
+      toast('Choose an image or PDF file.', 'error');
+      return;
     }
+    if (isPdf && file.size > MAX_PDF_BYTES) {
+      toast('The PDF must be smaller than 8 MB.', 'error');
+      return;
+    }
+    if (isImage && file.size > MAX_IMAGE_BYTES) {
+      toast('The image must be smaller than 24 MB.', 'error');
+      return;
+    }
+    setPendingUpload({
+      ...target,
+      file,
+      previewUrl: isImage ? URL.createObjectURL(file) : null,
+      previewReady: !isImage,
+      previewFailed: false,
+      uploadKey,
+    });
   };
 
   const clearPendingUpload = () => {
     setPendingUpload(null);
-  };
-
-  const closeProofPicker = () => {
-    clearPendingUpload();
-    setUploadIssue(null);
-    try { sessionStorage.removeItem(PROOF_PICKER_ITEM_KEY); } catch { /* ignore unavailable storage */ }
-    setProofPickerItemId(null);
-  };
-
-  const openProofPicker = (item: PlatformHistory) => {
-    clearPendingUpload();
-    setUploadIssue(null);
-    try { sessionStorage.setItem(PROOF_PICKER_ITEM_KEY, item.id); } catch { /* ignore unavailable storage */ }
-    setProofPickerItemId(item.id);
   };
 
   useEffect(() => {
@@ -192,7 +170,7 @@ export function DriverOnboardingPage() {
     try {
       const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       const path = `${user.id}/history-${item.id}-${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file, { contentType: file.type || undefined });
+      const { error: uploadError } = await supabase.storage.from(DOCUMENT_BUCKET).upload(path, file);
       if (uploadError) throw uploadError;
       const { data: publicUrl } = supabase.storage.from(DOCUMENT_BUCKET).getPublicUrl(path);
       const { error } = await supabase.from('driver_platform_history').update({ proof_url: publicUrl.publicUrl, approved: false }).eq('id', item.id);
@@ -212,8 +190,16 @@ export function DriverOnboardingPage() {
 
   const submitPendingUpload = async () => {
     if (!pendingUpload) return;
-    const succeeded = await uploadHistoryProof(pendingUpload.item, pendingUpload.file);
-    if (succeeded) closeProofPicker();
+    setUploadingType(pendingUpload.uploadKey);
+    try {
+      const preparedFile = await prepareTrustUpload(pendingUpload.file);
+      const succeeded = await uploadHistoryProof(pendingUpload.item, preparedFile);
+      if (succeeded) clearPendingUpload();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The file could not be prepared.';
+      toast('Could not prepare this upload: ' + message, 'error');
+      setUploadingType(null);
+    }
   };
 
   const updateHistory = async (item: PlatformHistory, field: keyof PlatformHistory, value: unknown) => {
@@ -307,73 +293,6 @@ export function DriverOnboardingPage() {
     );
   }
 
-  if (proofPickerItemId) {
-    const proofItem = history.find((item) => item.id === proofPickerItemId);
-    return (
-      <div className="container-content max-w-xl py-8">
-        <button type="button" onClick={closeProofPicker} className="btn-ghost">← Back to platform history</button>
-        <div className="card mt-4 p-5 sm:p-6">
-          <h1 className="font-display text-xl font-bold text-ink-900">Upload platform proof</h1>
-          <p className="mt-1 text-sm text-ink-500">The full form is now unloaded. Tap the button below to open your gallery safely; the file stays private until you confirm it.</p>
-
-          {!trustLoaded && <div className="mt-6 flex items-center gap-2 text-sm text-ink-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading platform…</div>}
-          {trustLoaded && !proofItem && <div role="alert" className="mt-6 rounded-xl bg-red-50 p-4 text-sm text-red-800">This platform entry could not be found. Return to platform history and try again.</div>}
-
-          {proofItem && <>
-            <div className="mt-5 rounded-xl bg-ink-50 p-4 ring-1 ring-ink-100">
-              <p className="text-xs font-semibold uppercase tracking-wide text-brand-700">{titleCase(proofItem.platform)}</p>
-              <p className="mt-1 text-sm text-ink-600">Select the latest activity screenshot or photo for this platform.</p>
-            </div>
-
-            {uploadIssue && <div role="alert" className="mt-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950/20 dark:text-red-100"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="font-semibold">The phone closed the previous selection</p><p className="mt-0.5 text-xs">{uploadIssue}</p></div></div>}
-
-            <label className="btn-primary mt-5 flex min-h-12 w-full cursor-pointer justify-center">
-              <input
-                ref={proofInputRef}
-                type="file"
-                accept={TRUST_FILE_ACCEPT}
-                aria-label={`Choose ${titleCase(proofItem.platform)} platform proof`}
-                className="hidden"
-                disabled={uploadingType === `history-${proofItem.id}`}
-                onClick={() => rememberMobileUploadPicker('driver-proof')}
-                onChange={(event) => {
-                  const file = event.currentTarget.files?.item(0);
-                  if (file) void chooseUpload(file, { kind: 'history', item: proofItem, label: `${titleCase(proofItem.platform)} platform proof` });
-                  event.currentTarget.value = '';
-                }}
-              />
-              {uploadingType === `history-${proofItem.id}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-              {uploadingType === `history-${proofItem.id}` ? 'Preparing preview…' : pendingUpload ? 'Choose a different file' : 'Choose image or PDF'}
-            </label>
-
-            {pendingUpload?.item.id === proofItem.id && (
-              <div className="mt-5 rounded-2xl border border-brand-200 bg-brand-50/60 p-3 sm:p-4">
-                <p className="text-sm font-semibold text-ink-900">Review before submitting</p>
-                <p className="mt-1 text-xs text-ink-600">Make sure this is the correct platform-history proof.</p>
-                <div className="mt-3 overflow-hidden rounded-xl border border-ink-200 bg-white p-2">
-                  {pendingUpload.previewUrl ? (
-                    <img
-                      src={pendingUpload.previewUrl}
-                      alt={`Preview of ${pendingUpload.label}`}
-                      className="mx-auto max-h-[50vh] w-full rounded-lg object-contain"
-                      onLoad={() => setPendingUpload((current) => current?.item.id === proofItem.id ? { ...current, previewReady: true } : current)}
-                      onError={() => setPendingUpload((current) => current?.item.id === proofItem.id ? { ...current, previewReady: false, previewFailed: true } : current)}
-                    />
-                  ) : (
-                    <div className="flex min-h-36 flex-col items-center justify-center text-center"><FileText className="h-10 w-10 text-brand-600" /><p className="mt-2 text-sm font-semibold text-ink-900">{pendingUpload.file.name}</p><p className="mt-1 text-xs text-ink-500">PDF selected</p></div>
-                  )}
-                </div>
-                {pendingUpload.previewFailed && <p className="mt-2 text-xs font-semibold text-danger">This phone cannot preview that image format. Take a screenshot of the image and choose the screenshot instead.</p>}
-                <p className="mt-2 break-all text-xs text-ink-500">{pendingUpload.file.name} · {(pendingUpload.file.size / (1024 * 1024)).toFixed(1)} MB</p>
-                <button type="button" onClick={submitPendingUpload} disabled={uploadingType === pendingUpload.uploadKey || !pendingUpload.previewReady} className="btn-primary mt-4 w-full">{uploadingType === pendingUpload.uploadKey ? 'Submitting…' : 'Submit for review'}</button>
-              </div>
-            )}
-          </>}
-        </div>
-      </div>
-    );
-  }
-
   const passportSubmitted = trustLoaded && !editingPassport && (profile?.verification_status === 'pending' || profile?.verification_status === 'approved');
 
   if (passportSubmitted) {
@@ -422,7 +341,6 @@ export function DriverOnboardingPage() {
         <AboutFields profileForm={profileForm} setProfileForm={setProfileForm} />
 
         <Section title="Platform history and proof (required)" desc="Add at least one platform, enter your recent activity, and upload its latest Uber, Bolt, Faras, Little Cab, or other platform history. Admins see the private proof; other members only see approved activity.">
-          {uploadIssue && <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:bg-red-950/20 dark:text-red-100"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" /><div><p className="font-semibold">The photo was not selected</p><p className="mt-0.5 text-xs">{uploadIssue}</p></div></div>}
           <div className="space-y-3">{history.map((item) => <div key={item.id} className="space-y-3 rounded-xl border border-ink-100 p-4">
             <div className="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto]">
               <Field label="Platform" required hint="Select the app shown in your proof."><select value={item.platform} onChange={(e) => updateHistory(item, 'platform', e.target.value)} className="input py-2">{PLATFORMS.map((platform) => <option key={platform} value={platform}>{titleCase(platform)}</option>)}</select></Field>
@@ -433,11 +351,50 @@ export function DriverOnboardingPage() {
             <div className="flex flex-wrap items-end gap-2">
               <div className="w-full sm:max-w-sm">
                 <p className="mb-1 block text-xs font-semibold text-ink-700">{item.proof_url ? 'Choose replacement proof' : 'Choose proof'} <span className="text-danger">*</span></p>
-                <button type="button" onClick={() => openProofPicker(item)} className="btn-secondary min-h-11 w-full justify-center text-sm"><Upload className="h-4 w-4" /> {item.proof_url ? 'Continue to replace proof' : 'Continue to upload proof'}</button>
+                <label className="btn-secondary flex min-h-11 w-full cursor-pointer justify-center text-sm">
+                  <input
+                    type="file"
+                    accept={TRUST_FILE_ACCEPT}
+                    aria-label={`Choose ${titleCase(item.platform)} platform proof`}
+                    className="hidden"
+                    disabled={uploadingType === `history-${item.id}`}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.item(0);
+                      if (file) chooseUpload(file, { kind: 'history', item, label: `${titleCase(item.platform)} platform proof` });
+                      event.currentTarget.value = '';
+                    }}
+                  />
+                  <Upload className="h-4 w-4" /> {pendingUpload?.item.id === item.id ? 'Choose a different file' : item.proof_url ? 'Choose replacement proof' : 'Choose image or PDF'}
+                </label>
               </div>
               {item.approved ? <span className="badge badge-success">Approved</span> : item.proof_url ? <span className="badge badge-warning">Pending approval</span> : <span className="text-xs text-ink-400">Not public yet</span>}
               <span className="basis-full text-[11px] text-ink-400">Upload your latest platform activity screen. Phone photos, HEIC, JPG, PNG, WebP, or PDF · preview before submission · maximum 8 MB.</span>
             </div>
+            {pendingUpload?.item.id === item.id && (
+              <div className="rounded-2xl border border-brand-200 bg-brand-50/60 p-3 sm:p-4">
+                <p className="text-sm font-semibold text-ink-900">Review before submitting</p>
+                <p className="mt-1 text-xs text-ink-600">The file is selected but has not been uploaded. Confirm that it is the correct platform-history proof.</p>
+                <div className="mt-3 overflow-hidden rounded-xl border border-ink-200 bg-white p-2">
+                  {pendingUpload.previewUrl ? (
+                    <img
+                      src={pendingUpload.previewUrl}
+                      alt={`Preview of ${pendingUpload.label}`}
+                      className="mx-auto max-h-[50vh] w-full rounded-lg object-contain"
+                      onLoad={() => setPendingUpload((current) => current?.item.id === item.id ? { ...current, previewReady: true } : current)}
+                      onError={() => setPendingUpload((current) => current?.item.id === item.id ? { ...current, previewReady: false, previewFailed: true } : current)}
+                    />
+                  ) : (
+                    <div className="flex min-h-36 flex-col items-center justify-center text-center"><FileText className="h-10 w-10 text-brand-600" /><p className="mt-2 break-all text-sm font-semibold text-ink-900">{pendingUpload.file.name}</p><p className="mt-1 text-xs text-ink-500">PDF · {pendingUpload.file.type || 'application/pdf'}</p></div>
+                  )}
+                </div>
+                {pendingUpload.previewFailed && <p className="mt-2 text-xs font-semibold text-danger">This browser cannot preview that image. Choose a different image or use a screenshot.</p>}
+                <p className="mt-2 break-all text-xs text-ink-500">{pendingUpload.file.name} · {(pendingUpload.file.size / (1024 * 1024)).toFixed(1)} MB</p>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                  <button type="button" onClick={clearPendingUpload} disabled={uploadingType === pendingUpload.uploadKey} className="btn-secondary flex-1">Cancel</button>
+                  <button type="button" onClick={submitPendingUpload} disabled={uploadingType === pendingUpload.uploadKey || !pendingUpload.previewReady} className="btn-primary flex-1">{uploadingType === pendingUpload.uploadKey ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</> : 'Upload proof'}</button>
+                </div>
+              </div>
+            )}
             {item.proof_url && isPreviewableTrustImage(item.proof_url) && <UploadPreview url={item.proof_url} label={`${titleCase(item.platform)} platform proof`} />}
           </div>)}<button type="button" onClick={addHistory} className="btn-secondary"><Plus className="h-4 w-4" /> Add platform</button></div>
         </Section>

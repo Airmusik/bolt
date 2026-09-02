@@ -64,9 +64,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      const u = session?.user ?? null;
+      const uid = u?.id ?? null;
+      const sameSignedInUser = Boolean(uid && uid === activeUserId.current && event !== 'SIGNED_OUT');
+
+      // Token refreshes and repeated SIGNED_IN events are common when a mobile
+      // browser returns from its native camera/file picker. Clearing the
+      // profile here made ProtectedRoute render its loader, which unmounted the
+      // file input before its change event could preserve the selected File.
+      if (sameSignedInUser) {
+        if (event === 'USER_UPDATED') {
+          setUser({ id: u!.id, email: u!.email ?? '' });
+          void loadProfile(u!.id);
+        }
+        return;
+      }
+
       (async () => {
-        const u = session?.user ?? null;
-        const uid = u?.id ?? null;
         activeUserId.current = uid;
         setLoading(true);
         setProfile(null);
