@@ -177,7 +177,7 @@ export function Header() {
         </Link>
 
         <nav className={cn('hidden items-center gap-1', user ? 'md:flex' : 'lg:flex')}>
-          {navLinks.map((l) => (
+          {navLinks.filter((l) => l.to !== '/dashboard').map((l) => (
             <Link
               key={l.to}
               to={l.to}

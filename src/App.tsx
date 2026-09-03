@@ -1,6 +1,6 @@
 import { Link, Routes, Route } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
-import { Loader2, LockKeyhole, Wrench } from 'lucide-react';
+import { LockKeyhole, Wrench } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/lib/useAuth';
@@ -68,7 +68,7 @@ export default function App() {
 
   return (
     <Layout>
-      <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-brand-600" /></div>}>
+      <Suspense fallback={<div role="status" className="min-h-48"><span className="sr-only">Loading page…</span></div>}>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
