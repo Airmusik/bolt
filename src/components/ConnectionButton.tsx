@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { ConfirmDialog } from './ConfirmDialog';
 import { DriverApprovalNotice } from './DriverApprovalNotice';
 import { driverNeedsApproval } from '@/lib/driverEligibility';
+import { canRequestConnection, CONNECTION_ROLE_MESSAGE } from '@/lib/connectionEligibility';
 
 interface Props {
   otherUserId: string;
@@ -57,6 +58,10 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
 
   const handleSend = async () => {
     if (!user) { navigate('/login'); return; }
+    if (!canRequestConnection(profile?.role, otherProfile?.role)) {
+      toast(CONNECTION_ROLE_MESSAGE, 'error');
+      return;
+    }
     setSending(true);
     const { connection, error } = await sendConnectionRequest(user.id, otherUserId, message, vehicleId);
     setSending(false);
@@ -96,6 +101,11 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   if (user.id === otherUserId) return null;
 
   if (loading) return <div className={cn('h-9 w-24 animate-pulse rounded-lg bg-ink-100', className)} />;
+
+  // Fail closed while a profile is unavailable; preserve access to existing chats.
+  if (connection?.status !== 'accepted' && !canRequestConnection(profile?.role, otherProfile?.role)) {
+    return <span className={cn('inline-flex items-center rounded-lg bg-ink-100 px-3 py-2 text-xs text-ink-500', className)}>{CONNECTION_ROLE_MESSAGE}</span>;
+  }
 
   // Existing chats remain reachable even while replacement history is reviewed.
   if (profile && driverNeedsApproval(profile) && connection?.status !== 'accepted') return <>
