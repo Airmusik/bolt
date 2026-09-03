@@ -51,6 +51,7 @@ export interface Vehicle {
   deleted_at?: string | null;
   id: string;
   owner_id: string;
+  plate_prefix?: string | null;
   make: string;
   model: string;
   year: number;

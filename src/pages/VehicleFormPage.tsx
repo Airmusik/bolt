@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { notifyAdAction } from '@/lib/ads';
 import { BackButton } from '@/components/BackButton';
 import { DocumentExpiry } from '@/components/DocumentExpiry';
+import { normalizePlatePrefix, validPlatePrefix } from '@/lib/platePrefix';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, AlertTriangle, Upload, X, ArrowLeft } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
@@ -45,7 +46,7 @@ export function VehicleFormPage() {
 
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    make: '', model: '', year: String(new Date().getFullYear()), transmission: 'automatic', fuel_type: 'petrol',
+    make: '', model: '', plate_prefix: '', year: String(new Date().getFullYear()), transmission: 'automatic', fuel_type: 'petrol',
     location: '', weekly_target: '', monthly_target: '', deposit: '', minimum_driver_experience_years: '0', requirements: '',
     registered_platforms: [] as Vehicle['registered_platforms'],
     availability: 'available', insurance_type: 'third_party', insurance_expiry: '',
@@ -71,7 +72,7 @@ export function VehicleFormPage() {
         const veh = v as Vehicle;
         setOriginalApprovalStatus(veh.approval_status);
         setForm({
-          make: veh.make, model: veh.model, year: String(veh.year), transmission: veh.transmission, fuel_type: veh.fuel_type,
+          make: veh.make, model: veh.model, plate_prefix: veh.plate_prefix || '', year: String(veh.year), transmission: veh.transmission, fuel_type: veh.fuel_type,
           location: veh.location, weekly_target: veh.weekly_target?.toString() || '', monthly_target: veh.monthly_target?.toString() || '',
           deposit: veh.deposit?.toString() || '', minimum_driver_experience_years: String(veh.minimum_driver_experience_years ?? 0), requirements: veh.requirements || '',
           registered_platforms: veh.registered_platforms || [],
@@ -142,6 +143,7 @@ export function VehicleFormPage() {
 
   const save = async () => {
     if (!user) return;
+    if (!validPlatePrefix(form.plate_prefix)) { toast('Enter the first three number-plate letters, for example KDA. Do not enter the full plate.', 'error'); return; }
     if (!form.make || !form.model.trim() || !form.location.trim()) { toast('Make, model and location are required.', 'error'); return; }
     if ([form.weekly_target, form.monthly_target, form.deposit].some(value => value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0))) { toast('Targets and deposit must be zero or a positive amount.', 'error'); return; }
     if (!/^\d{4}$/.test(form.year) || Number(form.year) < 1900 || Number(form.year) > new Date().getFullYear() + 1) { toast('Enter a valid four-digit manufacture year.', 'error'); return; }
@@ -153,6 +155,7 @@ export function VehicleFormPage() {
     setSaving(true);
     const payload = {
       owner_id: user.id,
+      plate_prefix: form.plate_prefix,
       make: form.make, model: form.model.trim(), year: Number(form.year),
       transmission: form.transmission, fuel_type: form.fuel_type, location: form.location.trim(),
       weekly_target: form.weekly_target ? Number(form.weekly_target) : null,
@@ -262,6 +265,7 @@ export function VehicleFormPage() {
         {/* Basics */}
         <Card title="Vehicle details">
           <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Number plate prefix" htmlFor="vehicle-plate-prefix" required hint="First 3 letters only, for example KDA. Do not enter the remaining numbers or letters."><input id="vehicle-plate-prefix" type="text" required maxLength={3} minLength={3} pattern="[A-Z]{3}" autoCapitalize="characters" autoComplete="off" spellCheck={false} placeholder="KDA" value={form.plate_prefix} onChange={e => setForm({ ...form, plate_prefix: normalizePlatePrefix(e.target.value) })} className="input uppercase" /></Field>
             <Field label="Make" htmlFor="vehicle-make" required hint="Select the manufacturer first. Changing it clears the model.">
               <select id="vehicle-make" value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value, model: e.target.value === form.make ? form.model : '' })} className="input">
                 <option value="">Select make…</option>
