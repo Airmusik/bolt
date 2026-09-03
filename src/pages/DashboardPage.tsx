@@ -1,3 +1,4 @@
+import { ProfileName } from '@/components/ProfileName';
 import { PromotionLink as Link, PromotionBadge, PromoteListingLink } from '@/components/PromotionLink';
 import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useEffect, useState, useCallback } from 'react';
@@ -281,6 +282,7 @@ function DriversTab({ users, loading, siteName }: { users: Profile[]; loading: b
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-1 break-words font-display text-base font-bold leading-snug text-ink-900">{d.full_name} <VerifiedBadge verified={d.platform_history_approved} size={12} /></p>
                 <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
+                <p className="mt-1 text-xs text-ink-500">{d.age != null ? `${d.age} years old` : 'Age not provided'}</p>
               </div>
               <div className="flex w-full flex-wrap gap-2"><AvailabilityBadge availability={d.availability} profile={d} /><PromotionBadge kind="profile" id={d.id} /></div>
             </div>
@@ -335,7 +337,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
           <Link to={`/drivers/${a.driver_id}`} className="flex items-center gap-3">
             <Avatar name={a.driver?.full_name || 'Driver'} src={a.driver?.avatar_url} size={44} verified={!!a.driver?.platform_history_approved} />
             <div>
-              <p className="flex items-center gap-1 font-semibold text-ink-900">{a.driver?.full_name} <VerifiedBadge verified={!!a.driver?.platform_history_approved} size={12} /></p>
+              <p className="flex items-center gap-1 font-semibold text-ink-900"><ProfileName id={a.driver?.id} name={a.driver?.full_name} /> <VerifiedBadge verified={!!a.driver?.platform_history_approved} size={12} /></p>
               <Rating value={a.driver?.rating || 0} size={11} showValue count={a.driver?.rating_count} />
             </div>
           </Link>
@@ -489,7 +491,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
               <div key={c.id} className="card flex flex-wrap items-center gap-3 p-4">
                 <Avatar name={c.recipient?.full_name || 'User'} src={c.recipient?.avatar_url} size={40} verified={c.recipient?.role === 'driver' && !!c.recipient?.platform_history_approved} />
                 <div className="min-w-0 flex-1 break-words">
-                  <p className="text-sm font-semibold text-ink-900">{c.recipient?.full_name}</p>
+                  <p className="text-sm font-semibold text-ink-900"><ProfileName id={c.recipient?.id} name={c.recipient?.full_name} /></p>
                   <p className="text-xs text-ink-500 capitalize">{c.recipient?.role} · waiting for response</p>
                   <div className="mt-2"><ConnectionProgress /></div>
                   <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
@@ -511,7 +513,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
               <div key={c.id} className="card flex items-center gap-3 p-4 opacity-70">
                 <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={p?.role === 'driver' && !!p?.platform_history_approved} />
                 <div className="min-w-0 flex-1 break-words">
-                  <p className="text-sm font-semibold text-ink-900">{p?.full_name}</p>
+                  <p className="text-sm font-semibold text-ink-900"><ProfileName id={p?.id} name={p?.full_name} /></p>
                   <p className="text-xs text-ink-500 capitalize">{p?.role} · expired</p>
                   <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
                 </div>

@@ -1,7 +1,7 @@
+import { ProfileName } from '@/components/ProfileName';
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { AdminAdSettings } from '@/components/AdminAdSettings';
+import { AdminAdvertisements } from '@/components/AdminAdvertisements';
 import { AdminSiteAnalytics } from '@/components/AdminSiteAnalytics';
-import { adSettingsError } from '@/lib/ads';
 import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
@@ -70,9 +70,9 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'analytics' | 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
+type Tab = 'advertisements' | 'analytics' | 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
 
-const ADMIN_TABS: Tab[] = ['analytics', 'overview', 'members', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
+const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -419,6 +419,7 @@ export function AdminPage() {
   const tabs: { key: Tab; label: string; icon: LucideIcon; badge?: number }[] = [
     { key: 'overview', label: 'Overview', icon: TrendingUp },
     { key: 'analytics', label: 'Site analytics', icon: TrendingUp },
+    { key: 'advertisements', label: 'Advertisements', icon: Eye },
     { key: 'members', label: 'Members', icon: Users, badge: users.length },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
@@ -498,6 +499,7 @@ export function AdminPage() {
 
         {/* ---------- Overview ---------- */}
         {tab === 'analytics' && <AdminSiteAnalytics />}
+        {tab === 'advertisements' && <AdminAdvertisements />}
         {tab === 'overview' && !loading && (
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card p-5 lg:col-span-2">
@@ -563,7 +565,7 @@ export function AdminPage() {
             {filteredUsers.map((member) => (
               <div key={member.id} className="card flex flex-wrap items-center gap-3 p-4">
                 <Avatar name={member.full_name} src={member.avatar_url} size={42} verified={member.role === 'driver' && member.is_verified} />
-                <div className="min-w-0 flex-1"><p className="font-medium text-ink-900">{member.full_name || 'Unnamed member'}</p><p className="truncate text-xs text-ink-500">{member.email || 'No email'} · {member.phone || 'No phone'} · <span className="capitalize">{member.role}</span></p><p className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-700"><CalendarDays className="h-3.5 w-3.5" /> Joined {formatDate(member.created_at)}</p></div>
+                <div className="min-w-0 flex-1"><p className="font-medium text-ink-900"><ProfileName id={member.id} name={member.full_name} /></p><p className="truncate text-xs text-ink-500">{member.email || 'No email'} · {member.phone || 'No phone'} · <span className="capitalize">{member.role}</span></p><p className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-700"><CalendarDays className="h-3.5 w-3.5" /> Joined {formatDate(member.created_at)}</p></div>
                 {member.is_suspended && <span className="badge-danger"><Ban className="h-3 w-3" /> Suspended</span>}
                 {member.is_suspended && <button onClick={() => unban(member)} className="btn-secondary px-3 py-2 text-sm text-success"><ShieldCheck className="h-4 w-4" /> Reinstate</button>}
                 <button onClick={() => setViewingUser(member)} className="btn-primary px-3 py-2 text-sm"><Eye className="h-4 w-4" /> Manage profile</button>
@@ -580,7 +582,7 @@ export function AdminPage() {
               <div key={u.id} className="card flex items-center gap-3 p-4">
                 <Avatar name={u.full_name} src={u.avatar_url} size={40} verified={u.is_verified} />
                 <div className="flex-1">
-                  <p className="flex items-center gap-1 font-medium text-ink-900">{u.full_name} <VerifiedBadge verified={u.is_verified} size={12} /></p>
+                  <p className="flex items-center gap-1 font-medium text-ink-900"><ProfileName id={u.id} name={u.full_name} /> <VerifiedBadge verified={u.is_verified} size={12} /></p>
                   <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'}</p><p className="mt-0.5 text-xs font-medium text-brand-700">Joined {formatDate(u.created_at)} · {timeAgo(u.created_at)}</p>
                   {u.licence_number && <p className="text-xs text-ink-400">Licence: {u.licence_number} (exp. {u.licence_expiry || '—'})</p>}
                 </div>
@@ -613,7 +615,7 @@ export function AdminPage() {
               <div key={u.id} className="card flex items-center gap-3 p-4">
                 <Avatar name={u.full_name} src={u.avatar_url} size={40} />
                 <div className="flex-1">
-                  <p className="font-medium text-ink-900">{u.full_name}</p>
+                  <p className="font-medium text-ink-900"><ProfileName id={u.id} name={u.full_name} /></p>
                   <p className="text-xs text-ink-500">{u.phone || 'No phone'} · {u.location || 'No location'}</p><p className="mt-0.5 text-xs font-medium text-brand-700">Joined {formatDate(u.created_at)} · {timeAgo(u.created_at)}</p>
                   <p className="text-xs text-ink-400">{vehicles.filter((v) => v.owner_id === u.id).length} car(s) listed</p>
                 </div>
@@ -1144,8 +1146,6 @@ function AdminSettings() {
 
   const save = async () => {
     const siteName = settings.site_name.trim();
-    const adError = adSettingsError(settings);
-    if (adError) { toast(adError, 'error'); return; }
     if (siteName.length < 2 || siteName.length > 40) { toast('Site name must be between 2 and 40 characters.', 'error'); return; }
     const siteTagline = settings.site_tagline.trim();
     if (siteTagline.length < 10 || siteTagline.length > 100) { toast('Tagline must be between 10 and 100 characters.', 'error'); return; }
@@ -1171,7 +1171,7 @@ function AdminSettings() {
       linkedin_url: settings.linkedin_url.trim(),
     };
     const { error } = await supabase.from('site_settings').upsert(
-      Object.entries(nextSettings).map(([key, value]) => ({ key, value, updated_at })),
+      Object.entries(nextSettings).filter(([key]) => !key.startsWith('ads_') && !key.startsWith('adsense_')).map(([key, value]) => ({ key, value, updated_at })),
       { onConflict: 'key' },
     );
     if (error) { setSaving(false); toast('Could not save settings: ' + error.message, 'error'); return; }
@@ -1277,7 +1277,6 @@ function AdminSettings() {
             <div><label htmlFor="admin-linkedin-url" className="label">LinkedIn URL</label><input id="admin-linkedin-url" type="url" value={settings.linkedin_url} onChange={(e) => setSettings({ ...settings, linkedin_url: e.target.value })} className="input" placeholder="https://linkedin.com/…" /></div>
           </div>
         </div>
-        <AdminAdSettings settings={settings} onChange={setSettings} />
         <button onClick={save} disabled={saving} className="btn-primary mt-4"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save settings'}</button>
       </div>
     </div>

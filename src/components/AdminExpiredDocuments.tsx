@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from './useToast';
 import { ConfirmDialog } from './ConfirmDialog';
 import { DocumentExpiry } from './DocumentExpiry';
+import { DocumentScanner } from './DocumentScanner';
 
 type ExpiredItem = { source_key: string; user_id: string; vehicle_id: string | null; full_name: string; role: string; label: string; expires_at: string; review_status: string; visibility: 'public' | 'private' | 'deleted' };
 type EmailStatus = { enabled: boolean; queued: number; accepted: number; failed: number };
@@ -36,11 +37,12 @@ export function AdminExpiredDocuments({ onContact, onChanged }: { onContact: (id
     await onChanged();
   };
   return <div className="space-y-4">
+    <DocumentScanner />
     <div className="card p-4 sm:p-5"><h2 className="font-display text-lg font-bold text-ink-900">Expired documents & listing visibility</h2><p className="mt-1 text-sm text-ink-600">Review expired platform history and existing non-KYC evidence. Contact the member, make their listing private, or remove it from discovery. Accounts and saved chats are not deleted.</p><p className="mt-2 text-xs text-ink-500">No owner identity, logbook or inspection document requirement is added. Owners without document requirements are not flagged.</p></div>
     {email && <div className="rounded-xl border border-ink-200 bg-ink-50 p-4 text-sm text-ink-700"><p className="font-semibold">Reminders: 30, 7, and 1 day before expiry, plus expiry day</p><p className="mt-1">In-app reminders run automatically. {email.enabled ? 'Email delivery is enabled.' : 'Email delivery needs setup: configure a sending service and verified sender. No reminder email has been sent while disabled.'}</p><p className="mt-2 text-xs">Email queue: {email.queued} · Accepted by email provider: {email.accepted} · Needs attention: {email.failed}</p></div>}
     {error && <div className="card p-4 text-sm text-danger">{error}<button onClick={() => void load()} className="btn-secondary ml-3">Retry</button></div>}
     {loading ? <p className="text-sm text-ink-500">Loading expired documents…</p> : !error && !items.length ? <div className="card p-6 text-sm text-ink-600">No expired documents or document-restricted listings.</div> : items.map(item => <div key={item.source_key} className="card p-4 sm:p-5">
-      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-ink-900">{item.full_name}</h3><span className="badge badge-warning capitalize">{item.visibility === 'deleted' ? 'Removed from discovery' : item.visibility}</span></div>
+      <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold text-ink-900"><a href={`/members/${item.user_id}`} className="hover:underline">{item.full_name}</a></h3><span className="badge badge-warning capitalize">{item.visibility === 'deleted' ? 'Removed from discovery' : item.visibility}</span></div>
       <p className="mt-1 text-sm text-ink-600">{item.role === 'owner' ? 'Car owner' : 'Driver'} · {item.label}</p>
       <DocumentExpiry expiresAt={item.expires_at} />
       {item.review_status === 'pending' && <p className="mt-2 text-sm font-semibold text-brand-700">Renewal submitted — awaiting admin review.</p>}

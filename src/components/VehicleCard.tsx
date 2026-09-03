@@ -3,6 +3,7 @@ import { MapPin, Fuel, Settings2, Wallet, ShieldCheck, AlertTriangle } from 'luc
 import type { VehicleWithRelations } from '@/lib/types';
 import { formatKES, formatDate, timeAgo, expiryStatus, titleCase, cn } from '@/lib/utils';
 import { Avatar } from './Avatar';
+import { ProfileName } from './ProfileName';
 import { Rating } from './Rating';
 import { ModeratedImage } from './ModeratedImage';
 
@@ -21,10 +22,11 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
   };
 
   return (
+    <div className="card card-hover group overflow-hidden">
     <Link
       ownerId={vehicle.owner_id}
       to={`/vehicles/${vehicle.id}`}
-      className="card card-hover group block overflow-hidden"
+      className="block"
     >
       <div className="relative aspect-[16/10] overflow-hidden bg-ink-100">
         {photo ? (
@@ -107,12 +109,15 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
           </span>
         </div>
 
+      </div>
+    </Link>
+    <div className="px-4 pb-4">
         {showOwner && vehicle.owner ? (
           <div className="mt-3 flex items-center justify-between border-t border-ink-100 pt-3">
             <div className="flex items-center gap-2">
               <Avatar name={vehicle.owner.full_name} src={vehicle.owner.avatar_url} size={28} />
               <div>
-                <p className="text-xs font-medium text-ink-800">{vehicle.owner.full_name}</p>
+                <p className="text-xs font-medium text-ink-800"><ProfileName id={vehicle.owner.id} name={vehicle.owner.full_name} /></p>
                 <p className="flex items-center gap-1 text-[10px] text-success"><ShieldCheck className="h-3 w-3" /> Listing approved by admin</p>
                 <Rating value={vehicle.owner.rating} size={11} count={vehicle.owner.rating_count} showValue />
               </div>
@@ -123,6 +128,6 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
           <p className="mt-3 border-t border-ink-100 pt-3 text-right text-[10px] text-ink-400">Listed {timeAgo(vehicle.created_at)}</p>
         )}
       </div>
-    </Link>
+    </div>
   );
 }

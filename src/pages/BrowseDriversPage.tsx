@@ -89,6 +89,7 @@ export function BrowseDriversPage() {
                     <div className="min-w-0 flex-1">
                       <p className="break-words font-display text-base font-bold leading-snug text-ink-900">{d.full_name}</p>
                       <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
+                <p className="mt-1 text-xs text-ink-500">{d.age != null ? `${d.age} years old` : 'Age not provided'}</p>
                     </div>
                     <div className="flex w-full flex-wrap gap-2"><AvailabilityBadge availability={d.availability} profile={d} /><PromotionBadge kind="profile" id={d.id} /></div>
                   </div>

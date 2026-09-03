@@ -258,6 +258,7 @@ export function HomePage() {
                     <PromotionBadge kind="profile" id={d.id} />
                   </p>
                   <p className="text-xs text-ink-500">{d.location || 'Location not provided'}</p>
+                  <p className="mt-1 text-xs text-ink-500">{d.age != null ? `${d.age} years old` : 'Age not provided'}</p>
                   <div className="mt-1"><VerifiedBadge verified={d.platform_history_approved} size={11} showLabel /></div>
                   <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-2 justify-center" />
                   <div className="mt-3 flex flex-wrap justify-center gap-1">
