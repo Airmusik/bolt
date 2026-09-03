@@ -1,4 +1,5 @@
 import { ProfileName } from '@/components/ProfileName';
+import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { AdminAdvertisements } from '@/components/AdminAdvertisements';
 import { AdminSiteAnalytics } from '@/components/AdminSiteAnalytics';
@@ -78,10 +79,17 @@ export function AdminPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
-  const [tab, setTab] = useState<Tab>(() => {
-    const requested = new URLSearchParams(window.location.search).get('tab') as Tab | null;
-    return requested && ADMIN_TABS.includes(requested) ? requested : 'overview';
-  });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requestedTab = searchParams.get('tab') as Tab | null;
+  const tab: Tab = requestedTab && ADMIN_TABS.includes(requestedTab) ? requestedTab : 'overview';
+  const setTab = useCallback((next: Tab) => {
+    if (next === tab) return;
+    setSearchParams(current => {
+      const params = new URLSearchParams(current);
+      params.set('tab', next);
+      return params;
+    });
+  }, [tab, setSearchParams]);
   const [users, setUsers] = useState<Profile[]>([]);
   const [vehicles, setVehicles] = useState<AdminVehicle[]>([]);
   const [reports, setReports] = useState<AdminReport[]>([]);
