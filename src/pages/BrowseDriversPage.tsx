@@ -15,6 +15,7 @@ import { titleCase } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 import { useToast } from '@/components/useToast';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { matchesLocation, matchesPlatform } from '@/lib/searchMatching';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras'];
 
@@ -28,6 +29,8 @@ export function BrowseDriversPage() {
   const [location, setLocation] = useState(() => params.get('location') || '');
   const [platform, setPlatform] = useState('');
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [name, setName] = useState(() => params.get('q') || '');
+  const [availableOnly, setAvailableOnly] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -40,22 +43,25 @@ export function BrowseDriversPage() {
 
   const filtered = useMemo(() => {
     return drivers.filter((d) => {
-      if (location && !(d.location || '').toLowerCase().includes(location.toLowerCase()) && !location.toLowerCase().includes((d.location || '').toLowerCase())) return false;
-      if (platform && !(d.platforms_worked || []).includes(platform)) return false;
+      if (name.trim() && !d.full_name.toLowerCase().includes(name.trim().toLowerCase())) return false;
+      if (availableOnly && d.availability !== 'available') return false;
+      if (!matchesLocation(d.location, location)) return false;
+      if (!matchesPlatform(d.platforms_worked, platform)) return false;
       if (verifiedOnly && !d.platform_history_approved) return false;
       return true;
     });
-  }, [drivers, location, platform, verifiedOnly]);
+  }, [drivers, location, platform, verifiedOnly, name, availableOnly]);
 
   return (
     <div className="container-content py-8">
       <BackButton to="/" />
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Browse drivers</h1>
-      <p className="mt-1 text-sm text-ink-500">{filtered.length} driver{filtered.length !== 1 ? 's' : ''}</p>
+      <p aria-live="polite" className="mt-1 text-sm text-ink-500">{loading ? 'Finding drivers…' : `${filtered.length} matching driver${filtered.length !== 1 ? 's' : ''}`}</p>
 
       <div className="mt-6 flex flex-wrap gap-3">
+        <input aria-label="Search driver name" className="input w-full sm:w-60" placeholder="Driver name" value={name} onChange={e => setName(e.target.value)} />
         <div className="w-full sm:w-72"><PlaceAutocomplete value={location} onChange={setLocation} placeholder="All locations" className="py-2" /></div>
-        <select value={platform} onChange={(e) => setPlatform(e.target.value)} className="input w-auto py-2">
+        <select aria-label="Driver platform" value={platform} onChange={(e) => setPlatform(e.target.value)} className="input w-auto py-2">
           <option value="">All platforms</option>
           {PLATFORMS.map((p) => <option key={p} value={p}>{titleCase(p)}</option>)}
         </select>
@@ -63,6 +69,8 @@ export function BrowseDriversPage() {
           <input type="checkbox" checked={verifiedOnly} onChange={(e) => setVerifiedOnly(e.target.checked)} className="h-4 w-4 rounded border-ink-300 text-brand-600 focus:ring-brand-500" />
           Approved history only
         </label>
+        <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={availableOnly} onChange={e => setAvailableOnly(e.target.checked)} />Available now</label>
+        {(name || location || platform || verifiedOnly || availableOnly) && <button type="button" className="btn-secondary" onClick={() => { setName(''); setLocation(''); setPlatform(''); setVerifiedOnly(false); setAvailableOnly(false); }}>Clear filters</button>}
       </div>
 
       <div className="mt-6">

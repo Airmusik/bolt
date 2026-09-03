@@ -39,7 +39,7 @@ export function DashboardNavigation({ role, userId }: { role: MemberRole; userId
             return (
               <Link key={tab.id} to={dashboardDestination(tab.id)} onClick={(event) => { if (!event.ctrlKey && !event.metaKey && !event.shiftKey && !event.altKey) window.scrollTo(0, 0); }} aria-label={tab.label} aria-current={activeTab === tab.id ? 'page' : undefined} className={cn('member-nav-button relative flex h-16 min-w-0 flex-col items-center justify-center gap-1.5 rounded-lg px-2 text-sm font-semibold leading-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 sm:shrink-0 sm:flex-row sm:h-[72px] sm:gap-2 sm:whitespace-nowrap sm:flex-1 sm:px-4 sm:text-base sm:leading-5', activeTab === tab.id ? 'member-nav-active text-white shadow-soft' : 'bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-200')}>
                 <Icon className="member-nav-icon h-5 w-5 shrink-0" />
-                <span className="max-w-full truncate sm:hidden">{tab.shortLabel}</span><span className="hidden sm:inline">{tab.label}</span>
+                <span className="max-w-full text-center text-[11px] leading-4 min-[380px]:text-xs sm:hidden">{tab.shortLabel}</span><span className="hidden sm:inline">{tab.label}</span>
                 {tab.id === 'connections' && pending > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-600 px-1 text-[9px] font-bold text-white sm:static">{pending > 99 ? '99+' : pending}</span>}
               </Link>
             );

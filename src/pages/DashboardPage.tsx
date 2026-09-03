@@ -20,6 +20,7 @@ import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import type { ToastType } from '@/components/toastContext';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { ConnectionProgress } from '@/components/ConnectionProgress';
 import { DeleteListingButton } from '@/components/DeleteListingButton';
 import { driverNeedsApproval, driverApprovalMessage } from '@/lib/driverEligibility';
 
@@ -56,33 +57,40 @@ export function DashboardPage() {
   const [incomingConnections, setIncomingConnections] = useState<IncomingConnection[]>([]);
   const [outgoingConnections, setOutgoingConnections] = useState<OutgoingConnection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
     if (!user || !profile) return;
+    setLoadError(false);
+    try {
     // Expire stale requests before loading the connection lists. Keeping this
     // in the parent loader avoids a child effect that used to refresh after
     // every render and could create an endless request/toast loop.
-    const { error: expiryError } = await supabase.rpc('expire_old_connections');
-    if (expiryError) console.error('connection expiry check failed', expiryError);
+    const expiry = supabase.rpc('expire_old_connections');
+    const roleLoad = (async () => {
     if (profile.role === 'owner') {
-      const [{ data: v }, { data: apps }, { data: drs }] = await Promise.all([
+      const [{ data: v, error: vehicleError }, { data: apps, error: applicationError }, { data: drs, error: driverError }] = await Promise.all([
         supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).eq('owner_id', user.id).is('deleted_at', null).order('created_at', { ascending: false }),
         supabase.from('applications').select(`*, driver:profiles(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles(*, photos:vehicle_photos(*))`).eq('owner_id', user.id).order('created_at', { ascending: false }),
         supabase.rpc('discover_drivers', { p_limit: 24 }),
       ]);
+      if (vehicleError || applicationError || driverError) throw vehicleError || applicationError || driverError;
       setVehicles((v as VehicleWithRelations[]) || []);
       setApplications((apps as OwnerApplication[]) || []);
       setDrivers((drs as Profile[]) || []);
     } else if (profile.role === 'driver') {
-      const { data: apps } = await supabase
-        .from('applications')
-        .select(`*, vehicle:vehicles(*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*))`)
-        .eq('driver_id', user.id)
-        .order('created_at', { ascending: false });
+      const [{ data: apps, error: applicationError }, { data: cars, error: carError }] = await Promise.all([
+        supabase.from('applications')
+          .select(`*, vehicle:vehicles(*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*))`)
+          .eq('driver_id', user.id).order('created_at', { ascending: false }),
+        supabase.rpc('discover_vehicles', { p_limit: 24 }),
+      ]);
+      if (applicationError || carError) throw applicationError || carError;
       setMyApplications((apps as DriverApplication[]) || []);
-      const { data: cars } = await supabase.rpc('discover_vehicles', { p_limit: 24 });
       setAvailableCars((cars as VehicleWithRelations[]) || []);
     }
+    })();
+    const conversationsLoad = (async () => {
     const { data: convs, error: conversationsError } = await supabase
       .from('conversations')
       .select(`*, vehicle:vehicles(*, photos:vehicle_photos(*)), driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
@@ -91,18 +99,28 @@ export function DashboardPage() {
     if (conversationsError) {
       console.error('chat history load failed', conversationsError);
       toast('Chat history could not be refreshed. Check your connection and try again.', 'error');
+      throw conversationsError;
     }
     setConversations((convs as ConversationWithRelations[]) || []);
 
+    })();
+    const connectionsLoad = (async () => {
+    const { error: expiryError } = await expiry;
+    if (expiryError) console.error('connection expiry check failed', expiryError);
     // connections
-    const [{ data: inc }, { data: out }] = await Promise.all([
+    const [{ data: inc, error: incomingError }, { data: out, error: outgoingError }] = await Promise.all([
       supabase.from('connections').select(`*, requester:profiles!connections_requester_id_fkey(${PUBLIC_PROFILE_FIELDS})`).eq('recipient_id', user.id).order('created_at', { ascending: false }),
       supabase.from('connections').select(`*, recipient:profiles!connections_recipient_id_fkey(${PUBLIC_PROFILE_FIELDS})`).eq('requester_id', user.id).order('created_at', { ascending: false }),
     ]);
+    if (incomingError || outgoingError) throw incomingError || outgoingError;
     setIncomingConnections((inc as IncomingConnection[]) || []);
     setOutgoingConnections((out as OutgoingConnection[]) || []);
 
-    setLoading(false);
+    })();
+    await Promise.all([roleLoad, conversationsLoad, connectionsLoad]);
+    } catch {
+      setLoadError(true);
+    } finally { setLoading(false); }
   }, [user, profile, toast]);
 
   useEffect(() => { load(); }, [load, revision]);
@@ -114,6 +132,7 @@ export function DashboardPage() {
     <span aria-hidden="true" className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-100 border-t-emerald-600 dark:border-emerald-950 dark:border-t-emerald-400" />
     <span className="sr-only">Loading your dashboard…</span>
   </div>;
+  if (loadError) return <div role="alert" className="container-content py-8"><p>Could not load your dashboard. Please try again.</p><button type="button" className="btn-secondary mt-3" onClick={() => { setLoading(true); void load(); }}>Retry</button></div>;
   const isOwner = profile.role === 'owner';
   const isDriver = profile.role === 'driver';
   const pendingConnections = incomingConnections.filter((c) => c.status === 'pending');
@@ -320,7 +339,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
               <Rating value={a.driver?.rating || 0} size={11} showValue count={a.driver?.rating_count} />
             </div>
           </Link>
-          <div className="flex-1">
+          <div className="min-w-0 flex-1 break-words">
             <p className="text-sm text-ink-600">Applied to <Link to={`/vehicles/${a.vehicle_id}`} className="font-medium text-ink-900 hover:underline">{a.vehicle?.make} {a.vehicle?.model}</Link></p>
             <p className="text-xs text-ink-400">{timeAgo(a.created_at)}</p>
             {a.message && <p className="mt-1 text-sm text-ink-600">"{a.message}"</p>}
@@ -370,7 +389,7 @@ function DriverApplicationsTab({ applications }: { applications: DriverApplicati
     <div className="space-y-3">
       {applications.map((a) => (
         <div key={a.id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
-          {a.vehicle && <div className="flex-1"><Link to={`/vehicles/${a.vehicle_id}`} className="font-semibold text-ink-900 hover:text-ink-700">{a.vehicle.make} {a.vehicle.model}</Link><p className="text-xs text-ink-400">{a.vehicle.location} · {timeAgo(a.created_at)}</p></div>}
+          {a.vehicle && <div className="min-w-0 flex-1 break-words"><Link to={`/vehicles/${a.vehicle_id}`} className="font-semibold text-ink-900 hover:text-ink-700">{a.vehicle.make} {a.vehicle.model}</Link><p className="text-xs text-ink-400">{a.vehicle.location} · {timeAgo(a.created_at)}</p></div>}
           <span className={cn('badge capitalize', a.status === 'pending' && 'badge-warning', a.status === 'accepted' && 'badge-brand', a.status === 'rejected' && 'badge-danger', a.status === 'completed' && 'badge-neutral')}>{a.status}</span>
           {a.status === 'accepted' && <Link to="/chat" className="btn-secondary px-3 py-1.5 text-xs"><MessageSquare className="h-3.5 w-3.5" /> Chat</Link>}
         </div>
@@ -418,9 +437,9 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
           <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:text-amber-100">Accepting a request sets both members to <strong>Currently on a connection</strong>. Neither member can accept another connection until this one is ended.</div>
           <div className="mt-3 space-y-3">
             {pendingIn.map((c) => (
-              <div key={c.id} className="card flex items-center gap-3 p-4">
+              <div key={c.id} className="card flex flex-wrap items-center gap-3 p-4">
                 <Avatar name={c.requester?.full_name || 'User'} src={c.requester?.avatar_url} size={44} verified={c.requester?.role === 'driver' && !!c.requester?.platform_history_approved} />
-                <div className="flex-1">
+                <div className="min-w-0 flex-1 break-words">
                   <Link to={`/drivers/${c.requester_id}`} className="flex items-center gap-1 font-semibold text-ink-900 hover:underline">{c.requester?.full_name} <VerifiedBadge verified={!!c.requester?.platform_history_approved} size={12} /></Link>
                   {c.message && <p className="text-sm text-ink-600">"{c.message}"</p>}
                   <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
@@ -450,8 +469,9 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
                     <p className="text-xs text-ink-400">Connected {formatDateTime(c.created_at)}</p>
                   </div>
                 </div>
+                <ConnectionProgress accepted />
                 <div className="flex gap-2">
-                  <Link to="/chat" className="btn-secondary flex-1 px-3 py-1.5 text-xs"><MessageSquare className="h-3.5 w-3.5" /> Chat</Link>
+                  <Link to="/chat" className="btn-primary flex-1 px-3 py-1.5 text-xs"><MessageSquare className="h-3.5 w-3.5" /> Open chat</Link>
                   <button onClick={() => setConfirmingAction({ connection: c, action: 'end' })} className="btn-ghost flex-1 px-3 py-1.5 text-xs text-danger hover:bg-red-50"><X className="h-3.5 w-3.5" /> End</button>
                 </div>
               </div>
@@ -466,11 +486,12 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
           <h3 className="font-display text-lg font-bold text-ink-900">Sent requests</h3>
           <div className="mt-3 space-y-3">
             {outgoing.filter((c) => c.status === 'pending').map((c) => (
-              <div key={c.id} className="card flex items-center gap-3 p-4">
+              <div key={c.id} className="card flex flex-wrap items-center gap-3 p-4">
                 <Avatar name={c.recipient?.full_name || 'User'} src={c.recipient?.avatar_url} size={40} verified={c.recipient?.role === 'driver' && !!c.recipient?.platform_history_approved} />
-                <div className="flex-1">
+                <div className="min-w-0 flex-1 break-words">
                   <p className="text-sm font-semibold text-ink-900">{c.recipient?.full_name}</p>
                   <p className="text-xs text-ink-500 capitalize">{c.recipient?.role} · waiting for response</p>
+                  <div className="mt-2"><ConnectionProgress /></div>
                   <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
                 </div>
                 <button onClick={() => setConfirmingAction({ connection: c, action: 'cancel' })} className="btn-ghost px-3 py-1.5 text-xs text-danger hover:bg-red-50"><X className="h-3.5 w-3.5" /> Cancel</button>
@@ -489,7 +510,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
             {[...expiredIn.map((c) => ({ c, p: c.requester })), ...expiredOut.map((c) => ({ c, p: c.recipient }))].map(({ c, p }) => (
               <div key={c.id} className="card flex items-center gap-3 p-4 opacity-70">
                 <Avatar name={p?.full_name || 'User'} src={p?.avatar_url} size={40} verified={p?.role === 'driver' && !!p?.platform_history_approved} />
-                <div className="flex-1">
+                <div className="min-w-0 flex-1 break-words">
                   <p className="text-sm font-semibold text-ink-900">{p?.full_name}</p>
                   <p className="text-xs text-ink-500 capitalize">{p?.role} · expired</p>
                   <p className="text-xs text-ink-400">Sent {formatDateTime(c.created_at)}</p>
@@ -541,7 +562,7 @@ function ChatsTab({ conversations, loading, currentUserId }: { conversations: Co
       {threads.map(({ latest: c, count }) => (
         <Link key={c.id} to={`/chat/${c.id}`} className="card card-hover flex items-center gap-3 p-4">
           <Avatar name={(c.driver?.full_name || c.owner?.full_name || 'User')} src={c.driver?.avatar_url || c.owner?.avatar_url} size={44} verified={!!c.driver?.platform_history_approved} />
-          <div className="flex-1">
+          <div className="min-w-0 flex-1 break-words">
             <p className="font-semibold text-ink-900">{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : `${c.driver?.full_name || 'Driver'} ↔ ${c.owner?.full_name || 'Owner'}`}</p>
             <p className="text-xs text-ink-400">{count > 1 ? 'Complete chat history preserved' : c.closed_at ? 'Ended · history preserved' : c.last_message_at ? timeAgo(c.last_message_at) : 'No messages yet'}</p>
           </div>

@@ -19,7 +19,7 @@ export function VerifiedBadge({ verified, size = 16, className, showLabel }: Pro
     );
   }
   return (
-    <span title="Driver platform history approved by an administrator" className={cn('inline-flex items-center gap-1', showLabel && 'rounded-full bg-brand-50 px-2 py-0.5 ring-1 ring-brand-200', className)}>
+    <span title="Submitted platform activity reviewed by an administrator. This is not an identity check or a guarantee of conduct." className={cn('inline-flex items-center gap-1', showLabel && 'rounded-full bg-brand-50 px-2 py-0.5 ring-1 ring-brand-200', className)}>
       <BadgeCheck style={{ width: size, height: size }} className="text-brand-600" />
       {showLabel && <span className="text-xs font-medium text-brand-700">Platform history approved</span>}
     </span>

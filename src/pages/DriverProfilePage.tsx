@@ -143,7 +143,7 @@ export function DriverProfilePage() {
 
           {!isOwner && (
             <Section title="Trust Passport" icon={<ShieldCheck className="h-5 w-5" />}>
-              <p className="mb-3 text-sm text-ink-500">Trust is based on transparent activity and admin-approved evidence—not identity documents.</p>
+              <p className="mb-3 text-sm text-ink-500">Approval means submitted platform activity was reviewed. It is not identity verification, a background check, or a guarantee of conduct. Confirm details and agree working terms before connecting.</p>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 <TrustSignal icon={<Award className="h-4 w-4" />} label="Trust level" value={titleCase(trustPassport?.trust_level || 'new')} />
                 <TrustSignal icon={<ShieldCheck className="h-4 w-4" />} label="Approved evidence" value={String(trustPassport?.approved_evidence ?? 0)} />

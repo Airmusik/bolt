@@ -10,6 +10,7 @@ import { VEHICLE_MAKES } from '@/lib/locations';
 import { BackButton } from '@/components/BackButton';
 import { useToast } from '@/components/useToast';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { matchesLocation, matchesPlatform, withinBudget } from '@/lib/searchMatching';
 
 const FUELS = ['petrol', 'diesel', 'hybrid', 'electric'];
 const TRANSMISSIONS = ['automatic', 'manual'];
@@ -20,6 +21,7 @@ interface Filters {
   make: string;
   transmission: string;
   fuel: string;
+  platform: string;
   maxWeekly: string;
   maxDeposit: string;
   availableNow: boolean;
@@ -40,6 +42,7 @@ export function BrowseCarsPage() {
     make: '',
     transmission: '',
     fuel: '',
+    platform: '',
     maxWeekly: '',
     maxDeposit: '',
     availableNow: false,
@@ -62,12 +65,13 @@ export function BrowseCarsPage() {
         const hay = `${v.make} ${v.model} ${v.location}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (filters.location && !v.location.toLowerCase().includes(filters.location.toLowerCase()) && !filters.location.toLowerCase().includes(v.location.toLowerCase())) return false;
+      if (!matchesLocation(v.location, filters.location)) return false;
       if (filters.make && v.make !== filters.make) return false;
       if (filters.transmission && v.transmission !== filters.transmission) return false;
       if (filters.fuel && v.fuel_type !== filters.fuel) return false;
-      if (filters.maxWeekly && (v.weekly_target ?? 0) > Number(filters.maxWeekly)) return false;
-      if (filters.maxDeposit && v.deposit > Number(filters.maxDeposit)) return false;
+      if (!matchesPlatform(v.registered_platforms, filters.platform)) return false;
+      if (!withinBudget(v.weekly_target, filters.maxWeekly)) return false;
+      if (!withinBudget(v.deposit, filters.maxDeposit)) return false;
       if (filters.availableNow && v.availability !== 'available') return false;
       return true;
     });
@@ -84,10 +88,12 @@ export function BrowseCarsPage() {
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-2xl font-bold text-ink-900">Browse cars</h1>
-          <p className="mt-1 text-sm text-ink-500">{filtered.length} vehicle{filtered.length !== 1 ? 's' : ''} available</p>
+          <p aria-live="polite" className="mt-1 text-sm text-ink-500">{loading ? 'Finding cars…' : `${filtered.length} matching vehicle${filtered.length !== 1 ? 's' : ''}`}</p>
         </div>
         <button
           onClick={() => setShowFilters((v) => !v)}
+          aria-expanded={showFilters}
+          aria-controls="car-search-filters"
           className="btn-secondary lg:hidden"
         >
           <SlidersHorizontal className="h-4 w-4" /> Filters {activeCount > 0 && <span className="badge-brand">{activeCount}</span>}
@@ -96,12 +102,12 @@ export function BrowseCarsPage() {
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[260px_1fr]">
         {/* Filters */}
-        <aside className={`${showFilters ? 'block' : 'hidden'} lg:block`}>
+        <aside id="car-search-filters" className={`${showFilters ? 'block' : 'hidden'} lg:block`}>
           <div className="card sticky top-[calc(5rem+var(--member-nav-height,0px))] p-5">
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-ink-900">Filters</h2>
               {activeCount > 0 && (
-                <button onClick={() => setFilters({ q: filters.q, location: '', make: '', transmission: '', fuel: '', maxWeekly: '', maxDeposit: '', availableNow: false })} className="text-xs font-medium text-brand-700 hover:underline">
+                <button onClick={() => setFilters({ q: filters.q, location: '', make: '', transmission: '', fuel: '', platform: '', maxWeekly: '', maxDeposit: '', availableNow: false })} className="text-xs font-medium text-brand-700 hover:underline">
                   Clear all
                 </button>
               )}
@@ -119,6 +125,7 @@ export function BrowseCarsPage() {
               <Select label="Make" value={filters.make} onChange={(v) => setFilters({ ...filters, make: v })} options={VEHICLE_MAKES} placeholder="All makes" />
               <Select label="Transmission" value={filters.transmission} onChange={(v) => setFilters({ ...filters, transmission: v })} options={TRANSMISSIONS} placeholder="Any" />
               <Select label="Fuel" value={filters.fuel} onChange={(v) => setFilters({ ...filters, fuel: v })} options={FUELS} placeholder="Any" />
+              <Select label="Platform" value={filters.platform} onChange={(v) => setFilters({ ...filters, platform: v })} options={['uber', 'bolt', 'little', 'faras', 'other']} placeholder="All platforms" />
               <div>
                 <label className="label">Max weekly target (KES)</label>
                 <input type="number" value={filters.maxWeekly} onChange={(e) => setFilters({ ...filters, maxWeekly: e.target.value })} placeholder="No limit" className="input py-2" />
@@ -155,7 +162,7 @@ export function BrowseCarsPage() {
               title={hasSearch ? 'No vehicles match your filters' : 'No vehicles are listed yet'}
               description={hasSearch ? 'Try widening your search or clearing some filters.' : 'Check back soon, or register as an owner to add the first vehicle.'}
               action={hasSearch
-                ? <button onClick={() => setFilters({ q: '', location: '', make: '', transmission: '', fuel: '', maxWeekly: '', maxDeposit: '', availableNow: false })} className="btn-secondary">Clear filters</button>
+                ? <button onClick={() => setFilters({ q: '', location: '', make: '', transmission: '', fuel: '', platform: '', maxWeekly: '', maxDeposit: '', availableNow: false })} className="btn-secondary">Clear filters</button>
                 : undefined}
             />
           )}

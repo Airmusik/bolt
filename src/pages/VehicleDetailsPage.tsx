@@ -313,6 +313,7 @@ export function VehicleDetailsPage() {
                     {vehicle.owner.full_name}
                   </p>
                   <p className="mt-1 flex items-center gap-1 text-xs text-success"><ShieldCheck className="h-3.5 w-3.5" /> Listing approved by admin</p>
+                  <p className="mt-2 text-xs leading-5 text-ink-500">Approval is a review of submitted listing information, not a mechanical inspection or a guarantee. Inspect the car and confirm documents and terms before committing.</p>
                   <p className="mt-1 text-xs text-ink-500">{vehicle.owner.location || 'Location not provided'}</p>
                   <Rating value={vehicle.owner.rating} size={11} showValue count={vehicle.owner.rating_count} />
                 </div>
