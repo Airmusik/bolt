@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { useAuth } from '@/lib/useAuth';
+import { AdSenseUnit } from './AdSenseUnit';
 import { AD_ACTION_EVENT, adIsVisible, safeAdUrl, type AdPlacement } from '@/lib/ads';
 
 export function AdSlot({ placement, onDismiss, className = '' }: { placement: AdPlacement; onDismiss?: () => void; className?: string }) {
@@ -11,6 +12,12 @@ export function AdSlot({ placement, onDismiss, className = '' }: { placement: Ad
   if (loading || profile?.role === 'admin' || settings.maintenance_mode === 'true'
     || !adIsVisible(settings, placement)
     || /^\/(admin|login|register|reset-password|auth|chat|contact|terms|privacy|onboarding|settings|suspended)(\/|$)/.test(pathname)) return null;
+  if (settings.ads_provider === 'adsense') {
+    // Keep Google display ads on public content pages, away from account tasks.
+    if (!['/', '/browse-cars', '/browse-drivers'].includes(pathname)) return null;
+    const slot = placement === 'inline' ? settings.adsense_inline_slot : settings.adsense_footer_slot;
+    return <AdSenseUnit key={`${settings.adsense_publisher_id}:${slot}`} publisher={settings.adsense_publisher_id} slot={slot} className={className} />;
+  }
   return <aside aria-label="Advertisement" className={`my-4 flex flex-wrap items-start gap-3 rounded-lg border border-ink-100 bg-ink-50 px-4 py-3 ${className}`}>
     <div className="min-w-0 flex-1 break-words">
       <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">Advertisement · {settings.ads_sponsor}</p>
