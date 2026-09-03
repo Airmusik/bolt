@@ -7,6 +7,7 @@ import { useSiteSettings } from '@/lib/siteSettings';
 import { SiteLogo } from '@/components/SiteLogo';
 import { ResetPasswordPage } from '@/pages/ResetPasswordPage';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
+import { LOGIN_REGISTRATION_GUIDANCE } from '@/lib/authErrors';
 import { googleAuthDestination } from '@/lib/googleAuth';
 
 export function LoginPage() {
@@ -131,7 +132,10 @@ export function LoginPage() {
 
         <form onSubmit={handleSubmit} className="auth-card" aria-busy={loading}>
           {error && (
-            <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+            <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+              <p>{error}</p>
+              {error === LOGIN_REGISTRATION_GUIDANCE && <Link to="/register" className="mt-2 inline-flex min-h-11 items-center font-semibold underline">Register now</Link>}
+            </div>
           )}
           <GoogleSignInButton disabled={loading} onBusyChange={setGoogleBusy} onError={setError} />
           <div>

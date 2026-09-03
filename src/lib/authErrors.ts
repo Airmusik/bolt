@@ -1,5 +1,7 @@
 type AuthAction = 'signup' | 'signin' | 'resetRequest' | 'passwordUpdate' | 'profile';
 
+export const LOGIN_REGISTRATION_GUIDANCE = 'Unable to sign in. Check your email and password. If you have not registered with 11Drive, create an account first.';
+
 function errorText(error: unknown): string {
   if (error instanceof Error) return error.message.toLowerCase();
   if (typeof error === 'object' && error !== null && 'message' in error) {
@@ -30,7 +32,7 @@ export function getAuthErrorMessage(error: unknown, action: AuthAction): string 
     return 'This password-reset link is invalid or has expired. Request a new link and try again.';
   }
   if (message.includes('invalid login credentials')) {
-    return 'Incorrect email or password. Please try again.';
+    return LOGIN_REGISTRATION_GUIDANCE;
   }
   if (message.includes('signup is disabled') || message.includes('signups not allowed')) {
     return 'New account registration is temporarily unavailable. Please contact platform support.';
