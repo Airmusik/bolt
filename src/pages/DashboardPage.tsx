@@ -138,7 +138,7 @@ export function DashboardPage() {
         ? { eyebrow: 'Recommended next step', title: profile.platform_history_submitted ? 'Platform history under review' : 'Submit or renew platform history', description: profile.platform_history_submitted ? 'Your submission is locked while an administrator reviews it. No further submission is needed.' : 'Upload recent Uber, Bolt, Faras, Little Cab, or other platform history. Approval lasts six months.', label: profile.platform_history_submitted ? 'View submission' : 'Manage history', to: '/onboarding', tab: null, icon: ShieldCheck }
         : profile.availability !== 'available'
           ? { eyebrow: 'Your status', title: profile.availability === 'busy' ? 'You are currently on a connection' : 'Your profile is not available', description: 'Manage your availability when you are ready to receive new requests.', label: 'Manage availability', to: '/settings', tab: null, icon: Clock }
-          : { eyebrow: 'Ready for your next match', title: 'Explore cars available near you', description: 'Compare vehicle requirements and connect with an owner that suits you.', label: 'Browse cars', to: '/browse-cars', tab: null, icon: Car };
+          : null;
 
   const tabs = getDashboardTabs(isOwner ? 'owner' : 'driver');
   const activeTab = tabs.find((item) => item.id === tab) || tabs[0];
@@ -155,8 +155,8 @@ export function DashboardPage() {
   return (
     <div className={cn('container-content py-2 sm:py-5', tab === 'overview' && 'overview-motion')}>
       <div className="mb-3 flex justify-end">
-        <Link to="/promotions" className="btn-secondary min-h-11 gap-2">
-          <Megaphone className="h-4 w-4" aria-hidden="true" /> Promotions
+        <Link to="/promotions" className="btn-secondary min-h-9 gap-1.5 px-2.5 py-1.5 text-xs">
+          <Megaphone className="h-3.5 w-3.5" aria-hidden="true" /> Promotions
         </Link>
       </div>
       {tab === 'overview' && <>
@@ -182,12 +182,12 @@ export function DashboardPage() {
         </div>
       </section>
 
-      <div className="dashboard-panel overview-recommendation relative isolate mt-3 overflow-hidden border-l-2 border-accent-500">
+      {recommendedAction && <div className="dashboard-panel overview-recommendation relative isolate mt-3 overflow-hidden border-l-2 border-accent-500">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-start gap-2.5"><span className="overview-action-icon flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-50 text-accent-700 dark:bg-accent-500/10 dark:text-accent-400"><recommendedAction.icon className="h-4 w-4" /></span><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-accent-700 dark:text-accent-400">{recommendedAction.eyebrow}</p><h2 className="mt-0.5 font-display text-base font-bold leading-snug text-ink-900">{recommendedAction.title}</h2><p className="mt-1 max-w-2xl text-xs leading-5 text-ink-500">{recommendedAction.description}</p></div></div>
           {recommendedAction.to ? <Link to={recommendedAction.to} className="btn-primary w-full shrink-0 sm:w-auto">{recommendedAction.label}<ArrowRight className="h-4 w-4" /></Link> : <button type="button" onClick={() => recommendedAction.tab && setTab(recommendedAction.tab)} className="btn-primary w-full shrink-0 sm:w-auto">{recommendedAction.label}<ArrowRight className="h-4 w-4" /></button>}
         </div>
-      </div>
+      </div>}
 
       {/* Stats */}
       <div className="overview-statistics mt-3 grid grid-cols-2 gap-2 sm:mt-4 sm:gap-3 lg:grid-cols-4">
@@ -210,7 +210,7 @@ export function DashboardPage() {
       {tab !== 'overview' && <div className="mt-5 border-b border-ink-100 pb-4"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-600">Dashboard</p><h1 className="mt-1 font-display text-xl font-bold text-ink-900 sm:text-2xl">{activeTab.label}</h1><p className="mt-1 text-sm text-ink-500">{sectionDescriptions[tab]}</p></div>}
 
       <div className={tab === 'overview' ? 'mt-3' : 'mt-4'}>
-        {tab === 'overview' && <OverviewTab profile={profile} drivers={drivers} availableCars={availableCars} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
+        {tab === 'overview' && <OverviewTab profile={profile} drivers={drivers} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
         {tab === 'drivers' && isOwner && <DriversTab users={drivers} loading={loading} siteName={settings.site_name} />}
         {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars} loading={loading} />}
         {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} onDeleted={load} />}
@@ -223,10 +223,9 @@ export function DashboardPage() {
   );
 }
 
-function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, pendingConnections }: {
+function OverviewTab({ profile, drivers, conversations, isOwner, pendingConnections }: {
   profile: Profile;
   drivers: Profile[];
-  availableCars: VehicleWithRelations[];
   conversations: ConversationWithRelations[];
   isOwner: boolean;
   pendingConnections: IncomingConnection[];
@@ -288,19 +287,6 @@ function OverviewTab({ profile, drivers, availableCars, conversations, isOwner, 
         </div>
       )}
 
-      {/* Available cars preview (drivers only) */}
-      {!isOwner && availableCars?.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between">
-            <h3 className="font-display text-lg font-bold text-ink-900">Available cars</h3>
-          </div>
-          <div className="-mx-4 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3">
-            {availableCars.slice(0, 6).map((v: VehicleWithRelations) => (
-              <div key={v.id} className="min-w-[86vw] snap-start sm:min-w-0"><VehicleCard vehicle={v} /></div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
