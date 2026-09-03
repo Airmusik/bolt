@@ -31,7 +31,7 @@ export function Layout({ children }: { children: ReactNode }) {
   }, [profile?.is_suspended, location.pathname, navigate]);
 
   return (
-    <div className={`flex min-h-screen flex-col ${showMemberNavigation ? '[--member-nav-height:7rem] sm:[--member-nav-height:4rem]' : '[--member-nav-height:0px]'}`}>
+    <div className={`flex min-h-screen flex-col ${showMemberNavigation ? '[--member-nav-height:9.25rem] sm:[--member-nav-height:5.25rem]' : '[--member-nav-height:0px]'}`}>
       <Header />
       {showMemberNavigation && <DashboardNavigation key={user.id} role={profile.role as 'owner' | 'driver'} userId={user.id} />}
       <main key={location.pathname} className="page-enter flex-1">{children}</main>

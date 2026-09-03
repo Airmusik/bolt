@@ -35,10 +35,18 @@ const SuspendedPage = lazy(() => import('@/pages/SuspendedPage').then((module) =
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
 
 export default function App() {
-  const { profile } = useAuth();
+  const { profile, loading: authLoading } = useAuth();
   const { settings, loading } = useSiteSettings();
   const path = window.location.pathname;
   const adminAllowed = path.startsWith('/admin') || path === '/auth/callback' || profile?.role === 'admin';
+
+  // Never mount guest/default actions while restoring a member's account or
+  // loading admin-controlled branding/settings. Applies to every route.
+  if (authLoading || loading) {
+    return <div role="status" aria-live="polite" className="flex min-h-screen items-center justify-center bg-white text-ink-500 dark:bg-[#0b0b0d]">
+      <span className="text-sm">Loading…</span>
+    </div>;
+  }
 
   if (!loading && settings.maintenance_mode === 'true' && !adminAllowed) {
     return (
