@@ -94,6 +94,19 @@
 }
 
 .page-enter { animation: fade-in 0.35s ease-out both; }
+.member-nav-button { isolation: isolate; overflow: hidden; }
+.member-nav-button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(110deg, transparent 15%, rgb(16 185 129 / 0.28) 40%, rgb(56 189 248 / 0.24) 55%, transparent 80%);
+  transform: translateX(-110%);
+}
+.member-nav-active::before {
+  background: linear-gradient(110deg, transparent 15%, rgb(255 255 255 / 0.24) 48%, transparent 80%);
+}
 .member-nav-active {
   background: linear-gradient(120deg, #047857, #0369a1, #047857);
   background-size: 220% 100%;
@@ -103,13 +116,20 @@
   50% { background-position: 100% 50%; }
 }
 @keyframes member-nav-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-2px); }
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-3px) scale(1.12); }
+}
+@keyframes member-nav-sweep {
+  0% { transform: translateX(-110%); }
+  70%, 100% { transform: translateX(110%); }
 }
 @media (prefers-reduced-motion: no-preference) {
   .member-nav-active { animation: member-nav-glow 12s ease-in-out infinite; }
-  .member-nav-button .member-nav-icon { animation: member-nav-float 8s ease-in-out infinite; }
-  .member-nav-button:nth-child(even) .member-nav-icon { animation-delay: -4s; }
+  .member-nav-button::before { animation: member-nav-sweep 6s ease-in-out infinite; }
+  .member-nav-button .member-nav-icon { animation: member-nav-float 4s ease-in-out infinite; }
+  .member-nav-button:nth-child(2n)::before { animation-delay: -2s; }
+  .member-nav-button:nth-child(3n)::before { animation-delay: -4s; }
+  .member-nav-button:nth-child(even) .member-nav-icon { animation-delay: -2s; }
 }
 .status-live { animation: soft-pulse 2s ease-in-out infinite; }
 .skeleton-shimmer {
