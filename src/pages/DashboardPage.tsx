@@ -110,7 +110,10 @@ export function DashboardPage() {
   if (!profile) return null;
   // Empty initial arrays mean "not loaded", not "no listings or requests".
   // Keep every tab's actions and counts hidden until the first load completes.
-  if (loading) return <div role="status" aria-live="polite" className="container-content py-8 text-sm text-ink-500">Loading your dashboard…</div>;
+  if (loading) return <div role="status" aria-live="polite" className="container-content flex min-h-48 items-center justify-center py-8">
+    <span aria-hidden="true" className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-100 border-t-emerald-600 dark:border-emerald-950 dark:border-t-emerald-400" />
+    <span className="sr-only">Loading your dashboard…</span>
+  </div>;
   const isOwner = profile.role === 'owner';
   const isDriver = profile.role === 'driver';
   const pendingConnections = incomingConnections.filter((c) => c.status === 'pending');
