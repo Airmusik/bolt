@@ -78,7 +78,7 @@ export function HomePage() {
       {/* HERO */}
       {!user && (
       <section className="relative z-10 bg-gradient-to-b from-accent-50/60 to-white dark:from-brand-50/40 dark:to-[#0b0b0d]">
-        <div className="container-content relative py-9 sm:py-14 lg:py-16">
+        <div className="container-content relative pt-9 pb-2 sm:pt-14 lg:pt-16">
           <div className="mx-auto max-w-3xl text-center animate-slide-up">
             <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-ink-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-ink-700 dark:bg-[#141416]">
               <ShieldCheck className="h-4 w-4 shrink-0 text-accent-600 dark:text-accent-400" /> Admin-reviewed driver history
@@ -140,7 +140,7 @@ export function HomePage() {
       )}
 
       {/* FEATURED LISTINGS */}
-      <section className="container-content py-10 sm:py-16">
+      <section className="container-content pt-4 pb-10 sm:pb-16">
         <div className="flex items-end justify-between gap-4">
           <div>
             <h2 className="font-display text-2xl font-bold text-ink-900 sm:text-3xl">Featured cars</h2>

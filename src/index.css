@@ -150,42 +150,41 @@
   animation: shimmer 1.6s linear infinite;
 }
 .road-handoff {
-  color: #047857;
-  --handoff-car-fill: #d1fae5;
-  --handoff-window-fill: #e0f2fe;
+  color: #111111;
+  --handoff-car-fill: #ffffff;
+  --handoff-window-fill: #ffffff;
   --handoff-wheel-fill: #ffffff;
-  --handoff-person-fill: #fef3c7;
+  --handoff-person-fill: #ffffff;
 }
-.dark .road-handoff { color: #6ee7b7; --handoff-car-fill: #064e3b; --handoff-window-fill: #164e63; --handoff-wheel-fill: #18181b; --handoff-person-fill: #78350f; }
-.handoff-car { transform: translate(400px, 64px); }
-.handoff-driver { transform: translate(460px, 64px); }
-.handoff-recipient { transform: translate(500px, 64px); }
-.handoff-key { transform: translate(481px, 55px); }
+.dark .road-handoff { color: #e4e4e7; --handoff-car-fill: #18181b; --handoff-window-fill: #18181b; --handoff-wheel-fill: #18181b; --handoff-person-fill: #18181b; }
+.handoff-car { transform: translate(400px, 23px) scale(.22); }
+.handoff-driver { transform: translate(414px, 23px) scale(.22); }
+.handoff-recipient { transform: translate(424px, 23px) scale(.22); }
+.handoff-key { transform: translate(419px, 21px) scale(.22); }
 .handoff-door { opacity: 0; }
 @keyframes handoff-drive {
-  0%, 4% { transform: translate(-80px, 64px); }
-  25%, 74% { transform: translate(400px, 64px); }
-  96%, 100% { transform: translate(980px, 64px); }
+  0% { transform: translate(-15px, 23px) scale(.22); }
+  25%, 74% { transform: translate(400px, 23px) scale(.22); }
+  98%, 100% { transform: translate(915px, 23px) scale(.22); }
 }
 @keyframes handoff-driver-walk {
-  0%, 29% { opacity: 0; transform: translate(402px, 64px); }
-  34% { opacity: 1; transform: translate(410px, 64px); }
-  45%, 76% { opacity: 1; transform: translate(460px, 64px); }
-  95% { opacity: 1; transform: translate(410px, 64px); }
-  100% { opacity: 0; transform: translate(410px, 64px); }
+  0%, 29% { opacity: 0; transform: translate(400px, 23px) scale(.22); }
+  34% { opacity: 1; transform: translate(403px, 23px) scale(.22); }
+  45%, 98% { opacity: 1; transform: translate(414px, 23px) scale(.22); }
+  100% { opacity: 0; transform: translate(414px, 23px) scale(.22); }
 }
 @keyframes handoff-receive {
-  0%, 55% { opacity: 1; transform: translate(500px, 64px); }
-  68% { opacity: 1; transform: translate(405px, 64px); }
-  72%, 97% { opacity: 0; transform: translate(405px, 64px); }
-  98%, 100% { opacity: 1; transform: translate(500px, 64px); }
+  0% { opacity: 0; transform: translate(424px, 23px) scale(.22); }
+  5%, 55% { opacity: 1; transform: translate(424px, 23px) scale(.22); }
+  68% { opacity: 1; transform: translate(401px, 23px) scale(.22); }
+  72%, 100% { opacity: 0; transform: translate(401px, 23px) scale(.22); }
 }
 @keyframes handoff-keys {
-  0%, 40% { opacity: 0; transform: translate(468px, 55px); }
-  45% { opacity: 1; transform: translate(478px, 55px); }
-  51%, 55% { opacity: 1; transform: translate(485px, 55px); }
-  67% { opacity: 1; transform: translate(396px, 55px); }
-  70%, 100% { opacity: 0; transform: translate(396px, 55px); }
+  0%, 40% { opacity: 0; transform: translate(416px, 21px) scale(.22); }
+  45% { opacity: 1; transform: translate(418px, 21px) scale(.22); }
+  51%, 55% { opacity: 1; transform: translate(419px, 21px) scale(.22); }
+  67% { opacity: 1; transform: translate(399px, 21px) scale(.22); }
+  70%, 100% { opacity: 0; transform: translate(399px, 21px) scale(.22); }
 }
 @keyframes handoff-door-open {
   0%, 27%, 39%, 57%, 74%, 100% { opacity: 0; }
