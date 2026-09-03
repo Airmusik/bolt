@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { AdminAdSettings } from '@/components/AdminAdSettings';
+import { AdminSiteAnalytics } from '@/components/AdminSiteAnalytics';
 import { adSettingsError } from '@/lib/ads';
 import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
@@ -69,9 +70,9 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
+type Tab = 'analytics' | 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
 
-const ADMIN_TABS: Tab[] = ['overview', 'members', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
+const ADMIN_TABS: Tab[] = ['analytics', 'overview', 'members', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -417,6 +418,7 @@ export function AdminPage() {
 
   const tabs: { key: Tab; label: string; icon: LucideIcon; badge?: number }[] = [
     { key: 'overview', label: 'Overview', icon: TrendingUp },
+    { key: 'analytics', label: 'Site analytics', icon: TrendingUp },
     { key: 'members', label: 'Members', icon: Users, badge: users.length },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
@@ -495,6 +497,7 @@ export function AdminPage() {
         {loading && <div className="card h-64 animate-pulse" />}
 
         {/* ---------- Overview ---------- */}
+        {tab === 'analytics' && <AdminSiteAnalytics />}
         {tab === 'overview' && !loading && (
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card p-5 lg:col-span-2">
