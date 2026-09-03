@@ -2,7 +2,7 @@ import { PromotionLink as Link, PromotionBadge, PromoteListingLink } from '@/com
 import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Briefcase, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Megaphone } from 'lucide-react';
+import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Megaphone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -40,6 +40,10 @@ export function DashboardPage() {
   const [searchParams] = useSearchParams();
   const tab = dashboardTabFromSearch(profile?.role === 'owner' ? 'owner' : 'driver', searchParams.toString());
   const setTab = (next: Tab) => navigate(dashboardDestination(next));
+  const [showFilters, setShowFilters] = useState(false);
+  const [search, setSearch] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  useEffect(() => { setShowFilters(false); setSearch(''); setLocationFilter(''); }, [tab]);
 
   const [vehicles, setVehicles] = useState<VehicleWithRelations[]>([]);
   const [applications, setApplications] = useState<OwnerApplication[]>([]);
@@ -131,7 +135,7 @@ export function DashboardPage() {
         ? { eyebrow: 'Needs your attention', title: `${pendingConnections.length} connection request${pendingConnections.length === 1 ? '' : 's'} waiting`, description: 'Review the request before the driver accepts another connection.', label: 'Review requests', to: null, tab: 'connections' as Tab, icon: Link2 }
         : pendingApplications > 0
           ? { eyebrow: 'Next best action', title: `${pendingApplications} application${pendingApplications === 1 ? '' : 's'} to review`, description: 'Compare profiles and start a conversation with a suitable driver.', label: 'View applications', to: null, tab: 'applications' as Tab, icon: Users }
-          : { eyebrow: 'Grow your shortlist', title: 'Discover available drivers', description: 'Browse reviewed profiles near your vehicle location.', label: 'Browse drivers', to: '/browse-drivers', tab: null, icon: Users }
+          : null
     : !profile.onboarding_completed
       ? { eyebrow: 'Profile required', title: 'Complete your driver profile', description: 'Add your experience, preferred areas, platforms, and introduction to become visible.', label: 'Complete profile', to: '/onboarding', tab: null, icon: Pencil }
       : driverNeedsApproval(profile)
@@ -210,9 +214,19 @@ export function DashboardPage() {
       {tab !== 'overview' && <div className="mt-5 border-b border-ink-100 pb-4"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-600">Dashboard</p><h1 className="mt-1 font-display text-xl font-bold text-ink-900 sm:text-2xl">{activeTab.label}</h1><p className="mt-1 text-sm text-ink-500">{sectionDescriptions[tab]}</p></div>}
 
       <div className={tab === 'overview' ? 'mt-3' : 'mt-4'}>
-        {tab === 'overview' && <OverviewTab profile={profile} drivers={drivers} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
-        {tab === 'drivers' && isOwner && <DriversTab users={drivers} loading={loading} siteName={settings.site_name} />}
-        {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars} loading={loading} />}
+        {(tab === 'cars' || tab === 'drivers') && <div className="mb-4">
+          <button type="button" className="btn-secondary text-sm" aria-expanded={showFilters} aria-controls="dashboard-search-filters" onClick={() => setShowFilters(value => !value)}>{showFilters ? 'Hide filters' : 'Filters'}{(search || locationFilter) ? ' · Active' : ''}</button>
+          {showFilters && <div id="dashboard-search-filters" className="card mt-3 grid gap-3 p-4 sm:grid-cols-2">
+            <label className="text-sm">{tab === 'cars' ? 'Make or model' : 'Driver name or platform'}<input className="input mt-1" value={search} onChange={event => setSearch(event.target.value)} /></label>
+            <label className="text-sm">Location<input className="input mt-1" value={locationFilter} onChange={event => setLocationFilter(event.target.value)} /></label>
+            <button type="button" className="btn-ghost justify-self-start text-sm" onClick={() => { setSearch(''); setLocationFilter(''); }}>Clear filters</button>
+            <Link className="btn-ghost text-sm" to={tab === 'cars' ? '/browse-cars' : '/browse-drivers'}>More search options</Link>
+          </div>}
+          <p className="mt-2 text-xs text-ink-500">Filter the dashboard recommendations. Use More search options to search the full directory.</p>
+        </div>}
+        {tab === 'overview' && <OverviewTab profile={profile} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
+        {tab === 'drivers' && isOwner && <DriversTab users={drivers.filter(d => `${d.full_name} ${(d.platforms_worked || []).join(' ')}`.toLowerCase().includes(search.trim().toLowerCase()) && (d.location || '').toLowerCase().includes(locationFilter.trim().toLowerCase()))} loading={loading} siteName={settings.site_name} />}
+        {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars.filter(v => `${v.make} ${v.model}`.toLowerCase().includes(search.trim().toLowerCase()) && (v.location || '').toLowerCase().includes(locationFilter.trim().toLowerCase()))} loading={loading} />}
         {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} onDeleted={load} />}
         {tab === 'applications' && isOwner && <OwnerApplicationsTab applications={applications} onAction={load} toast={toast} />}
         {tab === 'applications' && isDriver && <DriverApplicationsTab applications={myApplications} />}
@@ -223,9 +237,8 @@ export function DashboardPage() {
   );
 }
 
-function OverviewTab({ profile, drivers, conversations, isOwner, pendingConnections }: {
+function OverviewTab({ profile, conversations, isOwner, pendingConnections }: {
   profile: Profile;
-  drivers: Profile[];
   conversations: ConversationWithRelations[];
   isOwner: boolean;
   pendingConnections: IncomingConnection[];
@@ -261,31 +274,6 @@ function OverviewTab({ profile, drivers, conversations, isOwner, pendingConnecti
         </div>
       </div>
 
-      {/* Available drivers preview (owners only) */}
-      {isOwner && drivers.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between">
-            <h3 className="font-display text-lg font-bold text-ink-900">Available drivers</h3>
-          </div>
-          <div className="-mx-4 mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-3 sm:mx-0 sm:grid sm:grid-cols-2 sm:px-0 lg:grid-cols-3 xl:grid-cols-4">
-            {drivers.slice(0, 8).map((d: Profile) => (
-              <Link key={d.id} to={`/drivers/${d.id}`} className="card card-hover min-w-[82vw] snap-start p-4 sm:min-w-0">
-                <div className="flex items-center gap-3">
-                  <Avatar name={d.full_name} src={d.avatar_url} size={44} verified={d.platform_history_approved} />
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">{d.full_name} <VerifiedBadge verified={d.platform_history_approved} size={11} /></p>
-                    <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
-                  </div>
-                  <AvailabilityBadge availability={d.availability} profile={d} />
-                  <PromotionBadge kind="profile" id={d.id} />
-                </div>
-                <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-2" />
-                <div className="mt-2 flex items-center gap-1 text-xs text-ink-500"><Briefcase className="h-3 w-3" /> {Math.max(1, d.driving_experience_years || 1)} {d.driving_experience_years === 1 ? 'year' : 'years'}</div>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
 
     </div>
   );
@@ -293,7 +281,7 @@ function OverviewTab({ profile, drivers, conversations, isOwner, pendingConnecti
 
 function DriversTab({ users, loading, siteName }: { users: Profile[]; loading: boolean; siteName: string }) {
   if (loading) return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="card h-40 animate-pulse" />)}</div>;
-  if (users.length === 0) return <EmptyState title="No members found" description={`Check back soon as new members join ${siteName}.`} />;
+  if (users.length === 0) return <EmptyState title="No matching drivers" description={`Try clearing your filters or browse the full ${siteName} driver directory.`} action={<Link to="/browse-drivers" className="btn-secondary">Browse all drivers</Link>} />;
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {users.map((d) => (
@@ -324,7 +312,7 @@ function DriversTab({ users, loading, siteName }: { users: Profile[]; loading: b
 
 function AvailableCarsTab({ vehicles, loading }: { vehicles: VehicleWithRelations[]; loading: boolean }) {
   if (loading) return <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="card h-48 animate-pulse" />)}</div>;
-  if (vehicles.length === 0) return <EmptyState title="No cars available" description="Check back soon as owners list new vehicles." action={<Link to="/browse-cars" className="btn-primary">Browse all cars</Link>} />;
+  if (vehicles.length === 0) return <EmptyState title="No matching cars" description="Try clearing your filters or browse the full car directory." action={<Link to="/browse-cars" className="btn-primary">Browse all cars</Link>} />;
   return <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <VehicleCard key={v.id} vehicle={v} />)}</div>;
 }
 
