@@ -94,6 +94,23 @@
 }
 
 .page-enter { animation: fade-in 0.35s ease-out both; }
+.member-nav-active {
+  background: linear-gradient(120deg, #047857, #0369a1, #047857);
+  background-size: 220% 100%;
+}
+@keyframes member-nav-glow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes member-nav-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .member-nav-active { animation: member-nav-glow 12s ease-in-out infinite; }
+  .member-nav-button .member-nav-icon { animation: member-nav-float 8s ease-in-out infinite; }
+  .member-nav-button:nth-child(even) .member-nav-icon { animation-delay: -4s; }
+}
 .status-live { animation: soft-pulse 2s ease-in-out infinite; }
 .skeleton-shimmer {
   background-image: linear-gradient(90deg, rgb(var(--ink-100)) 25%, rgb(var(--ink-200)) 50%, rgb(var(--ink-100)) 75%);

@@ -2,7 +2,7 @@ import { PromotionLink as Link, PromotionBadge, PromoteListingLink } from '@/com
 import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Car, Users, MessageSquare, Star, Plus, Check, X, Clock, Link2, MapPin, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Megaphone } from 'lucide-react';
+import { Car, Users, MessageSquare, Star, Check, X, Clock, Link2, MapPin, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Megaphone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
@@ -164,27 +164,7 @@ export function DashboardPage() {
         </Link>
       </div>}
       {tab === 'overview' && <>
-      <section className="dashboard-panel overview-welcome relative isolate mt-3 overflow-hidden">
-        <span aria-hidden="true" className="overview-ambient pointer-events-none absolute -right-8 -top-12 h-44 w-64 rounded-full" />
-        <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-            <div className="shrink-0"><Avatar name={profile.full_name} src={profile.avatar_url} size={48} verified={isDriver && profile.platform_history_approved} /></div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-500">Your dashboard</p>
-              <h1 className="mt-0.5 break-words font-display text-xl font-bold leading-tight text-ink-950 sm:text-2xl">{profile.full_name}</h1>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-500">
-                <span className="font-medium text-ink-700">{isOwner ? 'Car owner' : 'Driver'}</span>
-                {profile.location && <span className="inline-flex min-w-0 items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /><span className="break-words">{profile.location}</span></span>}
-              </div>
-              {isDriver && <div className="mt-1"><AvailabilityBadge availability={profile.availability} profile={profile} /></div>}
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
-            {isOwner && <Link to="/vehicles/new" className="btn-secondary min-h-11 px-3 py-2 text-xs"><Plus className="h-3.5 w-3.5" /> Add vehicle</Link>}
-            {isDriver && !profile.platform_history_approved && <Link to="/onboarding" className="btn-ghost min-h-11 px-3 py-2 text-xs"><ShieldCheck className="h-3.5 w-3.5" /> My history</Link>}
-          </div>
-        </div>
-      </section>
+      <h1 className="sr-only">Account overview</h1>
 
       {recommendedAction && <div className="dashboard-panel overview-recommendation relative isolate mt-3 overflow-hidden border-l-2 border-accent-500">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
