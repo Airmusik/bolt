@@ -149,16 +149,55 @@
   background-size: 200% 100%;
   animation: shimmer 1.6s linear infinite;
 }
-.hero-road {
-  position: absolute;
-  bottom: 2.25rem;
-  left: 5%;
-  right: 5%;
-  height: 2px;
-  border-top: 2px dashed rgb(var(--brand-300) / 0.45);
-  transform: rotate(-2deg);
+.road-handoff {
+  color: #047857;
+  --handoff-car-fill: #d1fae5;
+  --handoff-window-fill: #e0f2fe;
+  --handoff-wheel-fill: #ffffff;
+  --handoff-person-fill: #fef3c7;
 }
-.hero-car { position: absolute; top: -0.8rem; left: -3rem; animation: road-drive 12s linear infinite; color: rgb(var(--brand-600)); }
+.dark .road-handoff { color: #6ee7b7; --handoff-car-fill: #064e3b; --handoff-window-fill: #164e63; --handoff-wheel-fill: #18181b; --handoff-person-fill: #78350f; }
+.handoff-car { transform: translate(400px, 64px); }
+.handoff-driver { transform: translate(460px, 64px); }
+.handoff-recipient { transform: translate(500px, 64px); }
+.handoff-key { transform: translate(481px, 55px); }
+.handoff-door { opacity: 0; }
+@keyframes handoff-drive {
+  0%, 4% { transform: translate(-80px, 64px); }
+  25%, 74% { transform: translate(400px, 64px); }
+  96%, 100% { transform: translate(980px, 64px); }
+}
+@keyframes handoff-driver-walk {
+  0%, 29% { opacity: 0; transform: translate(402px, 64px); }
+  34% { opacity: 1; transform: translate(410px, 64px); }
+  45%, 76% { opacity: 1; transform: translate(460px, 64px); }
+  95% { opacity: 1; transform: translate(410px, 64px); }
+  100% { opacity: 0; transform: translate(410px, 64px); }
+}
+@keyframes handoff-receive {
+  0%, 55% { opacity: 1; transform: translate(500px, 64px); }
+  68% { opacity: 1; transform: translate(405px, 64px); }
+  72%, 97% { opacity: 0; transform: translate(405px, 64px); }
+  98%, 100% { opacity: 1; transform: translate(500px, 64px); }
+}
+@keyframes handoff-keys {
+  0%, 40% { opacity: 0; transform: translate(468px, 55px); }
+  45% { opacity: 1; transform: translate(478px, 55px); }
+  51%, 55% { opacity: 1; transform: translate(485px, 55px); }
+  67% { opacity: 1; transform: translate(396px, 55px); }
+  70%, 100% { opacity: 0; transform: translate(396px, 55px); }
+}
+@keyframes handoff-door-open {
+  0%, 27%, 39%, 57%, 74%, 100% { opacity: 0; }
+  30%, 36%, 61%, 70% { opacity: 1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .handoff-car { animation: handoff-drive 20s ease-in-out infinite; }
+  .handoff-driver { animation: handoff-driver-walk 20s linear infinite; }
+  .handoff-recipient { animation: handoff-receive 20s linear infinite; }
+  .handoff-key { animation: handoff-keys 20s linear infinite; }
+  .handoff-door { animation: handoff-door-open 20s linear infinite; }
+}
 .site-wordmark {
   display: inline-block;
   color: rgb(var(--ink-900));

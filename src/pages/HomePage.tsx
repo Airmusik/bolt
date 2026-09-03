@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import type { VehicleWithRelations, Profile } from '@/lib/types';
 import { VehicleCard } from '@/components/VehicleCard';
+import { RoadHandoff } from '@/components/RoadHandoff';
 import { AdSlot } from '@/components/AdSlot';
 import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
@@ -77,9 +78,6 @@ export function HomePage() {
       {/* HERO */}
       {!user && (
       <section className="relative z-10 bg-gradient-to-b from-accent-50/60 to-white dark:from-brand-50/40 dark:to-[#0b0b0d]">
-        <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
-          <div className="hero-road hidden md:block"><Car className="hero-car h-6 w-6" /></div>
-        </div>
         <div className="container-content relative py-9 sm:py-14 lg:py-16">
           <div className="mx-auto max-w-3xl text-center animate-slide-up">
             <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-ink-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-ink-700 dark:bg-[#141416]">
@@ -136,6 +134,7 @@ export function HomePage() {
               { icon: Star, label: 'Two-way reviews' },
             ].map(({ icon: Icon, label }) => <span key={label} className="flex items-center gap-2 sm:justify-center"><Icon className="h-4 w-4 shrink-0 text-ink-500" />{label}</span>)}
           </div>
+          <RoadHandoff />
         </div>
       </section>
       )}
