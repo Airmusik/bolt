@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { notifyAdAction } from '@/lib/ads';
 import { BackButton } from '@/components/BackButton';
+import { DocumentExpiry } from '@/components/DocumentExpiry';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, AlertTriangle, Upload, X, ArrowLeft } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
@@ -326,6 +327,7 @@ export function VehicleFormPage() {
               </select>
             </Field>
             <Field label="Insurance expiry date" hint="Enter the date shown on the active insurance cover."><input type="date" value={form.insurance_expiry} onChange={(e) => setForm({ ...form, insurance_expiry: e.target.value })} className="input" /></Field>
+            {form.insurance_type !== 'none' && form.insurance_expiry && Number.isFinite(Date.parse(form.insurance_expiry)) && <div aria-live="polite"><DocumentExpiry expiresAt={new Date(Date.parse(`${form.insurance_expiry.slice(0, 10)}T00:00:00Z`) + 86_400_000).toISOString()} /></div>}
             <Field label="Available from" hint="Choose the earliest date a driver can take the vehicle."><input type="date" value={form.available_from} onChange={(e) => setForm({ ...form, available_from: e.target.value })} className="input" /></Field>
           </div>
         </Card>
