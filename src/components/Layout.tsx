@@ -5,6 +5,7 @@ import { Footer } from './Footer';
 import { useAuth } from '@/lib/useAuth';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { DashboardNavigation } from './DashboardNavigation';
+import { ActionAd } from './AdSlot';
 
 const SUSPENDED_ALLOWED = ['/', '/about', '/contact', '/terms', '/privacy', '/suspended', '/login', '/register'];
 
@@ -34,6 +35,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className={`flex min-h-screen flex-col ${showMemberNavigation ? '[--member-nav-height:10.25rem] sm:[--member-nav-height:6.25rem]' : '[--member-nav-height:0px]'}`}>
       <Header />
       {showMemberNavigation && <DashboardNavigation key={user.id} role={profile.role as 'owner' | 'driver'} userId={user.id} />}
+      <ActionAd />
       <main key={location.pathname} className="page-enter flex-1">{children}</main>
       <Footer key={`footer:${location.pathname}`} />
     </div>

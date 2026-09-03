@@ -1,7 +1,9 @@
 import { createContext, createElement, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
+import { AD_DEFAULTS } from './ads';
 
 export const DEFAULT_SITE_SETTINGS = {
+  ...AD_DEFAULTS,
   site_name: '11Drive',
   site_tagline: 'The right driver. The right car. A trusted connection.',
   site_logo_url: '',

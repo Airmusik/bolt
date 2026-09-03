@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import type { VehicleWithRelations, Profile } from '@/lib/types';
 import { VehicleCard } from '@/components/VehicleCard';
+import { AdSlot } from '@/components/AdSlot';
 import { Avatar } from '@/components/Avatar';
 import { Rating } from '@/components/Rating';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
@@ -183,6 +184,7 @@ export function HomePage() {
       </section>
 
       {/* STATS */}
+      <AdSlot placement="inline" className="mx-4 sm:mx-6 lg:mx-auto lg:max-w-5xl" />
       <section className="bg-[#141416] text-white">
         <div className="container-content py-8 sm:py-10">
           <div className="grid grid-cols-2 gap-x-5 gap-y-7 lg:grid-cols-4">

@@ -1,5 +1,6 @@
 import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { AdSlot } from '@/components/AdSlot';
 import { useSearchParams } from 'react-router-dom';
 import { SlidersHorizontal, Search, MapPin } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -155,7 +156,7 @@ export function BrowseCarsPage() {
             </div>
           ) : filtered.length > 0 ? (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((v) => <VehicleCard key={v.id} vehicle={v} />)}
+              {filtered.map((v, index) => <Fragment key={v.id}><VehicleCard vehicle={v} />{index === 5 && filtered.length > 6 && <AdSlot placement="inline" className="col-span-full" />}</Fragment>)}
             </div>
           ) : (
             <EmptyState

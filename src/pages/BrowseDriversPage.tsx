@@ -1,6 +1,7 @@
 import { PromotionLink as Link, PromotionBadge } from '@/components/PromotionLink';
 import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { AdSlot } from '@/components/AdSlot';
 import { useSearchParams } from 'react-router-dom';
 import { MapPin, Languages, Briefcase } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
@@ -80,8 +81,8 @@ export function BrowseDriversPage() {
           </div>
         ) : filtered.length > 0 ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((d) => (
-              <div key={d.id} className="card card-hover flex h-full flex-col overflow-hidden border-t-2 border-t-emerald-400 p-4 sm:p-5">
+            {filtered.map((d, index) => (
+              <Fragment key={d.id}><div className="card card-hover flex h-full flex-col overflow-hidden border-t-2 border-t-emerald-400 p-4 sm:p-5">
                 <Link to={`/drivers/${d.id}`}>
                   <div className="flex flex-wrap items-start gap-3">
                     <Avatar name={d.full_name} src={d.avatar_url} size={56} verified={d.platform_history_approved} />
@@ -110,6 +111,7 @@ export function BrowseDriversPage() {
                   <ConnectionButton otherUserId={d.id} size="sm" className="w-full" />
                 </div>
               </div>
+              {index === 5 && filtered.length > 6 && <AdSlot placement="inline" className="col-span-full" />}</Fragment>
             ))}
           </div>
         ) : (

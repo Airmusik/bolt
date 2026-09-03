@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Linkedin, Mail, MapPin, Phone, ChevronDown } from 'lucide-react';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { SiteLogo } from './SiteLogo';
+import { AdSlot } from './AdSlot';
 
 export function Footer() {
   const [expanded, setExpanded] = useState(false);
@@ -11,6 +12,7 @@ export function Footer() {
   return (
     <footer className="border-t border-ink-100 bg-white dark:bg-[#0b0b0d]">
       <div className="container-content py-6">
+        <AdSlot placement="footer" />
         {/* Mobile: collapsed behind a button */}
         <div className="flex w-full items-center justify-between md:hidden">
           <Link to="/" className="flex items-center gap-2">

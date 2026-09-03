@@ -1,4 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { AdminAdSettings } from '@/components/AdminAdSettings';
+import { adSettingsError } from '@/lib/ads';
 import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
@@ -1139,6 +1141,8 @@ function AdminSettings() {
 
   const save = async () => {
     const siteName = settings.site_name.trim();
+    const adError = adSettingsError(settings);
+    if (adError) { toast(adError, 'error'); return; }
     if (siteName.length < 2 || siteName.length > 40) { toast('Site name must be between 2 and 40 characters.', 'error'); return; }
     const siteTagline = settings.site_tagline.trim();
     if (siteTagline.length < 10 || siteTagline.length > 100) { toast('Tagline must be between 10 and 100 characters.', 'error'); return; }
@@ -1270,6 +1274,7 @@ function AdminSettings() {
             <div><label htmlFor="admin-linkedin-url" className="label">LinkedIn URL</label><input id="admin-linkedin-url" type="url" value={settings.linkedin_url} onChange={(e) => setSettings({ ...settings, linkedin_url: e.target.value })} className="input" placeholder="https://linkedin.com/…" /></div>
           </div>
         </div>
+        <AdminAdSettings settings={settings} onChange={setSettings} />
         <button onClick={save} disabled={saving} className="btn-primary mt-4"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save settings'}</button>
       </div>
     </div>

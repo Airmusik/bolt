@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { ConfirmDialog } from './ConfirmDialog';
 import { DriverApprovalNotice } from './DriverApprovalNotice';
 import { driverNeedsApproval } from '@/lib/driverEligibility';
+import { notifyAdAction } from '@/lib/ads';
 import { canRequestConnection, CONNECTION_ROLE_MESSAGE } from '@/lib/connectionEligibility';
 
 interface Props {
@@ -68,6 +69,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
     if (error) { toast(error, 'error'); return; }
     if (connection) setConnection(connection);
     toast('Connection request sent.');
+    notifyAdAction('connection');
     setShowModal(false);
     setMessage('');
   };

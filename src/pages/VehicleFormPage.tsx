@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { notifyAdAction } from '@/lib/ads';
 import { BackButton } from '@/components/BackButton';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, AlertTriangle, Upload, X, ArrowLeft } from 'lucide-react';
@@ -213,6 +214,7 @@ export function VehicleFormPage() {
     }
     setSaving(false);
     toast(isEdit ? originalApprovalStatus === 'rejected' ? 'Changes submitted. The listing is pending admin approval again.' : 'Listing changes saved. New photos wait for admin approval.' : 'Vehicle submitted. It will go live after admin approval.');
+    notifyAdAction('listing');
     navigate('/dashboard');
   };
 
