@@ -108,6 +108,9 @@ export function DashboardPage() {
   useEffect(() => { load(); }, [load, revision]);
 
   if (!profile) return null;
+  // Empty initial arrays mean "not loaded", not "no listings or requests".
+  // Keep every tab's actions and counts hidden until the first load completes.
+  if (loading) return <div role="status" aria-live="polite" className="container-content py-8 text-sm text-ink-500">Loading your dashboard…</div>;
   const isOwner = profile.role === 'owner';
   const isDriver = profile.role === 'driver';
   const pendingConnections = incomingConnections.filter((c) => c.status === 'pending');
