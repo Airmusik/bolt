@@ -172,7 +172,7 @@ export function Header() {
         <Link to="/" aria-label={`${settings.site_name} home`} className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <SiteLogo />
           <span className="site-wordmark truncate font-display text-2xl font-extrabold tracking-tight lg:text-3xl">
-            {settings.site_name}
+            {settings.site_name === '11Drive' ? <>11<span className="text-[0.85em]">Drive</span></> : settings.site_name}
           </span>
         </Link>
 
