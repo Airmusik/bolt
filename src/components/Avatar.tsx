@@ -1,5 +1,4 @@
 import { cn, initials } from '@/lib/utils';
-import { VerifiedBadge } from './VerifiedBadge';
 
 interface Props {
   name: string;
@@ -9,7 +8,7 @@ interface Props {
   className?: string;
 }
 
-export function Avatar({ name, src, size = 40, verified, className }: Props) {
+export function Avatar({ name, src, size = 40, className }: Props) {
   return (
     <div className={cn('relative shrink-0', className)} style={{ width: size, height: size }}>
       {src ? (
@@ -25,11 +24,6 @@ export function Avatar({ name, src, size = 40, verified, className }: Props) {
         >
           {initials(name) || '?'}
         </div>
-      )}
-      {verified && (
-        <span className="absolute -bottom-0.5 -right-0.5 rounded-full bg-white p-0.5">
-          <VerifiedBadge verified size={Math.max(12, size * 0.32)} />
-        </span>
       )}
     </div>
   );
