@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Megaphone } from 'lucide-react';
 import { PromotionAnalytics } from '@/components/PromotionAnalytics';
+import { BackButton } from '@/components/BackButton';
 import { usePromotionLive, matchingPromotions } from '@/lib/promotionLive';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -46,7 +47,7 @@ export function PromotionsPage() {
     finally { setBusy(false); }
   };
   return <div className="container-content max-w-4xl py-6">
-    <Link to="/dashboard" className="btn-ghost">← Dashboard</Link>
+    <BackButton to="/dashboard" />
     <h1 className="mt-3 flex items-center gap-2 font-display text-2xl font-bold"><Megaphone className="h-6 w-6 text-brand-600" /> Promotions</h1>
     <p className="mt-2 text-sm text-ink-500">Optional paid placement. Ads are labelled Sponsored, respect search filters, and never replace admin approval or platform-history review.</p>
     {error && <div role="alert" className="mt-4 text-sm text-danger">{error} <button type="button" onClick={() => void load()} className="underline">Retry</button></div>}

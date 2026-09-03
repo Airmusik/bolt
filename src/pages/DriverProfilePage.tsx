@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, ArrowLeft, CalendarDays, Award, Mail } from 'lucide-react';
+import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, CalendarDays, Award, Mail } from 'lucide-react';
+import { BackButton } from '@/components/BackButton';
 import { supabase } from '@/lib/supabase';
 import { BROWSE_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useAuth } from '@/lib/useAuth';
@@ -68,19 +69,17 @@ export function DriverProfilePage() {
   const isOwner = profile.role === 'owner';
   return (
     <div className="container-content py-6 md:py-8">
-      <Link to={isOwner ? '/browse-cars' : '/browse-drivers'} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-800">
-        <ArrowLeft className="h-4 w-4" /> Back
-      </Link>
+      <BackButton to={isOwner ? '/browse-cars' : '/browse-drivers'} />
 
       <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_320px]">
         <div>
           {/* Header card */}
-          <div className="card p-6">
+          <div className="card border-t-4 border-t-emerald-400 p-4 sm:p-6">
             <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center">
               <Avatar name={profile.full_name} src={profile.avatar_url} size={88} verified={!isOwner && profile.platform_history_approved} />
-              <div className="flex-1">
+              <div className="min-w-0 flex-1">
                 <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-700">{profile.role} profile</p>
-                <h1 className="flex items-center gap-2 font-display text-2xl font-bold text-ink-900">
+                <h1 className="flex flex-wrap items-center gap-2 break-words font-display text-2xl font-bold text-ink-900">
                   {profile.full_name} {!isOwner && <VerifiedBadge verified={profile.platform_history_approved} size={18} showLabel />}
                 </h1>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
+import { BackButton } from '@/components/BackButton';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   MapPin, Fuel, Settings2, Wallet, Calendar, ShieldCheck, AlertTriangle,
-  Heart, Share2, Flag, ArrowLeft, CheckCircle2,
+  Heart, Share2, Flag, CheckCircle2,
 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { BROWSE_PROFILE_FIELDS } from '@/lib/profileSelect';
@@ -139,9 +140,7 @@ export function VehicleDetailsPage() {
 
   return (
     <div className="container-content py-6 md:py-8">
-      <Link to="/browse-cars" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-800">
-        <ArrowLeft className="h-4 w-4" /> Back to browse
-      </Link>
+      <BackButton to="/browse-cars" />
 
       <div className="mt-4 grid gap-8 lg:grid-cols-[1fr_360px]">
         {/* LEFT */}

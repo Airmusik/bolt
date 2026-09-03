@@ -181,7 +181,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   // Rejected / withdrawn — allow re-request
   return (
     <>
-      <button onClick={() => setShowModal(true)} className={cn('btn-secondary', btnSize, className)}>
+      <button onClick={() => setShowModal(true)} className={cn('btn-primary', btnSize, className)}>
         <Link2 className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> Connect
       </button>
       {showModal && (

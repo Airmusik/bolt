@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { BackButton } from '@/components/BackButton';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Plus, Trash2, AlertTriangle, Upload, X, ArrowLeft } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
@@ -224,9 +225,7 @@ export function VehicleFormPage() {
 
   return (
     <div className="container-content py-8">
-      <button onClick={() => navigate(-1)} className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-ink-800">
-        <ArrowLeft className="h-4 w-4" /> Back
-      </button>
+      <BackButton to="/dashboard?tab=vehicles" />
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">{isEdit ? 'Edit vehicle' : 'Add a vehicle'}</h1>
       <p className="mt-1 text-sm text-ink-500">New listings stay private until approval. Later text updates stay live; every new photo still requires admin review.</p>
       <p className="mt-2 text-xs text-ink-400"><span className="font-bold text-danger">*</span> Required information</p>

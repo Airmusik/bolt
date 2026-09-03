@@ -73,22 +73,21 @@ export function BrowseDriversPage() {
         ) : filtered.length > 0 ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {filtered.map((d) => (
-              <div key={d.id} className="card card-hover p-5">
+              <div key={d.id} className="card card-hover flex h-full flex-col overflow-hidden border-t-2 border-t-emerald-400 p-4 sm:p-5">
                 <Link to={`/drivers/${d.id}`}>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-start gap-3">
                     <Avatar name={d.full_name} src={d.avatar_url} size={56} verified={d.platform_history_approved} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold text-ink-900">{d.full_name}</p>
+                      <p className="break-words font-display text-base font-bold leading-snug text-ink-900">{d.full_name}</p>
                       <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
                     </div>
-                    <AvailabilityBadge availability={d.availability} profile={d} />
-                    <PromotionBadge kind="profile" id={d.id} />
+                    <div className="flex w-full flex-wrap gap-2"><AvailabilityBadge availability={d.availability} profile={d} /><PromotionBadge kind="profile" id={d.id} /></div>
                   </div>
                   <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-3" />
-                  <div className="mt-3 space-y-1.5 text-xs text-ink-500">
-                    <p className="flex items-center gap-1.5"><Briefcase className="h-3.5 w-3.5" /> {Math.max(1, d.driving_experience_years || 1)} {d.driving_experience_years === 1 ? 'year' : 'years'} experience</p>
+                  <div className="mt-3 space-y-2 rounded-xl bg-ink-50 p-3 text-xs leading-5 text-ink-600">
+                    <p className="flex items-start gap-2"><Briefcase className="mt-0.5 h-4 w-4 shrink-0" /> {d.driving_experience_years != null ? `${d.driving_experience_years} ${d.driving_experience_years === 1 ? 'year' : 'years'} experience` : 'Experience not provided'}</p>
                     {d.languages?.length > 0 && (
-                      <p className="flex items-center gap-1.5"><Languages className="h-3.5 w-3.5" /> {d.languages.slice(0, 3).join(', ')}</p>
+                      <p className="flex items-start gap-2"><Languages className="mt-0.5 h-4 w-4 shrink-0" /><span className="break-words">{d.languages.join(', ')}</span></p>
                     )}
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1">
@@ -98,7 +97,7 @@ export function BrowseDriversPage() {
                   </div>
                 </Link>
                 <div className="mt-3"><VerifiedBadge verified={d.platform_history_approved} size={12} showLabel /></div>
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="mt-auto grid grid-cols-2 gap-2 border-t border-ink-100 pt-4">
                   <Link to={`/members/${d.id}`} className="btn-secondary justify-center px-2 text-xs">View driver</Link>
                   <ConnectionButton otherUserId={d.id} size="sm" className="w-full" />
                 </div>

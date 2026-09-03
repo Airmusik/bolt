@@ -526,7 +526,7 @@ export function ChatPage() {
               {/* Header */}
               <div className="flex items-center justify-between border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-violet-50 p-3 sm:p-4 dark:from-brand-950/30 dark:via-[#141416] dark:to-violet-950/20">
                 <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-                  <button onClick={() => { setActive(null); navigate('/chat'); }} aria-label="Back to conversations" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-500 hover:bg-white/80 lg:hidden"><ArrowLeft className="h-5 w-5" /></button>
+                  <button type="button" onClick={() => { setActive(null); if (window.history.state?.idx > 0) navigate(-1); else navigate('/chat', { replace: true }); }} aria-label="Back" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-500 hover:bg-white/80 lg:hidden"><ArrowLeft className="h-5 w-5" /></button>
                   <ChatPartnerIdentity member={other} support={isDirectSupportConversation}>
                     <p className="mt-0.5 flex items-center gap-1.5 truncate text-xs text-ink-500"><span className={cn('inline-flex shrink-0 items-center gap-1', isProfileOnline(other) ? 'font-semibold text-emerald-600' : 'text-ink-400')}><span className={cn('h-1.5 w-1.5 rounded-full', isProfileOnline(other) ? 'bg-emerald-500' : 'bg-ink-300')} />{lastSeenText(other)}</span><span aria-hidden="true">·</span><span className="truncate">{active.vehicle_id ? 'Vehicle conversation' : active.admin_id ? `${settings.site_name} support` : 'Member conversation'}</span></p>
                   </ChatPartnerIdentity>

@@ -285,23 +285,22 @@ function DriversTab({ users, loading, siteName }: { users: Profile[]; loading: b
   return (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {users.map((d) => (
-        <div key={d.id} className="card p-4">
+        <div key={d.id} className="card flex h-full flex-col border-t-2 border-t-emerald-400 p-4 sm:p-5">
           <Link to={`/drivers/${d.id}`}>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-start gap-3">
               <Avatar name={d.full_name} src={d.avatar_url} size={48} verified={d.platform_history_approved} />
               <div className="min-w-0 flex-1">
-                <p className="flex items-center gap-1 truncate text-sm font-semibold text-ink-900">{d.full_name} <VerifiedBadge verified={d.platform_history_approved} size={12} /></p>
+                <p className="flex flex-wrap items-center gap-1 break-words font-display text-base font-bold leading-snug text-ink-900">{d.full_name} <VerifiedBadge verified={d.platform_history_approved} size={12} /></p>
                 <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
               </div>
-              <AvailabilityBadge availability={d.availability} profile={d} />
-              <PromotionBadge kind="profile" id={d.id} />
+              <div className="flex w-full flex-wrap gap-2"><AvailabilityBadge availability={d.availability} profile={d} /><PromotionBadge kind="profile" id={d.id} /></div>
             </div>
             <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-3" />
             <div className="mt-2 flex flex-wrap gap-1">
               {(d.platforms_worked || []).slice(0, 3).map((p) => <span key={p} className="badge-neutral">{titleCase(p)}</span>)}
             </div>
           </Link>
-          <div className="mt-3">
+          <div className="mt-auto pt-4">
             <Link to={`/drivers/${d.id}`} className="btn-primary w-full px-3 py-1.5 text-xs">View profile</Link>
           </div>
         </div>
