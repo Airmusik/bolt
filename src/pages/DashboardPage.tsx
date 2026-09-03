@@ -216,7 +216,7 @@ export function DashboardPage() {
       </div>
       </>}
 
-      {tab !== 'overview' && <div className="mt-5 border-b border-ink-100 pb-4"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-600">Dashboard</p><h1 className="mt-1 font-display text-xl font-bold text-ink-900 sm:text-2xl">{activeTab.label}</h1><p className="mt-1 text-sm text-ink-500">{sectionDescriptions[tab]}</p></div>}
+      {tab !== 'overview' && <div className="mt-5 border-b border-ink-100 pb-4"><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-600">Dashboard</p><h1 className="mt-1 font-display text-xl font-bold text-ink-900 sm:text-2xl">{activeTab.label}</h1><p className="mt-1 text-sm text-ink-500">{sectionDescriptions[tab]}</p>{tab === 'vehicles' && isOwner && <Link to="/vehicles/new" className="btn-primary mt-3">Add vehicle</Link>}</div>}
 
       <div className={tab === 'overview' ? 'mt-3' : 'mt-4'}>
         {(tab === 'cars' || tab === 'drivers') && <div className="mb-4">

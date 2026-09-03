@@ -219,7 +219,7 @@ export function VehicleFormPage() {
   if (!isEdit && (!capacity || capacity.used >= capacity.limit)) return <div className="container-content py-8">
     <Link to="/dashboard?tab=vehicles" className="btn-ghost"><ArrowLeft className="h-4 w-4" /> My vehicles</Link>
     <div className="card mx-auto mt-6 max-w-xl p-6">
-      {capacity ? <><h1 className="font-display text-xl font-bold">Your {capacity.limit}-car allowance is full</h1><p className="mt-3 text-sm text-ink-600">You have {capacity.used} listings. Owners can list 3 cars by default, including pending listings. To add more, contact admin and request a higher allowance.</p><Link to="/contact?topic=listing-limit" className="btn-primary mt-5">Contact admin to list more cars</Link></> : capacityError ? <><p className="text-sm text-danger">{capacityError}</p><button type="button" onClick={() => void loadCapacity()} className="btn-secondary mt-3">Try again</button></> : <p role="status">Checking your listing allowance…</p>}
+      {capacity ? <><h1 className="font-display text-xl font-bold">Maximum listing limit reached</h1><p role="alert" className="mt-3 text-sm text-ink-600">You have reached your maximum limit of {capacity.limit} vehicle listings, including pending listings. To list more vehicles, please contact support to request a higher limit.</p><Link to="/contact?topic=listing-limit" className="btn-primary mt-5">Contact support</Link></> : capacityError ? <><p className="text-sm text-danger">{capacityError}</p><button type="button" onClick={() => void loadCapacity()} className="btn-secondary mt-3">Try again</button></> : <p role="status">Checking your listing allowance…</p>}
     </div>
   </div>;
 
