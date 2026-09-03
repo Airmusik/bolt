@@ -215,6 +215,14 @@
   .mobile-chat-fullscreen .chat-grid { height: calc(100dvh - env(safe-area-inset-top)); min-height: 0; max-height: none; gap: 0; }
   .mobile-chat-fullscreen .chat-grid > .card { min-height: 0; border-radius: 0; }
 }
+@keyframes admin-nav-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(14 165 233 / 0); }
+  50% { box-shadow: 0 0 0 2px rgb(14 165 233 / .12); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .admin-nav-button { animation: admin-nav-glow 8s ease-in-out infinite; transition: background-color .2s, border-color .2s; }
+  .admin-nav-button > svg { animation: analytics-icon-breathe 8s ease-in-out infinite; animation-delay: inherit; }
+}
 .site-wordmark {
   display: inline-block;
   color: rgb(var(--ink-900));

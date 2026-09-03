@@ -426,18 +426,18 @@ export function AdminPage() {
 
   const tabs: { key: Tab; label: string; icon: LucideIcon; badge?: number }[] = [
     { key: 'overview', label: 'Overview', icon: TrendingUp },
-    { key: 'analytics', label: 'Site analytics', icon: TrendingUp },
-    { key: 'advertisements', label: 'Advertisements', icon: Eye },
     { key: 'members', label: 'Members', icon: Users, badge: users.length },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
+    { key: 'contact', label: 'Messages', icon: Mail, badge: newContactMessages.length },
+    { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: unsolvedReports.length },
-    { key: 'contact', label: 'Messages', icon: Mail, badge: newContactMessages.length },
-    { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => historyState(h) === 'pending').length },
     { key: 'expired', label: 'Expired documents', icon: CalendarDays },
-    { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
-    { key: 'settings', label: 'Settings', icon: SettingsIcon },
+    { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => historyState(h) === 'pending').length },
+    { key: 'analytics', label: 'Site analytics', icon: TrendingUp },
     { key: 'promotions', label: 'Promotions', icon: TrendingUp },
+    { key: 'advertisements', label: 'Advertisements', icon: Eye },
+    { key: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
   const filteredDrivers = drivers.filter((d) => `${d.full_name} ${d.email || ''} ${d.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
@@ -475,9 +475,9 @@ export function AdminPage() {
         ))}
       </div>
 
-      <div className="mt-8 flex gap-1 overflow-x-auto border-b border-ink-100">
-        {tabs.map((t) => (
-          <button key={t.key} onClick={() => { if (t.key === 'cars') setCarStatusFilter('all'); setTab(t.key); }} className={cn('flex items-center gap-1.5 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium', tab === t.key ? 'border-brand-600 text-brand-700' : 'border-transparent text-ink-500 hover:text-ink-800')}>
+      <div className="mt-8 flex gap-2 overflow-x-auto rounded-2xl border border-sky-100 bg-sky-50/50 p-2 dark:border-sky-900 dark:bg-sky-950/20" aria-label="Admin sections">
+        {tabs.map((t, index) => (
+          <button type="button" key={t.key} aria-pressed={tab === t.key} style={{ animationDelay: `${index * .3}s` }} onClick={() => { if (t.key === 'cars') setCarStatusFilter('all'); setTab(t.key); }} className={cn('admin-nav-button flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500', tab === t.key ? 'border-transparent bg-gradient-to-r from-sky-700 to-teal-700 text-white shadow-sm' : 'border-sky-100 bg-white text-sky-800 hover:border-teal-300 hover:bg-teal-50 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-100 dark:hover:bg-teal-950')}>
             <t.icon className="h-4 w-4" /> {t.label}
             {t.badge !== undefined && t.badge > 0 && <span className="ml-0.5 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{t.badge}</span>}
           </button>
