@@ -82,6 +82,19 @@ export function ChatPage() {
   const [active, setActive] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
+  const [pendingImage, setPendingImage] = useState<{ file: File; url: string; conversation: string } | null>(null);
+  const [preparingImage, setPreparingImage] = useState(false);
+  useEffect(() => () => { if (pendingImage) URL.revokeObjectURL(pendingImage.url); }, [pendingImage]);
+  useEffect(() => { setPendingImage(null); }, [active?.id]);
+  const previewImage = async (file: File) => {
+    if (!active) return;
+    setPreparingImage(true);
+    try {
+      const prepared = await prepareChatImageUpload(file);
+      setPendingImage({ file: prepared, url: URL.createObjectURL(prepared), conversation: active.id });
+    } catch (error) { toast(error instanceof Error ? error.message : 'Could not preview image.', 'error'); }
+    finally { setPreparingImage(false); if (imageInputRef.current) imageInputRef.current.value = ''; }
+  };
   const [showEmoji, setShowEmoji] = useState(false);
   const [conversationSearch, setConversationSearch] = useState('');
   const [showReport, setShowReport] = useState(false);
@@ -392,6 +405,7 @@ export function ChatPage() {
         p_path: path,
       });
       if (messageError) throw messageError;
+      setPendingImage(null);
       await Promise.all([loadMessages(), loadConversations()]);
     } catch (error) {
       clearMobileUploadAttempt();
@@ -482,12 +496,13 @@ export function ChatPage() {
   const canEndConnection = Boolean(memberConnectionChat && active?.connection_id && active.connection?.status === 'accepted' && !chatClosed);
 
   return (
-    <div className="container-content py-4 sm:py-6">
-      <div className="mb-4 flex items-end justify-between gap-4">
+    <div className={cn('container-content py-4 sm:py-6', active && 'mobile-chat-fullscreen')}>
+      {pendingImage && pendingImage.conversation === active?.id && <Modal title="Preview image before sending" onClose={() => { if (!uploadingImage) setPendingImage(null); }}><img src={pendingImage.url} alt="Image ready to send" className="mx-auto max-h-[60dvh] max-w-full rounded-xl object-contain" /><div className="mt-4 flex gap-3"><button className="btn-secondary" disabled={uploadingImage} onClick={() => setPendingImage(null)}>Cancel</button><button className="btn-primary" disabled={uploadingImage} onClick={() => void uploadChatImage(pendingImage.file)}>{uploadingImage ? 'Sending…' : 'Send image'}</button></div></Modal>}
+      <div className={cn('mb-4 flex items-end justify-between gap-4', active && 'hidden lg:flex')}>
         <div><p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand-600"><Sparkles className="h-3.5 w-3.5 text-accent-500" /> Your connections</p><h1 className="font-display text-2xl font-bold text-ink-900">Messages</h1></div>
         <span className="hidden items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 sm:inline-flex"><ShieldCheck className="h-3.5 w-3.5" /> Private & saved</span>
       </div>
-      <div className="grid h-[calc(100dvh-9.5rem-var(--member-nav-height,0px))] min-h-[320px] max-h-[820px] gap-4 lg:grid-cols-[320px_1fr]">
+      <div className="chat-grid grid h-[calc(100dvh-9.5rem-var(--member-nav-height,0px))] min-h-[320px] max-h-[820px] gap-4 lg:grid-cols-[320px_1fr]">
         {/* Conversation list */}
         <div className={cn('card overflow-y-auto bg-gradient-to-b from-white to-ink-50/60 dark:from-[#141416] dark:to-[#101012]', active && 'hidden lg:block')}>
           <div className="sticky top-0 z-10 border-b border-ink-100 bg-white/90 p-3 backdrop-blur-xl dark:bg-[#141416]/90">
@@ -623,8 +638,8 @@ export function ChatPage() {
               {/* Input */}
               {!chatClosed && !chatBlocked && <div className="flex items-center gap-1.5 border-t border-ink-100 bg-white px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:gap-2 sm:p-3 dark:bg-[#141416]">
                 <button onClick={() => setShowEmoji((v) => !v)} aria-label="Choose emoji" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
-                <input ref={imageInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onClick={() => rememberMobileUploadPicker('chat-image')} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadChatImage(file); }} />
-                <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Send an image" title="Send an image" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
+                <input ref={imageInputRef} type="file" disabled={preparingImage || uploadingImage} accept="image/*,.heic,.heif" className="hidden" onClick={() => rememberMobileUploadPicker('chat-image')} onChange={(event) => { const file = event.target.files?.[0]; if (file) void previewImage(file); }} />
+<button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage || preparingImage} aria-label="Preview an image" title="Send an image" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage || preparingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
                 <div className="relative flex-1"><input
                   ref={inputRef}
                   value={text}

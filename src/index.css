@@ -210,6 +210,11 @@
   .analytics-metric-icon { animation: analytics-icon-breathe 7s ease-in-out infinite; }
   .analytics-metric { transition: border-color .2s, box-shadow .2s; }
 }
+@media (max-width: 1023px) {
+  .mobile-chat-fullscreen { position: fixed; inset: 0; z-index: 60; width: 100%; max-width: none; padding: env(safe-area-inset-top) 0 0; background: rgb(var(--ink-50)); }
+  .mobile-chat-fullscreen .chat-grid { height: calc(100dvh - env(safe-area-inset-top)); min-height: 0; max-height: none; gap: 0; }
+  .mobile-chat-fullscreen .chat-grid > .card { min-height: 0; border-radius: 0; }
+}
 .site-wordmark {
   display: inline-block;
   color: rgb(var(--ink-900));

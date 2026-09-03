@@ -38,7 +38,6 @@ export function AdminSiteAnalytics() {
       if (problem) { setError('Analytics could not load. Please retry.'); return; }
       setError(''); setReport(data as Report); setUpdated(new Date().toLocaleTimeString());
     };
-    setReport(null);
     void load();
     const timer = auto ? window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 60000) : undefined;
     return () => { cancelled = true; clearInterval(timer); };
@@ -81,12 +80,13 @@ export function AdminSiteAnalytics() {
       <label className="text-xs font-medium">To (UTC)<input aria-label="End date" type="date" value={end} min={start} max={date()} onChange={e => setEnd(e.target.value)} className="input mt-1 block" /></label>
       {[1, 7, 30, 90].map(days => <button key={days} className="btn-secondary text-xs" onClick={() => { setStart(date(1-days)); setEnd(date()); }}>{days === 1 ? 'Today' : `${days} days`}</button>)}
       <button className="btn-secondary" disabled={busy || !valid} onClick={() => setRevision(n => n+1)} aria-label="Refresh analytics"><RefreshCw className="h-4 w-4" /></button>
-      <button className="btn-secondary text-xs" disabled={!report || !valid || !!error} onClick={exportCsv}><Download className="h-4 w-4" />Export CSV</button>
+<button className="btn-secondary text-xs" disabled={busy || !report || !valid || !!error} onClick={exportCsv}><Download className="h-4 w-4" />Export CSV</button>
       <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={auto} onChange={e => setAuto(e.target.checked)} />Auto-refresh</label>
     </div>
     {!valid && <p role="alert" className="text-red-600">Choose a valid range of up to 90 days.</p>}
     {error && <p role="alert" className="rounded-xl bg-red-50 p-4 text-red-700">{error} <button className="underline" onClick={() => setRevision(n => n+1)}>Retry</button></p>}
-    {busy && !report && <p role="status">Loading your insights…</p>}
+    {busy && !report && <div role="status" className="grid min-h-72 grid-cols-2 gap-3 xl:grid-cols-4">{Array.from({ length: 8 }, (_, i) => <div key={i} className="h-36 rounded-2xl bg-ink-100" />)}<span className="sr-only">Loading analytics</span></div>}
+    {busy && report && <p role="status" className="text-xs text-ink-500">Updating selected dates… previous figures remain visible until ready.</p>}
     {report && valid && <>
       <p className="text-xs text-ink-500">Updated {updated}. Traffic coverage begins {report.tracking_since ? new Date(report.tracking_since).toLocaleDateString() : 'after the first measured visit'}. {error ? 'Figures below are the last successful snapshot.' : ''}</p>
       <p className="text-sm text-ink-500">Tap any card to see what it means and explore its figures.</p>
