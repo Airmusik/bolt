@@ -71,7 +71,7 @@ export function DashboardPage() {
     if (profile.role === 'owner') {
       const [{ data: v, error: vehicleError }, { data: apps, error: applicationError }, { data: drs, error: driverError }] = await Promise.all([
         supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).eq('owner_id', user.id).is('deleted_at', null).order('created_at', { ascending: false }),
-        supabase.from('applications').select(`*, driver:profiles(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles(*, photos:vehicle_photos(*))`).eq('owner_id', user.id).order('created_at', { ascending: false }),
+        supabase.from('applications').select(`*, driver:profiles!applications_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles(*, photos:vehicle_photos(*))`).eq('owner_id', user.id).order('created_at', { ascending: false }),
         supabase.rpc('discover_drivers', { p_limit: 24 }),
       ]);
       if (vehicleError || applicationError || driverError) throw vehicleError || applicationError || driverError;
