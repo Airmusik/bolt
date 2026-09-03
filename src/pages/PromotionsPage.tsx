@@ -12,7 +12,7 @@ import { formatDateTime, formatMoney } from '@/lib/utils';
 import { promotionError, promotionStatus, promotionTitle, type PromotionRequest, type PromotionSettings } from '@/lib/promotions';
 
 export function PromotionsPage() {
-  const { campaigns } = usePromotionLive();
+  const { campaigns, enabled } = usePromotionLive();
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const [params] = useSearchParams();
@@ -37,7 +37,11 @@ export function PromotionsPage() {
     } catch (e) { setError(promotionError(e)); }
   }, [user]);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (profile?.role === 'owner' && (target === 'profile' || !target)) setTarget(vehicles[0]?.id || '');
+  }, [profile?.role, target, vehicles]);
   const create = async () => {
+    if (!enabled || !target || (target === 'profile' && profile?.role !== 'driver')) return;
     setBusy(true);
     try {
       const { error: e } = await supabase.rpc('request_promotion', { p_kind: target === 'profile' ? 'profile' : 'listing', p_vehicle_id: target === 'profile' ? null : target });
@@ -55,12 +59,12 @@ export function PromotionsPage() {
     {settings && <div className="card mt-5 p-4 sm:p-6">
       {!settings.enabled ? <p className="text-sm text-ink-600">New promotions are currently unavailable. Existing requests and payment details remain below. <Link to="/contact" className="underline">Contact support</Link> for help.</p> : <>
         <h2 className="font-semibold">Choose what to promote</h2>
-        <label className="label mt-4" htmlFor="promotion-target">Profile or listing</label>
-        <select id="promotion-target" className="input" value={target} onChange={(e) => setTarget(e.target.value)}><option value="profile">My {profile?.role === 'owner' ? 'owner' : 'driver'} profile</option>{vehicles.map(v => <option key={v.id} value={v.id}>{v.make} {v.model}</option>)}</select>
-        <p className="mt-2 text-xs text-ink-500">Driver profiles appear higher in driver results. An owner-profile promotion highlights their approved cars; a listing promotion highlights one car. Visibility is subject to availability and search filters.</p>
+        <label className="label mt-4" htmlFor="promotion-target">{profile?.role === 'owner' ? 'Choose a car' : 'Profile or listing'}</label>
+        <select id="promotion-target" className="input" value={target} onChange={(e) => setTarget(e.target.value)}>{profile?.role === 'driver' && <option value="profile">My driver profile</option>}{profile?.role === 'owner' && vehicles.length === 0 && <option value="">No approved cars available</option>}{vehicles.map(v => <option key={v.id} value={v.id}>{v.make} {v.model}</option>)}</select>
+        <p className="mt-2 text-xs text-ink-500">Drivers can promote their profile. Car owners can only promote individual live, approved cars. Visibility is subject to availability and search filters.</p>
         <p className="mt-4 text-lg font-bold">{formatMoney(target === 'profile' ? settings.profile_price : settings.listing_price)} <span className="text-sm font-normal text-ink-500">for {settings.duration_days} days</span></p>
         <p className="mt-2 whitespace-pre-wrap break-words text-sm text-ink-600">{settings.terms}</p>
-        <button type="button" disabled={busy || promoted} onClick={() => void create()} className="btn-primary mt-4">{promoted ? 'Promoted · Analytics below' : busy ? 'Preparing quote…' : 'Get quote & payment instructions'}</button>
+        <button type="button" disabled={busy || promoted || !enabled || !target || (target === 'profile' && profile?.role !== 'driver')} onClick={() => void create()} className="btn-primary mt-4">{promoted ? 'Promoted · Analytics below' : busy ? 'Preparing quote…' : 'Get quote & payment instructions'}</button>
         <p className="mt-2 text-xs text-ink-500">No charge on this button. Check the saved quote, pay using its instructions, then submit your transaction reference. Never share a payment PIN or password.</p>
       </>}
     </div>}

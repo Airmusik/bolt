@@ -2,18 +2,21 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { supabase } from './supabase';
 
 export type LivePromotion = { id: string; kind: 'listing' | 'profile'; target_id: string; expires_at: string };
-const Context = createContext({ campaigns: [] as LivePromotion[], revision: 0 });
+const Context = createContext({ campaigns: [] as LivePromotion[], revision: 0, enabled: false });
 
 export function PromotionLiveProvider({ children }: { children: ReactNode }) {
   const [campaigns, setCampaigns] = useState<LivePromotion[]>([]);
   const [revision, setRevision] = useState(0);
+  const [enabled, setEnabled] = useState(false);
   const refresh = useCallback(async () => {
+    const { data: settings } = await supabase.from('promotion_settings').select('enabled').single();
+    setEnabled(settings?.enabled === true);
     const { data, error } = await supabase.rpc('live_promotions');
     if (!error) setCampaigns(old => JSON.stringify(old) === JSON.stringify(data) ? old : data || []);
   }, []);
   useEffect(() => {
     void refresh();
-    const interval = window.setInterval(() => void refresh(), 30000);
+    const interval = window.setInterval(() => void refresh(), 10000);
     const focus = () => { setRevision(v => v + 1); void refresh(); };
     window.addEventListener('focus', focus);
     return () => { clearInterval(interval); window.removeEventListener('focus', focus); };
@@ -28,7 +31,7 @@ export function PromotionLiveProvider({ children }: { children: ReactNode }) {
     }, Math.min(2147483647, Math.max(0, next - Date.now() + 10)));
     return () => clearTimeout(timer);
   }, [campaigns, refresh]);
-  const value = useMemo(() => ({ campaigns, revision }), [campaigns, revision]);
+  const value = useMemo(() => ({ campaigns, revision, enabled }), [campaigns, revision, enabled]);
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }
 

@@ -9,7 +9,7 @@ import { formatDateTime } from '@/lib/utils';
 type Metric = { promotion_id: string; reach: number; clicks: number };
 export function PromotionAnalytics({ admin = false, compact = false }: { admin?: boolean; compact?: boolean }) {
   const { user } = useAuth();
-  const { revision } = usePromotionLive();
+  const { revision, enabled } = usePromotionLive();
   const [rows, setRows] = useState<PromotionRequest[]>([]);
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [query, setQuery] = useState('');
@@ -54,6 +54,6 @@ export function PromotionAnalytics({ admin = false, compact = false }: { admin?:
         </article>;
       })}</div>
     </>}
-    {compact && <Link to="/promotions" className="btn-ghost mt-3 text-sm">View all promotions</Link>}
+    {compact && enabled && <Link to="/promotions" className="btn-ghost mt-3 text-sm">View all promotions</Link>}
   </section>;
 }

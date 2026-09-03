@@ -3,9 +3,12 @@ import { useSiteSettings } from '@/lib/siteSettings';
 import { cn } from '@/lib/utils';
 
 export function SiteLogo({ size = 'md', className }: { size?: 'md' | 'lg' | number; className?: string }) {
-  const { settings } = useSiteSettings();
+  const { settings, loading } = useSiteSettings();
   const dimensions = size === 'lg' ? 'h-10 w-10' : 'h-9 w-9';
   const style = typeof size === 'number' ? { width: size, height: size } : undefined;
+
+  // Reserve space without flashing the default car icon before branding loads.
+  if (loading) return <span aria-hidden="true" style={style} className={cn('block shrink-0 rounded-xl', dimensions, className)} />;
 
   if (settings.site_logo_url) {
     return (

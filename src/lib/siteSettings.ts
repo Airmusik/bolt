@@ -84,6 +84,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   }, [settings.site_name, settings.site_tagline]);
 
   useEffect(() => {
+    if (loading) return;
     let favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (!favicon) {
       favicon = document.createElement('link');
@@ -92,7 +93,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     }
     favicon.href = settings.site_logo_url || '/favicon.svg';
     favicon.type = settings.site_logo_url ? '' : 'image/svg+xml';
-  }, [settings.site_logo_url]);
+  }, [settings.site_logo_url, loading]);
 
   const value = useMemo(() => ({ settings, loading, refreshSettings }), [settings, loading, refreshSettings]);
   return createElement(SiteSettingsContext.Provider, { value }, children);

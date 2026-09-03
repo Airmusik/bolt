@@ -32,7 +32,7 @@ type OutgoingConnection = Connection & { recipient?: Profile };
 type ToastFn = (message: string, type?: ToastType) => void;
 
 export function DashboardPage() {
-  const { revision } = usePromotionLive();
+  const { revision, enabled: promotionsEnabled } = usePromotionLive();
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const { settings } = useSiteSettings();
@@ -158,11 +158,11 @@ export function DashboardPage() {
 
   return (
     <div className={cn('container-content py-2 sm:py-5', tab === 'overview' && 'overview-motion')}>
-      <div className="mb-3 flex justify-end">
+      {promotionsEnabled && <div className="mb-3 flex justify-end">
         <Link to="/promotions" className="btn-secondary min-h-9 gap-1.5 px-2.5 py-1.5 text-xs">
           <Megaphone className="h-3.5 w-3.5" aria-hidden="true" /> Promotions
         </Link>
-      </div>
+      </div>}
       {tab === 'overview' && <>
       <section className="dashboard-panel overview-welcome relative isolate mt-3 overflow-hidden">
         <span aria-hidden="true" className="overview-ambient pointer-events-none absolute -right-8 -top-12 h-44 w-64 rounded-full" />

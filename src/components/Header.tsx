@@ -8,6 +8,7 @@ import { useSiteSettings } from '@/lib/siteSettings';
 import { ThemeToggle } from './ThemeToggle';
 import { SiteLogo } from './SiteLogo';
 import { NOTIFICATIONS_CHANGED_EVENT } from '@/lib/notificationEvents';
+import { usePromotionLive } from '@/lib/promotionLive';
 
 type AudioWindow = typeof window & { webkitAudioContext?: typeof AudioContext };
 let notificationAudioContext: AudioContext | null = null;
@@ -50,6 +51,7 @@ function playNotificationTone() {
 }
 
 export function Header() {
+  const { enabled: promotionsEnabled } = usePromotionLive();
   const { user, profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -160,7 +162,7 @@ export function Header() {
           { to: `/members/${user?.id}`, label: 'View profile', icon: User },
           { to: '/saved', label: 'Saved listings', icon: Heart },
           { to: '/settings', label: 'Settings', icon: Settings },
-          { to: '/promotions', label: 'Promotions', icon: LayoutDashboard },
+          ...(promotionsEnabled ? [{ to: '/promotions', label: 'Promotions', icon: LayoutDashboard }] : []),
           { to: '/help', label: 'Help center', icon: LifeBuoy },
         ];
 

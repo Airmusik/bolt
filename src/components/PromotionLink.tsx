@@ -44,7 +44,8 @@ export function PromotionBadge({ kind, id, ownerId, featured = false }: { kind: 
 }
 
 export function PromoteListingLink({ id, ownerId }: { id: string; ownerId: string }) {
-  const { campaigns } = usePromotionLive();
+  const { campaigns, enabled } = usePromotionLive();
   const active = matchingPromotions(campaigns, 'listing', id, ownerId).length > 0;
+  if (!enabled) return null;
   return <Link to={`/promotions?vehicle=${id}`} className={active ? 'btn-secondary w-full' : 'btn-ghost w-full'}>{active ? 'Promoted · View analytics' : 'Promote listing'}</Link>;
 }
