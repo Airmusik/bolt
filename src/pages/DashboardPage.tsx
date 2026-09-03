@@ -21,7 +21,7 @@ import type { ToastType } from '@/components/toastContext';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DeleteListingButton } from '@/components/DeleteListingButton';
-import { driverNeedsApproval, driverApprovalLabel, driverApprovalMessage } from '@/lib/driverEligibility';
+import { driverNeedsApproval, driverApprovalMessage } from '@/lib/driverEligibility';
 
 import { dashboardDestination, dashboardTabFromSearch, getDashboardTabs, type DashboardTab as Tab } from '@/lib/dashboardNavigation';
 type OwnerApplication = Application & { driver?: Profile; vehicle?: VehicleWithRelations };
@@ -207,7 +207,7 @@ export function DashboardPage() {
           </div>}
           <p className="mt-2 text-xs text-ink-500">Filter the dashboard recommendations. Use More search options to search the full directory.</p>
         </div>}
-        {tab === 'overview' && <OverviewTab profile={profile} conversations={conversations} isOwner={isOwner} pendingConnections={pendingConnections} />}
+        {tab === 'overview' && <OverviewTab conversations={conversations} pendingConnections={pendingConnections} />}
         {tab === 'drivers' && isOwner && <DriversTab users={drivers.filter(d => `${d.full_name} ${(d.platforms_worked || []).join(' ')}`.toLowerCase().includes(search.trim().toLowerCase()) && (d.location || '').toLowerCase().includes(locationFilter.trim().toLowerCase()))} loading={loading} siteName={settings.site_name} />}
         {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars.filter(v => `${v.make} ${v.model}`.toLowerCase().includes(search.trim().toLowerCase()) && (v.location || '').toLowerCase().includes(locationFilter.trim().toLowerCase()))} loading={loading} />}
         {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} onDeleted={load} />}
@@ -220,29 +220,13 @@ export function DashboardPage() {
   );
 }
 
-function OverviewTab({ profile, conversations, isOwner, pendingConnections }: {
-  profile: Profile;
+function OverviewTab({ conversations, pendingConnections }: {
   conversations: ConversationWithRelations[];
-  isOwner: boolean;
   pendingConnections: IncomingConnection[];
 }) {
   return (
     <div className="space-y-4 sm:space-y-5">
-      <div className={cn('grid gap-3', !isOwner && 'lg:grid-cols-2')}>
-        {!isOwner && <div className="dashboard-panel">
-          <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold text-ink-900">Profile status</h3><span className="dashboard-icon"><ShieldCheck className="h-4 w-4" /></span></div>
-          <div className="mt-3 flex items-start gap-2">
-            {profile.platform_history_approved ? <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" /> : <Clock className="mt-0.5 h-4 w-4 shrink-0 text-ink-500" />}
-            <div className="min-w-0"><p className="text-xs font-medium text-ink-700">{profile.platform_history_approved ? 'Platform history approved' : profile.verification_status === 'pending' ? 'Platform history under review' : 'Platform history not yet reviewed'}</p><p className="mt-0.5 text-xs leading-5 text-ink-500">{profile.platform_history_approved ? 'Your submitted driving activity has been reviewed.' : 'Your platform activity is reviewed privately by an administrator.'}</p></div>
-          </div>
-          {!profile.platform_history_approved && (
-            <Link to="/onboarding" className="mt-1 inline-flex min-h-11 items-center gap-1 pl-6 text-xs font-semibold text-ink-700 hover:underline">View history details<ChevronRight className="h-3.5 w-3.5" /></Link>
-          )}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 pt-3">
-            <div><p className="text-xs font-semibold text-ink-800">Availability</p><p className="mt-0.5 text-xs text-ink-500">{driverNeedsApproval(profile) ? driverApprovalLabel(profile) : profile.availability === 'available' ? 'Open to new connections' : profile.availability === 'busy' ? 'Currently in a connection' : 'Not accepting connections'}</p></div>
-            <div className="flex max-w-full flex-wrap items-center gap-2"><AvailabilityBadge availability={profile.availability} profile={profile} /><Link to="/settings" className="inline-flex min-h-11 items-center text-xs font-semibold text-ink-700 hover:underline">Manage</Link></div>
-          </div>
-        </div>}
+      <div className="grid gap-3">
         <div className="dashboard-panel">
           <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold text-ink-900">Recent activity</h3><span className="dashboard-icon"><Activity className="h-4 w-4" /></span></div>
           <div className="mt-3 space-y-1 text-sm">
