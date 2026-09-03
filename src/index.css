@@ -197,6 +197,19 @@
   .handoff-key { animation: handoff-keys 20s linear infinite; }
   .handoff-door { animation: handoff-door-open 20s linear infinite; }
 }
+@keyframes analytics-colour-drift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@keyframes analytics-icon-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08) translateY(-2px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .analytics-banner { background-size: 220% 220%; animation: analytics-colour-drift 16s ease-in-out infinite; }
+  .analytics-metric-icon { animation: analytics-icon-breathe 7s ease-in-out infinite; }
+  .analytics-metric { transition: border-color .2s, box-shadow .2s; }
+}
 .site-wordmark {
   display: inline-block;
   color: rgb(var(--ink-900));

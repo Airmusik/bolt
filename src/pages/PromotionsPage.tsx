@@ -72,9 +72,11 @@ export function PromotionsPage() {
       {showAnalytics ? 'Hide analytics' : 'View analytics'}
     </button>
     <div id="user-promotion-analytics">{showAnalytics && <PromotionAnalytics />}</div>
-    <h2 className="mt-7 font-display text-lg font-bold">My promotion history</h2>
+    <details className="mt-7 rounded-xl border border-ink-200 p-4">
+    <summary className="cursor-pointer font-display text-lg font-bold">My promotion history <span className="text-sm font-normal text-ink-500">({requests.length})</span></summary>
     {settings && requests.length === 0 && <p className="mt-3 text-sm text-ink-500">No promotion requests yet.</p>}
     <div className="mt-3 space-y-4">{requests.map(r => <PromotionRequestCard key={r.id} request={r} refresh={load} />)}</div>
+    </details>
   </div>;
 }
 
