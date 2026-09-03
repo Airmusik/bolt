@@ -171,7 +171,7 @@ export function Header() {
       <div className="container-content flex h-16 items-center justify-between gap-2 sm:gap-4">
         <Link to="/" aria-label={`${settings.site_name} home`} className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <SiteLogo />
-          <span className="site-wordmark truncate font-display text-2xl font-extrabold tracking-tight min-[380px]:text-3xl lg:text-4xl">
+          <span className="site-wordmark truncate font-display text-2xl font-extrabold tracking-tight lg:text-3xl">
             {settings.site_name}
           </span>
         </Link>
