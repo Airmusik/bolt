@@ -4,6 +4,7 @@ export type VerificationStatus = 'unverified' | 'pending' | 'approved' | 'reject
 export type ListingApprovalStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Profile {
+  email_confirmed?: boolean;
   document_listing_visibility?: 'public' | 'private' | 'deleted';
   platform_history_approved?: boolean;
   platform_history_submitted?: boolean;

@@ -130,7 +130,7 @@ export function AdminPage() {
 
   const load = useCallback(async () => {
     const [usersResult, vehiclesResult, reportsResult, documentsResult, historyResult, contactsResult] = await Promise.all([
-      supabase.rpc('admin_list_profiles'),
+      supabase.rpc('admin_list_members'),
       supabase.from('vehicles').select(`*, owner:profiles!vehicles_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), photos:vehicle_photos(*), issues:vehicle_issues(*)`).is('deleted_at', null).order('created_at', { ascending: false }),
       supabase.from('reports').select(`*, reporter:profiles!reports_reporter_id_fkey(${PUBLIC_PROFILE_FIELDS}), reported:profiles!reports_reported_id_fkey(${PUBLIC_PROFILE_FIELDS}), warnings:user_warnings(*)`).order('created_at', { ascending: false }),
       supabase.from('documents').select(`*, user:profiles!documents_user_id_fkey(${PUBLIC_PROFILE_FIELDS}), vehicle:vehicles!documents_vehicle_id_fkey(id,make,model,year)`).in('type', TRUST_EVIDENCE_TYPES).order('created_at', { ascending: false }),
@@ -574,6 +574,8 @@ export function AdminPage() {
               <div key={member.id} className="card flex flex-wrap items-center gap-3 p-4">
                 <Avatar name={member.full_name} src={member.avatar_url} size={42} verified={member.role === 'driver' && member.is_verified} />
                 <div className="min-w-0 flex-1"><p className="font-medium text-ink-900"><ProfileName id={member.id} name={member.full_name} /></p><p className="truncate text-xs text-ink-500">{member.email || 'No email'} · {member.phone || 'No phone'} · <span className="capitalize">{member.role}</span></p><p className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-700"><CalendarDays className="h-3.5 w-3.5" /> Joined {formatDate(member.created_at)}</p></div>
+                <span className={member.email_confirmed ? 'badge-success' : 'badge-warning'}>{member.email_confirmed ? 'Email confirmed' : 'Email not confirmed'}</span>
+                {member.email_confirmed === false && member.role !== 'admin' && <button className="btn-secondary px-3 py-2 text-sm" onClick={() => setConfirmAction({ message: `Manually confirm ${member.email}? This bypasses the email-link check. Continue only if you have independently verified that this member owns the address. This action is recorded.`, label: 'Confirm email', onConfirm: async () => { const { error } = await supabase.rpc('admin_confirm_member_email', { p_user: member.id }); if (error) { toast(error.message, 'error'); return; } toast('Email confirmed.'); await load(); } })}>Confirm email</button>}
                 {member.is_suspended && <span className="badge-danger"><Ban className="h-3 w-3" /> Suspended</span>}
                 {member.is_suspended && <button onClick={() => unban(member)} className="btn-secondary px-3 py-2 text-sm text-success"><ShieldCheck className="h-4 w-4" /> Reinstate</button>}
                 <button onClick={() => setViewingUser(member)} className="btn-primary px-3 py-2 text-sm"><Eye className="h-4 w-4" /> Manage profile</button>
