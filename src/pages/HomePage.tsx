@@ -74,6 +74,7 @@ export function HomePage() {
       const cards = track?.querySelectorAll<HTMLElement>('[data-featured-card]');
       if (track && cards && cards.length > featured.length) {
         const period = cards[featured.length].offsetLeft - cards[0].offsetLeft;
+        // Let native touch momentum finish before taking control again.
         if (time < featuredManualUntil.current) position = track.scrollLeft;
         else if (previous && period > 0 && document.visibilityState === 'visible') {
           position = (position + Math.min(time - previous, 64) * 0.024) % period;
@@ -186,7 +187,15 @@ export function HomePage() {
           </div>
         ) : featured.length > 0 ? (
           <div className="relative mt-8">
-            <div ref={featuredTrackRef} onPointerEnter={() => setFeaturedInteracting(true)} onPointerLeave={() => setFeaturedInteracting(false)} onTouchStart={() => setFeaturedInteracting(true)} onTouchEnd={() => setFeaturedInteracting(false)} onTouchCancel={() => setFeaturedInteracting(false)} onFocusCapture={() => setFeaturedInteracting(true)} onBlurCapture={() => setFeaturedInteracting(false)} className="-mx-4 flex gap-5 overflow-x-auto px-4 pb-5 pt-1 sm:mx-0 sm:px-1" aria-label="Featured cars carousel">
+            <div ref={featuredTrackRef}
+              onPointerEnter={event => { if (event.pointerType === 'mouse') setFeaturedInteracting(true); }}
+              onPointerLeave={event => { if (event.pointerType === 'mouse') setFeaturedInteracting(false); }}
+              onTouchStart={() => { featuredManualUntil.current = performance.now() + 2000; setFeaturedInteracting(true); }}
+              onTouchEnd={() => { featuredManualUntil.current = performance.now() + 2000; setFeaturedInteracting(false); }}
+              onTouchCancel={() => { featuredManualUntil.current = performance.now() + 2000; setFeaturedInteracting(false); }}
+              onWheel={() => { featuredManualUntil.current = performance.now() + 2000; }}
+              onScroll={() => { if (performance.now() < featuredManualUntil.current) featuredManualUntil.current = Math.max(featuredManualUntil.current, performance.now() + 600); }}
+              onFocusCapture={() => setFeaturedInteracting(true)} onBlurCapture={() => setFeaturedInteracting(false)} className="-mx-4 flex gap-5 overflow-x-auto px-4 pb-5 pt-1 sm:mx-0 sm:px-1" aria-label="Featured cars carousel">
               {(featured.length > 1 ? [...featured, ...featured, ...featured] : featured).map((v, index) => <div key={`${v.id}-${index}`} data-featured-card className="min-w-0 flex-[0_0_88%] sm:basis-[calc(50%-0.625rem)] lg:basis-[calc(33.333%-0.875rem)]"><VehicleCard vehicle={v} /></div>)}
             </div>
             <div className="mt-1 flex items-center justify-between sm:hidden"><div className="flex items-center gap-2">{featured.length > 1 && <><button type="button" onClick={() => scrollFeatured(-1)} aria-label="Previous featured car" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 dark:bg-[#141416]"><ChevronLeft className="h-4 w-4" /></button><button type="button" onClick={() => setFeaturedPaused((value) => !value)} aria-label={featuredPaused ? 'Resume featured car scrolling' : 'Pause featured car scrolling'} className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 dark:bg-[#141416]">{featuredPaused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}</button><button type="button" onClick={() => scrollFeatured(1)} aria-label="Next featured car" className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-ink-600 shadow-soft ring-1 ring-ink-100 dark:bg-[#141416]"><ChevronRight className="h-4 w-4" /></button></>}</div><Link to="/browse-cars" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700">View all <ArrowRight className="h-4 w-4" /></Link></div>
