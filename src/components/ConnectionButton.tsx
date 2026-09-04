@@ -110,7 +110,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
     return <>
       <div className={cn('flex flex-wrap items-center gap-2', className)}>
         <span className={cn('badge-warning', btnSize)}>Connection sent</span>
-        <button type="button" onClick={() => setShowCancelWarning(true)} className={cn('btn-secondary', btnSize)}><X className="h-3.5 w-3.5" /> Cancel request</button>
+        <button type="button" onClick={() => setShowCancelWarning(true)} className="btn-ghost px-3 py-1.5 text-xs text-danger hover:bg-red-50"><X className="h-3.5 w-3.5" /> Cancel</button>
       </div>
       {showCancelWarning && <ConfirmDialog title="Cancel this request?" message="The recipient will be notified in the app." confirmLabel="Cancel request" danger onClose={() => setShowCancelWarning(false)} onConfirm={async () => {
         const { error } = await updateConnectionStatus(connection.id, 'withdrawn');
