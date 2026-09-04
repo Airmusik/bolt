@@ -96,6 +96,7 @@ export function AdminPage() {
     });
   }, [tab, setSearchParams]);
   const [users, setUsers] = useState<Profile[]>([]);
+  const [uploadUser, setUploadUser] = useState<Profile | null>(null);
   const [vehicles, setVehicles] = useState<AdminVehicle[]>([]);
   const [reports, setReports] = useState<AdminReport[]>([]);
   const [documents, setDocuments] = useState<AdminDocument[]>([]);
@@ -897,6 +898,7 @@ export function AdminPage() {
       )}
 
       {/* User profile viewer modal */}
+      {uploadUser && <AdminMemberUpload key={uploadUser.id} users={[uploadUser]} initialUser={uploadUser} onSaved={load} onClosed={() => { setViewingUser(uploadUser); setUploadUser(null); }} />}
       {viewingUser && (
         <ViewUserModal
           user={viewingUser}
@@ -911,6 +913,7 @@ export function AdminPage() {
           onDelete={() => { setDeletingUser(viewingUser); setViewingUser(null); }}
           onMessage={() => { adminStartChat(viewingUser); setViewingUser(null); }}
           onEdit={() => { setEditingUser(viewingUser); setViewingUser(null); }}
+          onUpload={() => { setUploadUser(users.find(member => member.id === viewingUser.id) || viewingUser); setViewingUser(null); }}
         />
       )}
 
@@ -1442,7 +1445,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 // ---------- View User Modal ----------
-function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onChangePin, onDelete, onMessage, onEdit }: {
+function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onChangePin, onDelete, onMessage, onEdit, onUpload }: {
   user: Profile;
   onClose: () => void;
   onSuspend: () => void;
@@ -1452,6 +1455,7 @@ function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onCha
   onDelete: () => void;
   onMessage: () => void;
   onEdit: () => void;
+  onUpload: () => void;
 }) {
   const [docs, setDocs] = useState<DocumentRow[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
@@ -1477,6 +1481,7 @@ function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onCha
   return (
     <Modal title={`${user.full_name} — Profile`} onClose={onClose}>
       <div className="space-y-4 sm:max-h-[70dvh] sm:overflow-y-auto">
+        {['driver', 'owner'].includes(user.role) && <button onClick={onUpload} className="btn-primary w-full"><Upload className="h-4 w-4" /> Upload for this user</button>}
         {user.role === 'owner' && <OwnerListingAllowance key={user.id} ownerId={user.id} />}
         {/* Profile info */}
         <div className="flex items-center gap-3">

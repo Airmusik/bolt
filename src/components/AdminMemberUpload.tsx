@@ -4,9 +4,9 @@ import { supabase, DOCUMENT_BUCKET } from '@/lib/supabase';
 import { prepareTrustUpload } from '@/lib/trustUpload';
 import type { Profile } from '@/lib/types';
 
-export function AdminMemberUpload({ users, onSaved }: { users: Profile[]; onSaved: () => Promise<void> }) {
-  const [open, setOpen] = useState(false);
-  const [member, setMember] = useState('');
+export function AdminMemberUpload({ users, onSaved, initialUser, onClosed }: { users: Profile[]; onSaved: () => Promise<void>; initialUser?: Profile; onClosed?: () => void }) {
+  const [open, setOpen] = useState(Boolean(initialUser));
+  const [member, setMember] = useState(initialUser?.id || '');
   const [kind, setKind] = useState('other_trust_evidence');
   const [platform, setPlatform] = useState('uber');
   const [months, setMonths] = useState(1);
@@ -37,13 +37,13 @@ export function AdminMemberUpload({ users, onSaved }: { users: Profile[]; onSave
       const result = await supabase.rpc('admin_upload_member_evidence', { p_user: member, p_path: fileUrl, p_kind: kind, p_label: label, p_platform: platform, p_months: months, p_trips: trips });
       if (result.error) throw result.error;
       stored = true;
-      await onSaved(); setOpen(false); setFile(null); setLabel('');
+      await onSaved(); setOpen(false); setFile(null); setLabel(''); onClosed?.();
     } catch (cause) {
       if (path && !stored) await supabase.storage.from(DOCUMENT_BUCKET).remove([path]);
       setError(cause instanceof Error ? cause.message : (cause as { message?: string })?.message || 'Upload failed. Please try again.');
     } finally { setBusy(false); }
   };
-  return <><button className="btn-primary" onClick={() => { setOpen(true); setError(''); }}>Upload for user</button>{open && <Modal title="Upload for user" onClose={() => { if (!busy) { setOpen(false); setFile(null); } }}><form onSubmit={save} className="space-y-4">
+  return <>{!initialUser && <button className="btn-primary" onClick={() => { setOpen(true); setError(''); }}>Upload for user</button>}{open && <Modal title="Upload for user" onClose={() => { if (!busy) { setOpen(false); setFile(null); onClosed?.(); } }}><form onSubmit={save} className="space-y-4">
     <p className="text-sm text-ink-500">Upload private evidence on a member’s behalf. Admin uploads are automatically approved and tagged “Uploaded by admin”. Check the proof before submitting. Existing records are kept.</p>
     <label className="label">Member<select className="input" required value={member} disabled={busy} onChange={e => { setMember(e.target.value); setKind('other_trust_evidence'); }}><option value="">Select member</option>{users.filter(user => ['driver','owner'].includes(user.role)).map(user => <option key={user.id} value={user.id}>{user.full_name} — {user.email} ({user.role})</option>)}</select></label>
     <label className="label">Upload type<select className="input" value={kind} disabled={busy} onChange={e => setKind(e.target.value)}><option value="other_trust_evidence">Other trust evidence</option>{target?.role === 'driver' && <option value="platform">Platform history</option>}</select></label>
