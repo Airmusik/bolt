@@ -8,6 +8,7 @@ import type { PlatformHistory } from '@/lib/types';
 import { cn, titleCase } from '@/lib/utils';
 import { BackButton } from '@/components/BackButton';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { isBroadNairobi, SPECIFIC_LOCATION_MESSAGE } from '@/lib/specificLocation';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { isPreviewableTrustImage, isTrustImageFile, prepareTrustUpload } from '@/lib/trustUpload';
 import { hasValidNameFields, normalizePersonName, parseLanguages, splitPersonName } from '@/lib/profileValidation';
@@ -233,6 +234,7 @@ export function DriverOnboardingPage() {
   };
 
   const saveProfile = async () => {
+    if (isBroadNairobi(profileForm.location)) { toast(SPECIFIC_LOCATION_MESSAGE, 'error'); return; }
     if (!user || saving || !canSubmitHistory || uploadInFlight.current || pendingUpload) return;
     if (!hasValidNameFields(profileForm.firstName, profileForm.secondName)) {
       toast('Enter both your first name and second name in About You.', 'error');
@@ -284,6 +286,7 @@ export function DriverOnboardingPage() {
 
   const saveAbout = async () => {
     if (!user) return;
+    if (isBroadNairobi(profileForm.location)) { toast(SPECIFIC_LOCATION_MESSAGE, 'error'); return; }
     if (!hasValidNameFields(profileForm.firstName, profileForm.secondName) || !profileForm.location.trim() || profileForm.bio.trim().length < 20) {
       toast('Add your first and second name, location, and an About Me description of at least 20 characters.', 'error'); return;
     }
@@ -445,7 +448,7 @@ function AboutFields({ profileForm, setProfileForm }: { profileForm: DriverAbout
     <div className="mb-4"><PersonNameFields firstName={profileForm.firstName} secondName={profileForm.secondName} onFirstNameChange={(firstName) => setProfileForm({ ...profileForm, firstName })} onSecondNameChange={(secondName) => setProfileForm({ ...profileForm, secondName })} /></div>
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Age" required hint="Drivers must be between 18 and 85 years old."><input type="number" min={18} max={85} value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="input" /></Field>
-      <Field label="Location" required hint="Enter the Kenyan town or neighbourhood where you are based."><PlaceAutocomplete value={profileForm.location} onChange={(location) => setProfileForm({ ...profileForm, location })} placeholder="e.g. Ongata Rongai" required /></Field>
+      <Field label="Location" required hint="Enter the Kenyan town or neighbourhood where you are based."><PlaceAutocomplete requireSpecificArea value={profileForm.location} onChange={(location) => setProfileForm({ ...profileForm, location })} placeholder="e.g. Ongata Rongai" required /></Field>
       <Field label="Driving experience (years)" required hint="Enter completed years of driving experience; minimum 1."><input type="number" min={1} max={60} value={profileForm.driving_experience_years} onChange={(e) => setProfileForm({ ...profileForm, driving_experience_years: e.target.value })} className="input" /></Field>
       <Field label="Languages spoken" required hint="Add at least two languages and separate them with commas."><input value={profileForm.languages} onChange={(e) => setProfileForm({ ...profileForm, languages: e.target.value })} className="input" placeholder="English, Swahili" /></Field>
       <Field label="Preferred work locations" hint="Optional: list areas where you would prefer to work."><input value={profileForm.preferred_locations} onChange={(e) => setProfileForm({ ...profileForm, preferred_locations: e.target.value })} className="input" placeholder="Nairobi, Mombasa" /></Field>

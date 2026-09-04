@@ -6,6 +6,7 @@ import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { isBroadNairobi, SPECIFIC_LOCATION_MESSAGE } from '@/lib/specificLocation';
 import { SiteLogo } from '@/components/SiteLogo';
 import { hasValidNameFields, normalizePersonName, parseLanguages, splitPersonName } from '@/lib/profileValidation';
 import { PersonNameFields } from '@/components/PersonNameFields';
@@ -72,6 +73,7 @@ export function RegisterPage() {
     if (!isValidPhone(phone)) { setError('Enter a valid Kenyan phone number, e.g. 0712 345 678.'); return; }
     if (!email.trim()) { setError('Email address is required.'); return; }
     if (!location.trim()) { setError('Town or neighbourhood is required.'); return; }
+    if (isBroadNairobi(location)) { setError(SPECIFIC_LOCATION_MESSAGE); return; }
     const selectedLanguages = parseLanguages(languages);
     if (selectedLanguages.length < 2) { setError('Add at least two languages you speak, separated with commas.'); return; }
     setLoading(true);
@@ -173,7 +175,7 @@ export function RegisterPage() {
             </div>
             <div className="mt-4">
               <label htmlFor="register-location" className="label">Town or neighbourhood <span className="text-danger">*</span></label>
-              <PlaceAutocomplete id="register-location" ariaLabel="Town or neighbourhood" ariaDescribedBy="register-location-hint" value={location} onChange={setLocation} placeholder="e.g. Ongata Rongai" required />
+              <PlaceAutocomplete requireSpecificArea id="register-location" ariaLabel="Town or neighbourhood" ariaDescribedBy="register-location-hint" value={location} onChange={setLocation} placeholder="e.g. Ongata Rongai" required />
               <p id="register-location-hint" className="auth-hint">Shown on your profile to help nearby members find you. Kenya only.</p>
             </div>
 

@@ -10,6 +10,7 @@ import { BackButton } from '@/components/BackButton';
 import { pinToPassword } from '@/lib/phoneAuth';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { isBroadNairobi, SPECIFIC_LOCATION_MESSAGE } from '@/lib/specificLocation';
 import { Modal } from '@/components/Modal';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
 import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
@@ -57,6 +58,7 @@ export function SettingsPage() {
       toast('Enter both your first name and second name.', 'error');
       return;
     }
+    if (isBroadNairobi(location)) { toast(SPECIFIC_LOCATION_MESSAGE, 'error'); return; }
     if (!location.trim()) {
       toast('Choose or enter your location in Kenya.', 'error');
       return;
@@ -205,7 +207,7 @@ export function SettingsPage() {
             <div><label className="label">Registered email address</label><div className="relative"><Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={user?.email || profile?.email || ''} readOnly className="input pl-10 opacity-80" /></div><p className="mt-1 text-xs text-ink-400">This is the address you use to sign in.</p></div>
             <div>
               <label className="label">Location <span className="text-danger">*</span></label>
-              <PlaceAutocomplete value={location} onChange={setLocation} />
+              <PlaceAutocomplete requireSpecificArea value={location} onChange={setLocation} />
               <p className="mt-1 text-xs text-ink-400">Type any town, estate, neighbourhood, or landmark in Kenya.</p>
             </div>
             <div><label className="label">Languages spoken <span className="text-danger">*</span></label><div className="relative"><Languages className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={languages} onChange={(e) => setLanguages(e.target.value)} className="input pl-10" placeholder="English, Swahili" /></div><p className="mt-1 text-xs text-ink-400">Add at least two languages and separate them with commas.</p></div>

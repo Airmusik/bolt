@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import { isBroadNairobi, SPECIFIC_LOCATION_MESSAGE } from '@/lib/specificLocation';
 import { MapPin } from 'lucide-react';
 import { importLibrary, setOptions } from '@googlemaps/js-api-loader';
 import { ALL_LOCATIONS } from '@/lib/locations';
@@ -29,6 +30,7 @@ interface Props {
   className?: string;
   ariaLabel?: string;
   ariaDescribedBy?: string;
+  requireSpecificArea?: boolean;
 }
 
 export function PlaceAutocomplete({
@@ -40,7 +42,12 @@ export function PlaceAutocomplete({
   className = '',
   ariaLabel = 'Location in Kenya',
   ariaDescribedBy,
+  requireSpecificArea = false,
 }: Props) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const hintId = useId();
+  const tooBroad = requireSpecificArea && isBroadNairobi(value);
+  useEffect(() => { inputRef.current?.setCustomValidity(tooBroad ? SPECIFIC_LOCATION_MESSAGE : ''); }, [tooBroad]);
   const [suggestions, setSuggestions] = useState<google.maps.places.PlacePrediction[]>([]);
   const [open, setOpen] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
@@ -98,7 +105,7 @@ export function PlaceAutocomplete({
     try {
       const place = prediction.toPlace();
       await place.fetchFields({ fields: ['formattedAddress'] });
-      if (place.formattedAddress) onChange(cleanKenyaLabel(place.formattedAddress));
+      if (place.formattedAddress && !(requireSpecificArea && isBroadNairobi(place.formattedAddress) && !isBroadNairobi(prediction.text.text))) onChange(cleanKenyaLabel(place.formattedAddress));
       const { AutocompleteSessionToken } = await importLibrary('places');
       sessionToken.current = new AutocompleteSessionToken();
     } catch (error) {
@@ -112,8 +119,9 @@ export function PlaceAutocomplete({
 
   return (
     <div className="relative">
-      <MapPin className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-ink-400" />
+      <MapPin className={`pointer-events-none absolute left-3 ${tooBroad ? 'top-6' : 'top-1/2'} z-10 h-4 w-4 -translate-y-1/2 text-ink-400`} />
       <input
+        ref={inputRef}
         id={id}
         value={value}
         onChange={(event) => { onChange(event.target.value); setOpen(true); }}
@@ -123,7 +131,7 @@ export function PlaceAutocomplete({
         placeholder={placeholder}
         required={required}
         aria-label={ariaLabel}
-        aria-describedby={ariaDescribedBy}
+        aria-describedby={[ariaDescribedBy, tooBroad ? hintId : ''].filter(Boolean).join(' ') || undefined}
         aria-expanded={open && (suggestions.length > 0 || fallbackSuggestions.length > 0)}
         className={`input pl-10 ${className}`}
       />
@@ -142,6 +150,7 @@ export function PlaceAutocomplete({
           ))}
         </div>
       )}
+      {tooBroad && <div id={hintId} role="status" className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-xs leading-5 text-ink-700 dark:bg-orange-950/20"><p className="font-semibold">{SPECIFIC_LOCATION_MESSAGE}</p><p>Nairobi is a large area. Choose your specific location, such as Westlands, Kilimani, Kasarani, Embakasi, Rongai, CBD, Karen, etc. This helps other users find you more easily.</p></div>}
       {googleFailed && <p className="mt-1 text-xs text-ink-400">Suggestions are unavailable, but you can still type any Kenyan location.</p>}
     </div>
   );

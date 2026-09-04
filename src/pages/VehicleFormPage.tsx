@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { ModeratedImage } from '@/components/ModeratedImage';
 import { PlatePrivacyEditor } from '@/components/PlatePrivacyEditor';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
+import { isBroadNairobi, SPECIFIC_LOCATION_MESSAGE } from '@/lib/specificLocation';
 import { VehicleModelInput } from '@/components/VehicleModelInput';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
 import { clearMobileUploadAttempt, consumeInterruptedMobileUpload, rememberMobileUploadAttempt, rememberMobileUploadPicker } from '@/lib/mobileUploadAttempt';
@@ -145,6 +146,7 @@ export function VehicleFormPage() {
     if (!user) return;
     if (!validPlatePrefix(form.plate_prefix)) { toast('Enter the first three number-plate letters, for example KDA. Do not enter the full plate.', 'error'); return; }
     if (!form.make || !form.model.trim() || !form.location.trim()) { toast('Make, model and location are required.', 'error'); return; }
+    if (isBroadNairobi(form.location)) { toast(SPECIFIC_LOCATION_MESSAGE, 'error'); return; }
     if ([form.weekly_target, form.monthly_target, form.deposit].some(value => value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0))) { toast('Targets and deposit must be zero or a positive amount.', 'error'); return; }
     if (!/^\d{4}$/.test(form.year) || Number(form.year) < 1900 || Number(form.year) > new Date().getFullYear() + 1) { toast('Enter a valid four-digit manufacture year.', 'error'); return; }
     if (photos.length === 0) { toast('At least one vehicle photo is required for security.', 'error'); return; }
@@ -275,7 +277,7 @@ export function VehicleFormPage() {
             <Field label="Model" htmlFor="vehicle-model" required hint="Start typing and choose a suggestion, or enter your exact model if it isn't listed."><VehicleModelInput id="vehicle-model" make={form.make} value={form.model} onChange={(model) => setForm({ ...form, model })} /></Field>
             <Field label="Year" required hint="Enter the vehicle's four-digit manufacture year."><input type="number" min={1900} max={new Date().getFullYear() + 1} value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} className="input" /></Field>
             <Field label="Location" required hint="Enter where the vehicle is normally available.">
-              <PlaceAutocomplete value={form.location} onChange={(location) => setForm({ ...form, location })} required />
+              <PlaceAutocomplete requireSpecificArea value={form.location} onChange={(location) => setForm({ ...form, location })} required />
               <p className="mt-1 text-xs text-ink-400">This is also your owner profile location, so members see one consistent area.</p>
             </Field>
             <Field label="Transmission" required hint="Choose the gearbox type the driver will use.">
