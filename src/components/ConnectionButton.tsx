@@ -35,6 +35,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   const [sending, setSending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [showAcceptWarning, setShowAcceptWarning] = useState(false);
+  const [showCancelWarning, setShowCancelWarning] = useState(false);
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
@@ -104,6 +105,22 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
 
   if (loading) return <div className={cn('h-9 w-24 animate-pulse rounded-lg bg-ink-100', className)} />;
 
+  // Withdrawal remains available even if eligibility changed after sending.
+  if (connection?.status === 'pending' && connection.requester_id === user.id) {
+    return <>
+      <div className={cn('flex flex-wrap items-center gap-2', className)}>
+        <span className={cn('badge-warning', btnSize)}><Clock className="h-3.5 w-3.5" /> Request sent</span>
+        <button type="button" onClick={() => setShowCancelWarning(true)} className={cn('btn-secondary', btnSize)}><X className="h-3.5 w-3.5" /> Cancel request</button>
+      </div>
+      {showCancelWarning && <ConfirmDialog title="Cancel this request?" message="The recipient will no longer be able to accept this request. You can send a new request later. An email already sent cannot be recalled." confirmLabel="Cancel request" danger onClose={() => setShowCancelWarning(false)} onConfirm={async () => {
+        const { error } = await updateConnectionStatus(connection.id, 'withdrawn');
+        if (error) { toast(error, 'error'); setConnection(await getConnectionBetween(user.id, otherUserId)); return; }
+        setConnection({ ...connection, status: 'withdrawn' });
+        toast('Connection request cancelled.');
+      }} />}
+    </>;
+  }
+
   // Fail closed while a profile is unavailable; preserve access to existing chats.
   if (connection?.status !== 'accepted' && !canRequestConnection(profile?.role, otherProfile?.role)) {
     return <span className={cn('inline-flex items-center rounded-lg bg-ink-100 px-3 py-2 text-xs text-ink-500', className)}>{CONNECTION_ROLE_MESSAGE}</span>;
@@ -147,15 +164,6 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
           </Modal>
         )}
       </>
-    );
-  }
-
-  // Pending — sent by me
-  if (connection.status === 'pending' && connection.requester_id === user.id) {
-    return (
-      <span className={cn('badge-warning', btnSize, className)}>
-        <Clock className="h-3.5 w-3.5" /> Request sent
-      </span>
     );
   }
 
