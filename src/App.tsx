@@ -43,8 +43,9 @@ export default function App() {
   // Never mount guest/default actions while restoring a member's account or
   // loading admin-controlled branding/settings. Applies to every route.
   if (authLoading || loading) {
-    return <div role="status" aria-live="polite" className="flex min-h-screen items-center justify-center bg-white text-ink-500 dark:bg-[#0b0b0d]">
-      <span className="text-sm">Loading…</span>
+    return <div role="status" aria-live="polite" className="flex min-h-screen items-center justify-center bg-orange-50/40 dark:bg-[#0b0b0d]">
+      <span className="sr-only">Loading…</span>
+      <span aria-hidden="true" className="h-7 w-7 rounded-full border-2 border-orange-200 border-t-orange-500 motion-safe:animate-spin dark:border-orange-950 dark:border-t-orange-400" />
     </div>;
   }
 
