@@ -155,7 +155,7 @@ export function PlaceAutocomplete({
           ))}
         </div>
       )}
-      {tooBroad && <div id={hintId} role="status" className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-xs leading-5 text-ink-700 dark:bg-orange-950/20"><p className="font-semibold">{SPECIFIC_LOCATION_MESSAGE}</p><p>Nairobi or Kenya alone is too broad. Choose your specific location, such as Westlands, Kilimani, Kasarani, Embakasi, Rongai, CBD, Karen, etc. This helps other users find you more easily.</p></div>}
+      {tooBroad && <div id={hintId} role="status" className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-xs leading-5 text-ink-700 dark:bg-orange-950/20"><p className="font-semibold">{SPECIFIC_LOCATION_MESSAGE}</p><p>Nairobi or Kenya alone is too broad. Choose your specific location, such as Westlands, Kilimani, Kasarani, Embakasi, Rongai, Karen, etc. This helps other users find you more easily.</p></div>}
       {showTypingHint && <p id={typingHintId} className="mt-1.5 text-xs leading-5 text-ink-500">{typingHint}</p>}
       {googleFailed && <p className="mt-1 text-xs text-ink-400">Suggestions are unavailable, but you can still type any Kenyan location.</p>}
     </div>
