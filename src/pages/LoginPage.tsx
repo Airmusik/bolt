@@ -120,17 +120,17 @@ export function LoginPage() {
   };
 
   return (
-    <div className="auth-page sm:min-h-[75vh] sm:items-center">
-      <div className="w-full max-w-md">
-        <div className="auth-heading">
+    <div className="auth-page !py-6 sm:min-h-[70vh] sm:items-center sm:!py-8 lg:!py-10">
+      <div className="w-full min-w-0 max-w-md">
+        <div className="auth-heading !mb-5">
           <Link to="/" aria-label={`${settings.site_name} home`} className="inline-flex items-center gap-2 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500">
             <SiteLogo size="lg" />
           </Link>
           <h1 className="mt-3 font-display text-2xl font-bold text-ink-900 sm:text-3xl">Welcome back</h1>
-          <p className="mt-1 text-sm text-ink-500">Sign in with your email and password.</p>
+          <p className="mt-2 text-sm leading-5 text-ink-500">Sign in with your email and password.</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-card" aria-busy={loading}>
+        <form onSubmit={handleSubmit} className="auth-card !p-5 sm:!p-6 [&_.label]:!mb-2 [&_.auth-hint]:!mt-1 [&>div:first-of-type>div.mt-5]:!mt-4 [&>div.mb-5]:!mb-4" aria-busy={loading}>
           {error && (
             <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
               <p>{error}</p>
@@ -156,7 +156,7 @@ export function LoginPage() {
             </div>
             <p id="login-email-hint" className="auth-hint">Use the email you registered with.</p>
           </div>
-          <div className="mt-5">
+          <div className="mt-4">
             <label htmlFor="login-password" className="label">Password <span className="text-danger">*</span></label>
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
@@ -177,13 +177,13 @@ export function LoginPage() {
             </div>
             <p id="login-password-hint" className="auth-hint">Passwords are case-sensitive.</p>
           </div>
-          <button type="submit" disabled={loading || googleBusy} className="btn-primary mt-6 min-h-12 w-full">
+          <button type="submit" disabled={loading || googleBusy} className="btn-primary mt-5 min-h-12 w-full">
             {loading ? 'Signing in…' : 'Sign in'} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
           </button>
-          <button type="button" disabled={loading} onClick={() => { setResetEmail(email); setShowReset(true); setResetError(null); setResetSent(false); }} className="btn-ghost mt-2 w-full font-medium">Forgot your password?</button>
+          <button type="button" disabled={loading} onClick={() => { setResetEmail(email); setShowReset(true); setResetError(null); setResetSent(false); }} className="btn-ghost mt-1 min-h-11 w-full font-medium">Forgot your password?</button>
         </form>
 
-        <p className="mt-4 text-center text-sm text-ink-500">
+        <p className="mt-2 text-center text-sm leading-6 text-ink-500">
           New to {settings.site_name}?{' '}
           <Link to="/register" className="inline-flex min-h-11 items-center font-semibold text-brand-700 underline-offset-4 hover:underline">Create an account</Link>
         </p>
