@@ -31,6 +31,7 @@ interface Props {
   ariaLabel?: string;
   ariaDescribedBy?: string;
   requireSpecificArea?: boolean;
+  typingHint?: string;
 }
 
 export function PlaceAutocomplete({
@@ -43,7 +44,11 @@ export function PlaceAutocomplete({
   ariaLabel = 'Location in Kenya',
   ariaDescribedBy,
   requireSpecificArea = false,
+  typingHint,
 }: Props) {
+  const [hasTyped, setHasTyped] = useState(false);
+  const showTypingHint = hasTyped && Boolean(value.trim()) && Boolean(typingHint);
+  const typingHintId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
   const hintId = useId();
   const tooBroad = requireSpecificArea && isBroadNairobi(value);
@@ -119,19 +124,19 @@ export function PlaceAutocomplete({
 
   return (
     <div className="relative">
-      <MapPin className={`pointer-events-none absolute left-3 ${tooBroad ? 'top-6' : 'top-1/2'} z-10 h-4 w-4 -translate-y-1/2 text-ink-400`} />
+      <MapPin className={`pointer-events-none absolute left-3 ${tooBroad || showTypingHint ? 'top-6' : 'top-1/2'} z-10 h-4 w-4 -translate-y-1/2 text-ink-400`} />
       <input
         ref={inputRef}
         id={id}
         value={value}
-        onChange={(event) => { onChange(event.target.value); setOpen(true); }}
+        onChange={(event) => { setHasTyped(true); onChange(event.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
         onBlur={() => window.setTimeout(() => setOpen(false), 180)}
         autoComplete="off"
         placeholder={placeholder}
         required={required}
         aria-label={ariaLabel}
-        aria-describedby={[ariaDescribedBy, tooBroad ? hintId : ''].filter(Boolean).join(' ') || undefined}
+        aria-describedby={[ariaDescribedBy, tooBroad ? hintId : '', showTypingHint ? typingHintId : ''].filter(Boolean).join(' ') || undefined}
         aria-expanded={open && (suggestions.length > 0 || fallbackSuggestions.length > 0)}
         className={`input pl-10 ${className}`}
       />
@@ -151,6 +156,7 @@ export function PlaceAutocomplete({
         </div>
       )}
       {tooBroad && <div id={hintId} role="status" className="mt-2 rounded-lg bg-orange-50 px-3 py-2 text-xs leading-5 text-ink-700 dark:bg-orange-950/20"><p className="font-semibold">{SPECIFIC_LOCATION_MESSAGE}</p><p>Nairobi or Kenya alone is too broad. Choose your specific location, such as Westlands, Kilimani, Kasarani, Embakasi, Rongai, CBD, Karen, etc. This helps other users find you more easily.</p></div>}
+      {showTypingHint && <p id={typingHintId} className="mt-1.5 text-xs leading-5 text-ink-500">{typingHint}</p>}
       {googleFailed && <p className="mt-1 text-xs text-ink-400">Suggestions are unavailable, but you can still type any Kenyan location.</p>}
     </div>
   );

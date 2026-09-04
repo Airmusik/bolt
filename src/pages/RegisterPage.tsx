@@ -174,9 +174,8 @@ export function RegisterPage() {
               </div>
             </div>
             <div className="mt-4">
-              <label htmlFor="register-location" className="label">Town or neighbourhood <span className="text-danger">*</span></label>
-              <PlaceAutocomplete requireSpecificArea id="register-location" ariaLabel="Town or neighbourhood" ariaDescribedBy="register-location-hint" value={location} onChange={setLocation} placeholder="e.g. Ongata Rongai" required />
-              <p id="register-location-hint" className="auth-hint">Shown on your profile to help nearby members find you. Kenya only.</p>
+              <label htmlFor="register-location" className="label">Residential area <span className="text-danger">*</span></label>
+              <PlaceAutocomplete requireSpecificArea id="register-location" ariaLabel="Residential area" typingHint="Choose the neighborhood or town where you live, not your workplace. Shown on your profile to help nearby members find you. Kenya only." value={location} onChange={setLocation} placeholder="e.g. Ongata Rongai" required />
             </div>
 
             <div className="mt-4">
