@@ -338,7 +338,7 @@ export function DriverOnboardingPage() {
             <CompletionRow label="Profile details" detail="Done" approved />
             <CompletionRow label="Platform history" detail="Done" approved={approved} />
             <CompletionRow label="Platform proof" detail="Done" approved={approved} />
-            {history.map(item => <div key={item.id} className="rounded-xl border border-ink-200 p-3"><p className="text-sm font-semibold capitalize">{item.platform} · {historyState(item, now)}</p>{item.expires_at && <DocumentExpiry expiresAt={item.expires_at} />}</div>)}
+            {history.map(item => <div key={item.id} className="rounded-xl border border-ink-200 p-3"><p className="text-sm font-semibold capitalize">{item.platform} · {historyState(item, now)}</p>{item.uploaded_by && <span className="badge badge-brand">Uploaded by admin</span>}{item.expires_at && <DocumentExpiry expiresAt={item.expires_at} />}</div>)}
             <div className="border-t border-ink-100 pt-5">
               <Link to="/dashboard" className="btn-secondary w-full sm:w-auto">Back to dashboard</Link>
               <p className="mt-2 text-xs text-ink-500">You can still update your About You information in Settings. Expiry reminders appear in Notifications; renewal opens on the expiry date.</p>
@@ -373,7 +373,7 @@ export function DriverOnboardingPage() {
 
         <Section title="Platform history and proof (required)" desc="Add at least one platform, enter your recent activity, and upload its latest Uber, Bolt, Faras, Little Cab, or other platform history. Admins see the private proof; other members only see approved activity.">
           <div className="space-y-3">{history.map((item) => historyState(item, now) !== 'draft' ? <div key={item.id} className="rounded-xl border border-ink-200 p-4">
-            <p className="text-sm font-semibold capitalize">{item.platform} · {historyState(item, now)}</p>
+            <p className="text-sm font-semibold capitalize">{item.platform} · {historyState(item, now)}</p>{item.uploaded_by && <span className="badge badge-brand">Uploaded by admin</span>}
             {item.rejection_reason && <p className="mt-2 text-sm text-danger">Reason: {item.rejection_reason}</p>}
             {item.expires_at && <DocumentExpiry expiresAt={item.expires_at} />}
             {historyCanEdit(item, history, now) && <button type="button" onClick={() => void renewHistory(item)} disabled={historyBusy} className="btn-primary mt-3">{historyBusy ? 'Opening…' : historyState(item, now) === 'rejected' ? 'Correct rejected proof' : 'Renew expired proof'}</button>}

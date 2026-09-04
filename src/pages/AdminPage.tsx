@@ -710,6 +710,7 @@ export function AdminPage() {
                   <p className="font-medium text-ink-900">{d.label || d.type.replace(/_/g, ' ')}</p>
                   {d.vehicle && <p className="text-xs text-brand-700">Vehicle: {d.vehicle.year} {d.vehicle.make} {d.vehicle.model}</p>}
                   <p className="text-xs text-ink-500">{d.user?.full_name} ({d.user?.role}) · {timeAgo(d.created_at)}</p>
+                  {d.uploaded_by && <span className="badge badge-brand">Uploaded by admin</span>}
                   {d.expiry_date && <p className="text-xs text-ink-400">Expires: {d.expiry_date}</p>}
                   {d.rejected && d.rejection_reason && <p className="mt-1 text-xs text-danger">Rejected: {d.rejection_reason}</p>}
                 </div>
@@ -760,7 +761,7 @@ export function AdminPage() {
             {history.filter(h => historyState(h) !== 'draft').map((h) => (
               <div key={h.id} className="card flex flex-wrap items-center gap-3 p-4">
                 <div className="flex-1">
-                  <p className="font-medium text-ink-900 capitalize">{h.platform} — {h.driver?.full_name || 'Unknown driver'}</p>
+                  <p className="font-medium text-ink-900 capitalize">{h.platform} — {h.driver?.full_name || 'Unknown driver'}</p>{h.uploaded_by && <span className="badge badge-brand">Uploaded by admin</span>}
                   <p className="text-xs text-ink-500">{h.months_active} {h.months_active === 1 ? 'month' : 'months'} active{h.rating != null ? ` · ${h.rating.toFixed(1)} rating` : ''}</p>
                   {h.proof_url && <span className="text-xs text-brand-600">Private proof attached</span>}
                   {h.expires_at && <DocumentExpiry expiresAt={h.expires_at} />}
@@ -929,6 +930,7 @@ export function AdminPage() {
                   user_id: viewingHistory.driver_id,
                   type: 'work_history',
                   file_url: viewingHistory.proof_url!,
+                  uploaded_by: viewingHistory.uploaded_by,
                   label: `${viewingHistory.platform} platform proof`,
                   expiry_date: null,
                   verified: viewingHistory.approved,

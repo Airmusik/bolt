@@ -44,13 +44,13 @@ export function AdminMemberUpload({ users, onSaved }: { users: Profile[]; onSave
     } finally { setBusy(false); }
   };
   return <><button className="btn-primary" onClick={() => { setOpen(true); setError(''); }}>Upload for user</button>{open && <Modal title="Upload for user" onClose={() => { if (!busy) { setOpen(false); setFile(null); } }}><form onSubmit={save} className="space-y-4">
-    <p className="text-sm text-ink-500">Upload private evidence on a member’s behalf. It will be pending review, not automatically approved. Existing records are kept.</p>
+    <p className="text-sm text-ink-500">Upload private evidence on a member’s behalf. Admin uploads are automatically approved and tagged “Uploaded by admin”. Check the proof before submitting. Existing records are kept.</p>
     <label className="label">Member<select className="input" required value={member} disabled={busy} onChange={e => { setMember(e.target.value); setKind('other_trust_evidence'); }}><option value="">Select member</option>{users.filter(user => ['driver','owner'].includes(user.role)).map(user => <option key={user.id} value={user.id}>{user.full_name} — {user.email} ({user.role})</option>)}</select></label>
     <label className="label">Upload type<select className="input" value={kind} disabled={busy} onChange={e => setKind(e.target.value)}><option value="other_trust_evidence">Other trust evidence</option>{target?.role === 'driver' && <option value="platform">Platform history</option>}</select></label>
     {kind === 'platform' ? <><label className="label">Platform<select className="input" value={platform} onChange={e => setPlatform(e.target.value)}>{['uber','bolt','little','faras','other'].map(value => <option key={value}>{value}</option>)}</select></label><div className="grid grid-cols-2 gap-3"><label className="label">Months active<input className="input" required type="number" min={1} step={1} value={months} onChange={e => setMonths(Number(e.target.value))} /></label><label className="label">Trips<input className="input" required type="number" min={0} step={1} value={trips} onChange={e => setTrips(Number(e.target.value))} /></label></div></> : <label className="label">Document label<input className="input" required minLength={3} maxLength={120} value={label} onChange={e => setLabel(e.target.value)} /></label>}
     <label className="label">Image or PDF<input className="input" type="file" required disabled={busy} accept="image/jpeg,image/png,image/webp,application/pdf" onChange={e => { setFile(e.target.files?.[0] || null); setError(''); }} /></label>
     {file && preview && (file.type.startsWith('image/') ? <img src={preview} alt="Selected evidence preview" className="max-h-52 w-full rounded-xl object-contain" /> : <p className="text-sm">Selected PDF: {file.name}</p>)}
     {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
-    <button className="btn-primary" disabled={busy || !file || !target}>{busy ? 'Uploading…' : 'Upload & submit for review'}</button>
+    <button className="btn-primary" disabled={busy || !file || !target}>{busy ? 'Uploading…' : 'Upload & approve'}</button>
   </form></Modal>}</>;
 }

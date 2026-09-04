@@ -101,7 +101,7 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
       <div className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-card-hover dark:bg-[#141416] sm:h-[88dvh] sm:rounded-2xl">
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-ink-100 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] sm:p-4">
           <h3 className="flex min-w-0 flex-1 items-center gap-2 font-display text-base font-bold text-ink-900 sm:text-lg">
-            <FileText className="h-5 w-5 shrink-0 text-brand-600" /> <span className="truncate">{doc.label || doc.type.replace(/_/g, ' ')}</span>
+            <FileText className="h-5 w-5 shrink-0 text-brand-600" /> <span className="truncate">{doc.label || doc.type.replace(/_/g, ' ')}</span>{doc.uploaded_by && <span className="badge badge-brand">Uploaded by admin</span>}
           </h3>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
             {objectUrl && <button onClick={handleDownload} aria-label="Download file" className="btn-ghost h-11 px-3 text-sm"><Download className="h-4 w-4" /> <span className="hidden sm:inline">Download</span></button>}

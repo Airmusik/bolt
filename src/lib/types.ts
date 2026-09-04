@@ -106,6 +106,7 @@ export interface VehicleWithRelations extends Vehicle {
 }
 
 export interface DocumentRow {
+  uploaded_by?: string | null;
   id: string;
   user_id: string;
   type: string;
@@ -119,6 +120,7 @@ export interface DocumentRow {
 }
 
 export interface PlatformHistory {
+  uploaded_by?: string | null;
   review_status?: 'draft' | 'pending' | 'approved' | 'rejected';
   submitted_at?: string | null;
   reviewed_at?: string | null;
