@@ -109,10 +109,10 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   if (connection?.status === 'pending' && connection.requester_id === user.id) {
     return <>
       <div className={cn('flex flex-wrap items-center gap-2', className)}>
-        <span className={cn('badge-warning', btnSize)}><Clock className="h-3.5 w-3.5" /> Request sent</span>
+        <span className={cn('badge-warning', btnSize)}>Connection sent</span>
         <button type="button" onClick={() => setShowCancelWarning(true)} className={cn('btn-secondary', btnSize)}><X className="h-3.5 w-3.5" /> Cancel request</button>
       </div>
-      {showCancelWarning && <ConfirmDialog title="Cancel this request?" message="The recipient will no longer be able to accept this request. You can send a new request later. An email already sent cannot be recalled." confirmLabel="Cancel request" danger onClose={() => setShowCancelWarning(false)} onConfirm={async () => {
+      {showCancelWarning && <ConfirmDialog title="Cancel this request?" message="The recipient will be notified in the app." confirmLabel="Cancel request" danger onClose={() => setShowCancelWarning(false)} onConfirm={async () => {
         const { error } = await updateConnectionStatus(connection.id, 'withdrawn');
         if (error) { toast(error, 'error'); setConnection(await getConnectionBetween(user.id, otherUserId)); return; }
         setConnection({ ...connection, status: 'withdrawn' });
