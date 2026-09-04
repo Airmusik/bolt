@@ -12,6 +12,7 @@ import { BackButton } from '@/components/BackButton';
 import { useToast } from '@/components/useToast';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { matchesLocation, matchesPlatform, withinBudget } from '@/lib/searchMatching';
+import '@/styles/car-palette.css';
 
 const FUELS = ['petrol', 'diesel', 'hybrid', 'electric'];
 const TRANSMISSIONS = ['automatic', 'manual'];
@@ -82,7 +83,7 @@ export function BrowseCarsPage() {
   const hasSearch = Boolean(filters.q.trim()) || activeCount > 0;
 
   return (
-    <div className="container-content py-8">
+    <div className="car-palette container-content rounded-3xl py-8">
       <div className="flex items-center justify-between">
         <BackButton to="/" />
       </div>

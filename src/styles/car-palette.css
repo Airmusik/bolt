@@ -1,0 +1,19 @@
+/* Pinterest-inspired colours, scoped to car discovery only. */
+.car-palette { background-color: #f3f4f6; }
+.car-palette .card { background-color: #ffffff; --tw-ring-color: #dce1e8; }
+.car-palette .card-hover { border-top-color: #729eff; }
+.car-palette .input { background-color: #f5f6f8; border-color: #d4d9e1; color: #171b24; }
+.car-palette .input:focus { border-color: #729eff; --tw-ring-color: #729eff; }
+.car-palette .btn-secondary { background-color: #d8e4ff; color: #182d56; }
+.car-palette .btn-secondary:hover { background-color: #c3d6ff; }
+.car-palette #car-search-filters > .card { background-color: #171b24; --tw-ring-color: #292f3a; }
+.car-palette #car-search-filters h2,
+.car-palette #car-search-filters .label,
+.car-palette #car-search-filters label { color: #f1f4fa; }
+.car-palette #car-search-filters button { color: #a9c4ff; }
+.car-palette #car-search-filters input[type="checkbox"] { accent-color: #729eff; }
+.dark .car-palette { background-color: #101318; }
+.dark .car-palette .card { background-color: #1b2029; --tw-ring-color: #343c49; }
+.dark .car-palette .input { background-color: #282f3b; border-color: #465267; color: #f1f4fa; }
+.dark .car-palette .btn-secondary { background-color: #294577; color: #eff5ff; }
+.dark .car-palette .btn-secondary:hover { background-color: #355994; }
