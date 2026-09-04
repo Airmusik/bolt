@@ -42,6 +42,7 @@ export function RegisterPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [hintFields, setHintFields] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (user && !authLoading && profile) navigate(googleAuthDestination(profile, false), { replace: true });
@@ -126,7 +127,7 @@ export function RegisterPage() {
           <p className="mt-1 text-sm text-ink-500">{completingGoogle ? 'Google sign-in worked. Add your details and accept the terms to join.' : `Join ${settings.site_name} as a driver or car owner.`}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="auth-card" aria-busy={loading}>
+        <form onSubmit={handleSubmit} onInputCapture={event => { const field = event.target as HTMLInputElement; if (field.id) setHintFields(current => ({ ...current, [field.id]: true })); }} onFocusCapture={event => { const field = event.target as HTMLInputElement; if (field.readOnly && field.id) setHintFields(current => ({ ...current, [field.id]: true })); }} className="auth-card" aria-busy={loading}>
           {error && <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
           {!completingGoogle && <GoogleSignInButton role={role} disabled={loading} onBusyChange={setGoogleBusy} onError={setError} />}
           {completingGoogle && <p className="mb-4 text-sm leading-6 text-ink-600">Your profile is not published yet. No new password is needed. <button type="button" className="font-semibold underline" onClick={() => void signOut()}>Use a different account</button></p>}
@@ -162,7 +163,7 @@ export function RegisterPage() {
                   <Phone className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
                   <input id="register-phone" aria-describedby="register-phone-hint" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="0712 345 678" type="tel" autoComplete="tel" inputMode="tel" className="input pl-10" required />
                 </div>
-                <p id="register-phone-hint" className="auth-hint">Your active Kenyan mobile number.</p>
+                <p id="register-phone-hint" hidden={!hintFields['register-phone'] || !phone.trim()} className="auth-hint">Your active Kenyan mobile number.</p>
               </div>
               <div>
                 <label htmlFor="register-email" className="label">Email address <span className="text-danger">*</span></label>
@@ -170,7 +171,7 @@ export function RegisterPage() {
                   <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
                   <input id="register-email" aria-describedby="register-email-hint" value={email} onChange={(e) => setEmail(e.target.value)} type="email" autoComplete="email" placeholder="you@example.com" className="input pl-10" readOnly={completingGoogle} required />
                 </div>
-                <p id="register-email-hint" className="auth-hint">{completingGoogle ? 'From your Google account. Not shown publicly.' : 'For sign-in and password recovery. Not shown publicly.'}</p>
+                <p id="register-email-hint" hidden={!hintFields['register-email'] || !email.trim()} className="auth-hint">{completingGoogle ? 'From your Google account. Not shown publicly.' : 'For sign-in and password recovery. Not shown publicly.'}</p>
               </div>
             </div>
             <div className="mt-4">
@@ -184,7 +185,7 @@ export function RegisterPage() {
                 <Languages className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-400" />
                 <input id="register-languages" aria-describedby="register-languages-hint" value={languages} onChange={(e) => setLanguages(e.target.value)} placeholder="English, Swahili" className="input pl-10" required />
               </div>
-              <p id="register-languages-hint" className="auth-hint">At least two languages you speak, separated by commas.</p>
+              <p id="register-languages-hint" hidden={!hintFields['register-languages'] || !languages.trim()} className="auth-hint">At least two languages you speak, separated by commas.</p>
             </div>
           </div>
 
@@ -209,7 +210,7 @@ export function RegisterPage() {
                   {showPin ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              <p id="register-password-hint" className="auth-hint">At least 10 characters, including uppercase, lowercase, and a number.</p>
+              <p id="register-password-hint" hidden={!hintFields['register-password'] || !pin.length} className="auth-hint">At least 10 characters, including uppercase, lowercase, and a number.</p>
             </div>
 
             <div className="mt-4">
@@ -229,7 +230,7 @@ export function RegisterPage() {
                   required
                 />
               </div>
-              <p id="register-confirm-hint" className={`auth-hint ${confirmPin.length > 0 && pin !== confirmPin ? 'text-danger' : ''}`}>{confirmPin.length > 0 && pin !== confirmPin ? 'Passwords do not match.' : 'Enter the same password again.'}</p>
+              <p id="register-confirm-hint" hidden={!confirmPin.length} className={`auth-hint ${confirmPin.length > 0 && pin !== confirmPin ? 'text-danger' : ''}`}>{confirmPin.length > 0 && pin !== confirmPin ? 'Passwords do not match.' : 'Enter the same password again.'}</p>
             </div>
           </div>}
           <div role="group" aria-labelledby="register-terms" className="mt-6 border-t border-ink-100 pt-5">
