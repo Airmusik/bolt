@@ -1,5 +1,6 @@
 import { ProfileName } from '@/components/ProfileName';
 import { SupportReceipt } from '@/components/SupportReceipt';
+import { AdminMemberUpload } from '@/components/AdminMemberUpload';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { AdminAdvertisements } from '@/components/AdminAdvertisements';
@@ -683,6 +684,7 @@ export function AdminPage() {
         {/* ---------- Uploads and trust evidence ---------- */}
         {tab === 'documents' && !loading && (
           <div className="space-y-6">
+            <AdminMemberUpload users={users} onSaved={load} />
             <section>
               <h3 className="mb-2 font-semibold text-ink-900">Vehicle photos</h3>
               <div className="space-y-2">
@@ -753,6 +755,7 @@ export function AdminPage() {
         {/* ---------- Platform History ---------- */}
         {tab === 'history' && !loading && (
           <div className="space-y-2">
+            <AdminMemberUpload users={users} onSaved={load} />
             {history.length === 0 && <p className="text-sm text-ink-500">No platform history entries yet.</p>}
             {history.filter(h => historyState(h) !== 'draft').map((h) => (
               <div key={h.id} className="card flex flex-wrap items-center gap-3 p-4">
