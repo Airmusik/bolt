@@ -56,7 +56,8 @@ export function BrowseDriversPage() {
   return (
     <div className="container-content py-8">
       <BackButton to="/" />
-      <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Browse drivers</h1>
+      <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Find ride-hailing drivers in Kenya</h1>
+      <p className="mt-2 max-w-2xl text-sm text-ink-600">Compare drivers by residential area, experience and platform history. Review each profile before sending a connection request.</p>
       <p aria-live="polite" className="mt-1 text-sm text-ink-500">{loading ? 'Finding drivers…' : `${filtered.length} matching driver${filtered.length !== 1 ? 's' : ''}`}</p>
 
       <div className="mt-6 flex flex-wrap gap-3">

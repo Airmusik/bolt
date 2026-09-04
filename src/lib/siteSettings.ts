@@ -80,12 +80,6 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   }, [refreshSettings]);
 
   useEffect(() => {
-    document.title = `${settings.site_name} — Find the Right Driver or the Right Car`;
-    const description = document.querySelector<HTMLMetaElement>('meta[name="description"]');
-    if (description) description.content = `${settings.site_name} — ${settings.site_tagline}`;
-  }, [settings.site_name, settings.site_tagline]);
-
-  useEffect(() => {
     if (loading) return;
     let favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (!favicon) {

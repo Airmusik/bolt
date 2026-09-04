@@ -5,6 +5,7 @@ import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/lib/useAuth';
 import { useSiteSettings } from '@/lib/siteSettings';
+import { useSeo } from '@/lib/useSeo';
 
 const HomePage = lazy(() => import('@/pages/HomePage').then((module) => ({ default: module.HomePage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((module) => ({ default: module.LoginPage })));
@@ -35,6 +36,7 @@ const SuspendedPage = lazy(() => import('@/pages/SuspendedPage').then((module) =
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
 
 export default function App() {
+  useSeo();
   const { profile, loading: authLoading } = useAuth();
   const { settings, loading } = useSiteSettings();
   const path = window.location.pathname;

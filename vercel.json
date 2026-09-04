@@ -1,6 +1,16 @@
 {
   "rewrites": [
     { "source": "/api/analytics", "destination": "/api/analytics" },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/", "destination": "/index.html" },
+    { "source": "/browse-cars", "destination": "/seo/browse-cars.html" },
+    { "source": "/browse-drivers", "destination": "/seo/browse-drivers.html" },
+    { "source": "/how-it-works", "destination": "/seo/how-it-works.html" },
+    { "source": "/about", "destination": "/seo/about.html" },
+    { "source": "/help", "destination": "/seo/help.html" },
+    { "source": "/contact", "has": [{ "type": "query", "key": "message" }], "destination": "/seo/private.html" },
+    { "source": "/contact", "destination": "/seo/contact.html" },
+    { "source": "/terms", "destination": "/seo/terms.html" },
+    { "source": "/privacy", "destination": "/seo/privacy.html" },
+    { "source": "/(.*)", "destination": "/seo/private.html" }
   ]
 }

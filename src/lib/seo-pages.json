@@ -1,0 +1,11 @@
+{
+  "/": {"title":"11Drive — Find Ride-Hailing Drivers & Cars in Kenya","description":"Connect with car owners and ride-hailing drivers in Kenya. Compare cars, weekly targets, locations and driver platform history on 11Drive."},
+  "/browse-cars": {"title":"Cars for Ride-Hailing in Kenya | 11Drive","description":"Browse cars listed by owners for ride-hailing in Kenya. Compare weekly targets, deposits, locations, insurance and Uber, Bolt, Little or Faras readiness."},
+  "/browse-drivers": {"title":"Find Ride-Hailing Drivers in Kenya | 11Drive","description":"Find drivers in Kenya for your car. Compare residential areas, experience, reviews and ride-hailing platform history, then connect through 11Drive."},
+  "/how-it-works": {"title":"How to Connect with Drivers & Car Owners | 11Drive Kenya","description":"Learn how 11Drive connects Kenyan car owners and ride-hailing drivers: create a profile, browse listings, send a request and discuss terms directly."},
+  "/about": {"title":"About 11Drive | Kenya’s Driver & Car Owner Marketplace","description":"11Drive connects car owners and ride-hailing drivers across Kenya with vehicle information, platform-history reviews and direct communication."},
+  "/help": {"title":"Driver & Car Owner Questions | 11Drive Help","description":"Get help with 11Drive registration, car listings, driver profiles, connections and account support for Kenya’s ride-hailing marketplace."},
+  "/contact": {"title":"Contact 11Drive Support","description":"Contact 11Drive support for help with your account, vehicle listing, driver profile or connections in Kenya."},
+  "/terms": {"title":"Terms of Service | 11Drive","description":"Read the terms for using 11Drive’s driver and car owner marketplace, including member responsibilities and platform limitations."},
+  "/privacy": {"title":"Privacy Policy | 11Drive","description":"Learn how 11Drive handles account information and personal data when you use the driver and car owner marketplace."}
+}

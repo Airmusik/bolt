@@ -88,7 +88,8 @@ export function BrowseCarsPage() {
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-display text-2xl font-bold text-ink-900">Browse cars</h1>
+          <h1 className="font-display text-2xl font-bold text-ink-900">Browse cars for ride-hailing in Kenya</h1>
+          <p className="mt-2 max-w-2xl text-sm text-ink-600">Compare locations, weekly targets, deposits and platform readiness. Connect with the owner to discuss availability and terms directly.</p>
           <p aria-live="polite" className="mt-1 text-sm text-ink-500">{loading ? 'Finding cars…' : `${filtered.length} matching vehicle${filtered.length !== 1 ? 's' : ''}`}</p>
         </div>
         <button
