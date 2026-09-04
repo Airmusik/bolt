@@ -53,7 +53,8 @@ export function ContactPage() {
     } else {
       const next = ((data as ContactMessage[]) || []).map((thread) => ({
         ...thread,
-        entries: [...(thread.entries || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+        message: [...(thread.entries || [])].filter(entry => !entry.unsent_at).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(entry => entry.body || entry.attachment_name || '')[0] || '',
+        entries: [...(thread.entries || [])].filter(entry => !entry.unsent_at).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
       }));
       setThreads(next);
     }

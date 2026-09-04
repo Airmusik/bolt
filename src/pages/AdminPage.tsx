@@ -156,7 +156,8 @@ export function AdminPage() {
     setHistory((h as AdminHistory[]) || []);
     setContactMessages(((contacts as ContactMessage[]) || []).map((message) => ({
       ...message,
-      entries: [...(message.entries || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+      message: '',
+      entries: [...(message.entries || [])].filter(entry => !entry.unsent_at).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
     })));
     setLoading(false);
   }, [toast]);
