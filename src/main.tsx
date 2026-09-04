@@ -5,6 +5,7 @@ import { AuthProvider } from '@/lib/auth';
 import { ToastProvider } from '@/components/Toast';
 import App from './App';
 import './index.css';
+import './styles/site-palette.css';
 import { getInitialTheme, applyTheme } from '@/lib/theme';
 import { SiteSettingsProvider } from '@/lib/siteSettings';
 import { PromotionLiveProvider } from '@/lib/promotionLive';

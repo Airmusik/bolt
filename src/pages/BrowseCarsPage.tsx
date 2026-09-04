@@ -12,7 +12,6 @@ import { BackButton } from '@/components/BackButton';
 import { useToast } from '@/components/useToast';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { matchesLocation, matchesPlatform, withinBudget } from '@/lib/searchMatching';
-import '@/styles/car-palette.css';
 
 const FUELS = ['petrol', 'diesel', 'hybrid', 'electric'];
 const TRANSMISSIONS = ['automatic', 'manual'];

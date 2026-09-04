@@ -1,0 +1,31 @@
+/* One restrained interface palette. Status colours and chart series stay semantic. */
+:root { --action: #b9470a; --action-hover: #963908; }
+.dark { --action: #a83d08; --action-hover: #bf490b; }
+.btn-primary { background-color: var(--action); color: #fff; }
+.btn-primary:hover { background-color: var(--action-hover); }
+.member-nav-button,
+.admin-nav-button {
+  background: rgb(var(--ink-50)); color: rgb(var(--ink-700));
+  border-color: rgb(var(--ink-200));
+}
+.member-nav-button:hover,
+.admin-nav-button:hover { background: rgb(var(--ink-100)); }
+.member-nav-button.member-nav-active,
+.admin-nav-button[aria-pressed="true"] {
+  background: #242424; color: #fff; border-color: #242424;
+  box-shadow: inset 0 -3px 0 #c95418;
+}
+.dark .member-nav-button.member-nav-active,
+.dark .admin-nav-button[aria-pressed="true"] { background: #343434; border-color: #666; }
+.member-nav-button::before { background: none; }
+[aria-label="Admin sections"] { background: rgb(var(--ink-50)); border-color: rgb(var(--ink-200)); }
+.admin-nav-button { animation: none; }
+.card.border-t-emerald-400 { border-top-color: rgb(var(--ink-200)); }
+.card .bg-violet-50, .card .bg-violet-100 {
+  background-color: rgb(var(--ink-50)); color: rgb(var(--ink-700)); --tw-ring-color: rgb(var(--ink-200));
+}
+.car-palette { background: transparent; }
+/* Decorative page gradients are neutral; photos and data visualisations are untouched. */
+section.bg-gradient-to-b, .auth-page, .auth-card, .landing-search,
+.overview-recommendation { background-image: none; }
+.overview-recommendation::after { background: none; }
