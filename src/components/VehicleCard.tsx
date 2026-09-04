@@ -22,7 +22,7 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
   };
 
   return (
-    <div className="card card-hover group overflow-hidden">
+    <div className="card card-hover group overflow-hidden border-t-2 border-t-emerald-400">
     <Link
       ownerId={vehicle.owner_id}
       to={`/vehicles/${vehicle.id}`}
