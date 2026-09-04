@@ -1,6 +1,6 @@
 import { PromotionLink as Link, PromotionBadge } from '@/components/PromotionLink';
 import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, MapPin, ShieldCheck, Car, Users, Star, ArrowRight,
@@ -37,6 +37,25 @@ export function HomePage() {
   const [featuredInteracting, setFeaturedInteracting] = useState(false);
   const featuredTrackRef = useRef<HTMLDivElement>(null);
   const featuredManualUntil = useRef(0);
+
+  const featuredPeriod = useCallback(() => {
+    const cards = featuredTrackRef.current?.querySelectorAll<HTMLElement>('[data-featured-card]');
+    return cards && cards.length > featured.length ? cards[featured.length].offsetLeft - cards[0].offsetLeft : 0;
+  }, [featured.length]);
+
+  useLayoutEffect(() => {
+    const track = featuredTrackRef.current;
+    const period = featuredPeriod();
+    if (track && period > 0) track.scrollLeft = period;
+  }, [featured, featuredPeriod]);
+
+  const wrapFeaturedScroll = useCallback(() => {
+    const track = featuredTrackRef.current;
+    const period = featuredPeriod();
+    if (!track || period <= 0) return;
+    if (track.scrollLeft < period * 0.35) track.scrollLeft += period;
+    else if (track.scrollLeft > period * 1.65) track.scrollLeft -= period;
+  }, [featuredPeriod]);
 
   useEffect(() => {
     (async () => {
@@ -77,7 +96,8 @@ export function HomePage() {
         // Let native touch momentum finish before taking control again.
         if (time < featuredManualUntil.current) position = track.scrollLeft;
         else if (previous && period > 0 && document.visibilityState === 'visible') {
-          position = (position + Math.min(time - previous, 64) * 0.024) % period;
+          position += Math.min(time - previous, 64) * 0.024;
+          if (position >= period * 2) position -= period;
           track.scrollLeft = position;
         }
       }
@@ -194,7 +214,7 @@ export function HomePage() {
               onTouchEnd={() => { featuredManualUntil.current = performance.now() + 2000; setFeaturedInteracting(false); }}
               onTouchCancel={() => { featuredManualUntil.current = performance.now() + 2000; setFeaturedInteracting(false); }}
               onWheel={() => { featuredManualUntil.current = performance.now() + 2000; }}
-              onScroll={() => { if (performance.now() < featuredManualUntil.current) featuredManualUntil.current = Math.max(featuredManualUntil.current, performance.now() + 600); }}
+              onScroll={() => { if (performance.now() < featuredManualUntil.current) { wrapFeaturedScroll(); featuredManualUntil.current = Math.max(featuredManualUntil.current, performance.now() + 600); } }}
               onFocusCapture={() => setFeaturedInteracting(true)} onBlurCapture={() => setFeaturedInteracting(false)} className="-mx-4 flex gap-5 overflow-x-auto px-4 pb-5 pt-1 sm:mx-0 sm:px-1" aria-label="Featured cars carousel">
               {(featured.length > 1 ? [...featured, ...featured, ...featured] : featured).map((v, index) => <div key={`${v.id}-${index}`} data-featured-card className="min-w-0 flex-[0_0_88%] sm:basis-[calc(50%-0.625rem)] lg:basis-[calc(33.333%-0.875rem)]"><VehicleCard vehicle={v} /></div>)}
             </div>
