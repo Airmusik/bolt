@@ -422,6 +422,12 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
     toast('Connection rejected.');
     onAction();
   };
+  const handleCancel = async (c: Connection) => {
+    const { error } = await updateConnectionStatus(c.id, 'withdrawn');
+    if (error) { toast(error, 'error'); return; }
+    toast('Connection request cancelled.');
+    await onAction();
+  };
   const handleEnd = async (c: Connection) => {
     const { error } = await endConnection(c.id);
     if (error) { toast(error, 'error'); return; }
@@ -539,7 +545,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
             : 'The sender will be notified and would need to send a new request if they want to connect later.'}
         confirmLabel={confirmingAction.action === 'end' ? 'End connection' : confirmingAction.action === 'cancel' ? 'Cancel request' : 'Reject request'}
         danger
-        onConfirm={() => confirmingAction.action === 'end' ? handleEnd(confirmingAction.connection) : handleReject(confirmingAction.connection)}
+        onConfirm={() => confirmingAction.action === 'end' ? handleEnd(confirmingAction.connection) : confirmingAction.action === 'cancel' ? handleCancel(confirmingAction.connection) : handleReject(confirmingAction.connection)}
         onClose={() => setConfirmingAction(null)}
       />}
     </div>
