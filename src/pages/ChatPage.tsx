@@ -124,6 +124,7 @@ export function ChatPage() {
       .order('last_message_at', { ascending: false, nullsFirst: false });
     const sorted = ((data as ConversationWithRelations[]) || []).sort((a, b) => conversationActivity(b) - conversationActivity(a));
     setConversations(sorted);
+    if (document.visibilityState === 'visible') void supabase.rpc('mark_chat_delivered');
     setLoading(false);
   }, [user]);
 
@@ -209,7 +210,7 @@ export function ChatPage() {
       .order('created_at', { ascending: true });
     setMessages((data as Message[]) || []);
     // mark incoming as read
-    if (user) {
+    if (user && document.visibilityState === 'visible') {
       await supabase.from('messages').update({ read: true }).in('conversation_id', activeConversationIds).neq('sender_id', user.id).eq('read', false);
     }
   }, [active, activeConversationIds, user]);
@@ -316,7 +317,7 @@ export function ChatPage() {
         const m = payload.new as Message;
         if (active && activeConversationIds.includes(m.conversation_id)) {
           loadMessages();
-          if (m.sender_id !== user.id) {
+          if (m.sender_id !== user.id && document.visibilityState === 'visible') {
             supabase.from('messages').update({ read: true }).eq('id', m.id);
           }
         }
@@ -613,7 +614,7 @@ export function ChatPage() {
                         )}
                         <div className={cn('mt-0.5 flex items-center justify-end gap-1 text-[10px]', mine && m.type !== 'system' ? 'text-brand-100' : 'text-ink-400')}>
                           {formatMessageTimestamp(m.created_at)}
-                          {mine && <><span className="ml-1 font-semibold">{m.read ? 'Read' : 'Sent'}</span>{m.read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />}</>}
+                          {mine && <><span className="ml-1 font-semibold">{m.read ? 'Read' : m.delivered_at ? 'Delivered' : 'Sent'}</span>{m.read ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />}</>}
                         </div>
                       </div>
                       </div>

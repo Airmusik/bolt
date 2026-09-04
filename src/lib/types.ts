@@ -150,6 +150,9 @@ export interface ContactMessage {
 }
 
 export interface ContactMessageEntry {
+  delivered_at?: string | null;
+  read_at?: string | null;
+  unsent_at?: string | null;
   id: string;
   contact_message_id: string;
   sender_id: string | null;
@@ -214,6 +217,7 @@ export interface Conversation {
 }
 
 export interface Message {
+  delivered_at?: string | null;
   id: string;
   conversation_id: string;
   sender_id: string;

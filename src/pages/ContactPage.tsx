@@ -8,6 +8,7 @@ import { useSiteSettings } from '@/lib/siteSettings';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import type { ContactMessage, ContactMessageEntry } from '@/lib/types';
+import { SupportReceipt } from '@/components/SupportReceipt';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { cn, formatDateTime, timeAgo } from '@/lib/utils';
 import { openContactAttachment, uploadContactAttachment } from '@/lib/contactAttachments';
@@ -65,7 +66,7 @@ export function ContactPage() {
     if (!user) return;
     const channel = supabase.channel(`contact-thread-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_messages', filter: `user_id=eq.${user.id}` }, () => void loadThreads())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'contact_message_entries' }, () => void loadThreads())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_message_entries' }, () => void loadThreads())
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [user, loadThreads]);
@@ -155,6 +156,7 @@ export function ContactPage() {
 
   return (
     <div className="container-content py-10">
+      {threads.map(thread => <SupportReceipt key={thread.id} thread={thread.id} entries={thread.entries || []} active={activeId === thread.id} />)}
       <BackButton to={user ? '/dashboard' : '/'} />
       <h1 className="mt-4 font-display text-3xl font-bold text-ink-900">Messages</h1>
       <p className="mt-2 text-ink-600">Contact support and keep every reply and attachment together.</p>
@@ -187,7 +189,7 @@ export function ContactPage() {
             <div className="flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4">
               {(active.entries || []).map((entry) => {
                 const mine = entry.sender_role === 'user';
-                return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[85%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{mine ? 'You' : entry.sender_role === 'admin' ? `Official ${settings.site_name} Support` : entry.sender?.full_name || 'Guest'}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}</p></div></div>;
+                return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[85%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{mine ? 'You' : entry.sender_role === 'admin' ? `Official ${settings.site_name} Support` : entry.sender?.full_name || 'Guest'}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}{mine && !entry.unsent_at && <span> · {entry.read_at ? 'Read' : entry.delivered_at ? 'Delivered' : 'Sent'}</span>}</p></div></div>;
               })}
             </div>
             <div className="border-t border-ink-100 p-3">

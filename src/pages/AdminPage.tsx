@@ -1,4 +1,5 @@
 import { ProfileName } from '@/components/ProfileName';
+import { SupportReceipt } from '@/components/SupportReceipt';
 import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { AdminAdvertisements } from '@/components/AdminAdvertisements';
@@ -79,6 +80,9 @@ export function AdminPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const { settings: siteSettings } = useSiteSettings();
+  const [composeTarget, setComposeTarget] = useState<Profile | null>(null);
+  const [firstMessage, setFirstMessage] = useState('');
+  const [startingSupport, setStartingSupport] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get('tab') as Tab | null;
   const tab: Tab = requestedTab && ADMIN_TABS.includes(requestedTab) ? requestedTab : 'overview';
@@ -160,7 +164,7 @@ export function AdminPage() {
   useEffect(() => {
     const channel = supabase.channel('admin-work-queues')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_messages' }, () => void load())
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'contact_message_entries' }, () => void load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_message_entries' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'vehicles' }, () => void load())
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'reports' }, () => void load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_platform_history' }, () => void load())
@@ -402,19 +406,11 @@ export function AdminPage() {
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    let threadId = existing?.id || null;
+    const threadId = existing?.id || null;
     if (!threadId) {
-      const { data, error } = await supabase.rpc('admin_start_support_thread', {
-        p_user_id: targetUser.id,
-        p_message: `Hello ${targetUser.full_name}, ${siteSettings.site_name} Support opened this conversation to assist you.`,
-      });
-      if (error) { toast('Could not start support message: ' + error.message, 'error'); return; }
-      threadId = typeof data === 'string' ? data : null;
+      setComposeTarget(targetUser); setFirstMessage(prefill); return;
     }
-    if (!threadId) { toast('Could not open the support message.', 'error'); return; }
-    window.history.replaceState(null, '', `/admin?tab=contact&message=${threadId}`);
-    setTab('contact');
-    window.setTimeout(() => window.dispatchEvent(new CustomEvent('admin-open-message', { detail: { threadId, prefill } })), 50);
+    setSearchParams({ tab: 'contact', message: threadId });
   };
 
   const stats: { label: string; value: number; icon: LucideIcon }[] = [
@@ -506,6 +502,7 @@ export function AdminPage() {
         {loading && <div className="card h-64 animate-pulse" />}
 
         {/* ---------- Overview ---------- */}
+        {composeTarget && <Modal title={`Message ${composeTarget.full_name}`} onClose={() => { if (!startingSupport) setComposeTarget(null); }}><p className="text-sm text-ink-500">Write your first message. Nothing is sent until you press Send.</p><textarea aria-label="First support message" className="input mt-3 min-h-28" maxLength={5000} value={firstMessage} onChange={e => setFirstMessage(e.target.value)} /><button className="btn-primary mt-3" disabled={startingSupport || firstMessage.trim().length < 5} onClick={async () => { setStartingSupport(true); const { data, error } = await supabase.rpc('admin_start_support_thread', { p_user_id: composeTarget.id, p_message: firstMessage.trim() }); setStartingSupport(false); if (error) { toast(error.message, 'error'); return; } await load(); setComposeTarget(null); setSearchParams({ tab: 'contact', message: String(data) }); }}> {startingSupport ? 'Sending…' : 'Send message'}</button></Modal>}
         {tab === 'analytics' && <AdminSiteAnalytics />}
         {tab === 'advertisements' && <AdminAdvertisements />}
         {tab === 'overview' && !loading && (
@@ -1596,8 +1593,10 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
   onViewUser: (profile: Profile) => void;
 }) {
   const { toast } = useToast();
-  const requestedId = new URLSearchParams(window.location.search).get('message');
+  const [inboxParams, setInboxParams] = useSearchParams();
+  const requestedId = inboxParams.get('message');
   const [activeId, setActiveId] = useState<string | null>(requestedId);
+  useEffect(() => { setActiveId(requestedId); }, [requestedId]);
   const [reply, setReply] = useState('');
   const [attachment, setAttachment] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
@@ -1664,10 +1663,11 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
 
   return (
     <div className="grid min-h-[68vh] gap-4 lg:grid-cols-[320px_1fr]">
+      {messages.map(thread => <SupportReceipt key={thread.id} thread={thread.id} entries={thread.entries || []} active={activeId === thread.id} />)}
       <div className={cn('card overflow-y-auto', active && 'hidden lg:block')}>
         <div className="border-b border-ink-100 p-4"><h2 className="font-semibold text-ink-900">Messages</h2><p className="mt-1 text-xs text-ink-500">Direct support requests, replies, and attachments</p></div>
         {messages.map((message) => (
-          <button key={message.id} type="button" onClick={() => setActiveId(message.id)} className={cn('flex w-full items-start gap-3 border-b border-ink-50 p-4 text-left hover:bg-ink-50', activeId === message.id && 'bg-brand-50')}>
+          <button key={message.id} type="button" onClick={() => setInboxParams({ tab: 'contact', message: message.id })} className={cn('flex w-full items-start gap-3 border-b border-ink-50 p-4 text-left hover:bg-ink-50', activeId === message.id && 'bg-brand-50')}>
             <Avatar name={message.user?.full_name || message.name} src={message.user?.avatar_url} size={40} verified={message.user?.role === 'driver' && message.user?.is_verified} />
             <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-semibold text-ink-900">{message.user?.full_name || message.name}</p><span className={cn('badge shrink-0 text-[10px] capitalize', message.status === 'new' ? 'badge-warning' : message.status === 'resolved' ? 'badge-success' : 'badge-brand')}>{message.status}</span></div><p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">{message.user?.role === 'owner' ? 'Car owner' : message.user?.role === 'driver' ? 'Driver' : 'Guest'}</p><p className="mt-0.5 truncate text-xs text-ink-600">{lastContactEntry(message)?.body || lastContactEntry(message)?.attachment_name || message.message}</p><p className="mt-1 text-[10px] text-ink-400">{formatDateTime(message.updated_at || message.created_at)}</p></div>
           </button>
@@ -1677,7 +1677,7 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
       <div className={cn('card flex flex-col overflow-hidden', !active && 'hidden lg:flex')}>
         {active ? <>
           <div className="flex flex-wrap items-center gap-3 border-b border-ink-100 p-4">
-            <button type="button" onClick={() => setActiveId(null)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-100"><ArrowLeft className="h-4 w-4" /> Back</button>
+            <button type="button" onClick={() => setInboxParams({ tab: 'contact' })} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-100"><ArrowLeft className="h-4 w-4" /> Back</button>
             <Avatar name={active.user?.full_name || active.name} src={active.user?.avatar_url} size={42} verified={active.user?.role === 'driver' && active.user?.is_verified} />
             <div className="min-w-0"><p className="font-semibold text-ink-900">{active.user?.full_name || active.name}</p><p className="truncate text-xs text-ink-500">{active.email} · {active.user ? active.user.role === 'owner' ? 'Car owner' : 'Driver' : 'Guest message'}</p></div>
             <div className="ml-auto flex flex-wrap gap-2">{active.user && <button type="button" onClick={() => onViewUser(active.user!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View user</button>}<a href={`mailto:${active.email}`} className="btn-secondary px-3 py-1.5 text-xs"><Mail className="h-3.5 w-3.5" /> Email</a>{active.status !== 'resolved' && <button type="button" onClick={() => void onResolve(active)} className="btn-secondary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Resolve</button>}<button type="button" onClick={() => onDelete(active)} className="btn-ghost px-3 py-1.5 text-xs text-danger"><Trash2 className="h-3.5 w-3.5" /></button></div>
@@ -1685,7 +1685,7 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
           <div className="flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4">
             {entries.map((entry) => {
               const mine = entry.sender_role === 'admin';
-              return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[80%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{mine ? `Official ${siteName} Support` : entry.sender?.full_name || active.name}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}</p></div></div>;
+              return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[80%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{mine ? `Official ${siteName} Support` : entry.sender?.full_name || active.name}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}{mine && !entry.unsent_at && <span> · {entry.read_at ? 'Read' : entry.delivered_at ? 'Delivered' : 'Sent'}</span>}</p>{mine && entry.sender_id === adminId && !entry.unsent_at && <button className="mt-1 text-xs underline" onClick={async () => { if (!window.confirm('Unsend this message? The recipient may already have seen it. Downloaded files cannot be recalled.')) return; const { error } = await supabase.rpc('admin_unsend_support_message', { p_entry: entry.id }); if (error) toast(error.message, 'error'); else await onRefresh(); }}>Unsend</button>}</div></div>;
             })}
           </div>
           <div className="border-t border-ink-100 p-3">
