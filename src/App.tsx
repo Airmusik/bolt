@@ -52,7 +52,8 @@ export default function App() {
   );
   const [allowBackgroundVideo, setAllowBackgroundVideo] = useState(false);
   const [showLaunchIntro, setShowLaunchIntro] = useState(() => {
-    if (installedAppLaunch || window.location.pathname !== '/' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    if (window.location.pathname !== '/' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    if (installedAppLaunch) return true;
     try {
       if (sessionStorage.getItem('11drive-launch-intro-seen')) return false;
       sessionStorage.setItem('11drive-launch-intro-seen', 'true');
@@ -60,7 +61,7 @@ export default function App() {
     } catch { return true; }
   });
   const completeLaunchIntro = useCallback(() => setShowLaunchIntro(false), []);
-  const launchOverlay = showLaunchIntro && settings.launch_intro_enabled === 'true' ? <LaunchIntro
+  const launchOverlay = showLaunchIntro && (installedAppLaunch || settings.launch_intro_enabled === 'true') ? <LaunchIntro
     siteName={settings.site_name}
     backgroundEnabled={settings.launch_intro_background_enabled === 'true'}
     backgroundType={settings.homepage_background_type}
