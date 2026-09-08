@@ -12,6 +12,7 @@ import { SupportReceipt } from '@/components/SupportReceipt';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { cn, formatDateTime, timeAgo } from '@/lib/utils';
 import { openContactAttachment, uploadContactAttachment } from '@/lib/contactAttachments';
+import { AutoGrowTextarea } from '@/components/AutoGrowTextarea';
 
 const CONTACT_FILE_ACCEPT = 'image/*,.heic,.heif,.pdf,.txt,.doc,.docx,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -195,7 +196,7 @@ export function ContactPage() {
             </div>
             <div className="border-t border-ink-100 p-3">
               {replyFile && <div className="mb-2 flex items-center justify-between rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800"><span className="truncate">{replyFile.name}</span><button type="button" onClick={() => { setReplyFile(null); if (replyFileRef.current) replyFileRef.current.value = ''; }} className="font-bold">Remove</button></div>}
-              <div className="flex items-center gap-2"><input ref={replyFileRef} type="file" accept={CONTACT_FILE_ACCEPT} className="hidden" onChange={(event) => { setReplyFile(event.target.files?.[0] || null); }} /><button type="button" onClick={() => replyFileRef.current?.click()} className="rounded-full p-2 text-ink-500 hover:bg-ink-100" aria-label="Attach a file"><Paperclip className="h-5 w-5" /></button><input value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendReply(); } }} className="input flex-1" placeholder="Reply to support…" maxLength={5000} /><button type="button" onClick={() => void sendReply()} disabled={replying || (!reply.trim() && !replyFile)} className="btn-primary px-3" aria-label="Send reply">{replying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button></div>
+              <div className="flex items-end gap-2"><input ref={replyFileRef} type="file" accept={CONTACT_FILE_ACCEPT} className="hidden" onChange={(event) => { setReplyFile(event.target.files?.[0] || null); }} /><button type="button" onClick={() => replyFileRef.current?.click()} className="mb-0.5 rounded-full p-2 text-ink-500 hover:bg-ink-100" aria-label="Attach a file"><Paperclip className="h-5 w-5" /></button><AutoGrowTextarea value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendReply(); } }} className="input min-h-10 flex-1 py-2.5" placeholder="Reply to support…" maxLength={5000} /><button type="button" onClick={() => void sendReply()} disabled={replying || (!reply.trim() && !replyFile)} className="btn-primary mb-0.5 px-3" aria-label="Send reply">{replying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button></div>
               <p className="mt-2 text-[11px] text-ink-400">Images, PDF, text, or Word files · maximum 8 MB · kept privately with this conversation</p>
             </div>
           </div>

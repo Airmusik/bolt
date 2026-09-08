@@ -49,6 +49,7 @@ import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { ChatMediaImage } from '@/components/ChatMediaImage';
 import { prepareChatImageUpload } from '@/lib/trustUpload';
 import { openContactAttachment, uploadContactAttachment } from '@/lib/contactAttachments';
+import { AutoGrowTextarea } from '@/components/AutoGrowTextarea';
 
 type AdminVehicle = Vehicle & { owner?: Profile; photos?: VehiclePhoto[]; issues?: VehicleIssue[]; description?: string };
 type AdminDocument = DocumentRow & { user?: Profile; vehicle?: Pick<Vehicle, 'id' | 'make' | 'model' | 'year'> };
@@ -1837,7 +1838,7 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
           <div className="border-t border-ink-100 p-3">
             {!active.user_id && <div className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">This guest is not signed in. Replies are stored here, but use the Email button to deliver the response.</div>}
             {attachment && <div className="mb-2 flex items-center justify-between rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800"><span className="truncate">{attachment.name}</span><button type="button" onClick={() => { setAttachment(null); if (fileRef.current) fileRef.current.value = ''; }} className="font-bold">Remove</button></div>}
-            <div className="flex items-center gap-2"><input ref={fileRef} type="file" accept="image/*,.heic,.heif,.pdf,.txt,.doc,.docx" className="hidden" onChange={(event) => setAttachment(event.target.files?.[0] || null)} /><button type="button" onClick={() => fileRef.current?.click()} className="rounded-full p-2 text-ink-500 hover:bg-ink-100" aria-label="Attach file"><Upload className="h-5 w-5" /></button><input value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendReply(); } }} className="input flex-1" placeholder="Reply to this message…" maxLength={5000} /><button type="button" onClick={() => void sendReply()} disabled={sending || (!reply.trim() && !attachment)} className="btn-primary px-3">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button></div>
+            <div className="flex items-end gap-2"><input ref={fileRef} type="file" accept="image/*,.heic,.heif,.pdf,.txt,.doc,.docx" className="hidden" onChange={(event) => setAttachment(event.target.files?.[0] || null)} /><button type="button" onClick={() => fileRef.current?.click()} className="mb-0.5 rounded-full p-2 text-ink-500 hover:bg-ink-100" aria-label="Attach file"><Upload className="h-5 w-5" /></button><AutoGrowTextarea value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendReply(); } }} className="input min-h-10 flex-1 py-2.5" placeholder="Reply to this message…" maxLength={5000} /><button type="button" onClick={() => void sendReply()} disabled={sending || (!reply.trim() && !attachment)} className="btn-primary mb-0.5 px-3">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button></div>
             <p className="mt-2 text-[11px] text-ink-400">Replies, images, PDFs, text, and Word files are stored privately in this history.</p>
           </div>
         </> : <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-ink-500">Select a message to see its complete history and reply.</div>}
@@ -2084,10 +2085,10 @@ function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; ema
                 );
               })}
             </div>
-            {activeJoined && !active.closed_at ? <div className="flex items-center gap-2 border-t border-ink-100 p-3">
+            {activeJoined && !active.closed_at ? <div className="flex items-end gap-2 border-t border-ink-100 p-3">
               <input ref={imageInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadChatImage(file); }} />
               <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Send an image" title="Send an image" className="rounded-full p-2 text-ink-500 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
-              <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !sending) { e.preventDefault(); send(); } }} placeholder="Type a message…" className="input flex-1" disabled={sending} />
+              <AutoGrowTextarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !sending) { e.preventDefault(); send(); } }} placeholder="Type a message…" className="input min-h-10 flex-1 py-2.5" disabled={sending} />
               <button onClick={send} disabled={sending || !text.trim()} aria-label="Send message" className="btn-primary px-3">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button>
             </div> : <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><LockKeyhole className="h-4 w-4" />This history is read-only. Click Reopen with support to let both members and support message again.</div>}
           </>

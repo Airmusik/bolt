@@ -21,6 +21,7 @@ import { endConnection } from '@/lib/connections';
 import { isSupportPartner } from '@/lib/supportIdentity';
 import { SiteLogo } from '@/components/SiteLogo';
 import { ChatPartnerIdentity } from '@/components/ChatPartnerIdentity';
+import { AutoGrowTextarea } from '@/components/AutoGrowTextarea';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
@@ -109,7 +110,7 @@ export function ChatPage() {
   const [loading, setLoading] = useState(true);
   const [uploadingImage, setUploadingImage] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const typingChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const typingStopTimerRef = useRef<number | null>(null);
@@ -637,17 +638,17 @@ export function ChatPage() {
               {imageUploadIssue && !chatClosed && !chatBlocked && <div role="alert" className="border-t border-red-200 bg-red-50 px-4 py-2 text-xs text-red-800 dark:bg-red-950/20 dark:text-red-100"><span className="font-semibold">Image not sent:</span> {imageUploadIssue}</div>}
 
               {/* Input */}
-              {!chatClosed && !chatBlocked && <div className="flex items-center gap-1.5 border-t border-ink-100 bg-white px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:gap-2 sm:p-3 dark:bg-[#141416]">
+              {!chatClosed && !chatBlocked && <div className="flex items-end gap-1.5 border-t border-ink-100 bg-white px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:gap-2 sm:p-3 dark:bg-[#141416]">
                 <button onClick={() => setShowEmoji((v) => !v)} aria-label="Choose emoji" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
                 {settings.chat_images_enabled === 'true' && <><input ref={imageInputRef} type="file" disabled={preparingImage || uploadingImage} accept="image/*,.heic,.heif" className="hidden" onClick={() => rememberMobileUploadPicker('chat-image')} onChange={(event) => { const file = event.target.files?.[0]; if (file) void previewImage(file); }} />
 <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage || preparingImage} aria-label="Preview an image" title="Send an image" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage || preparingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button></>}
-                <div className="relative flex-1"><input
+                <div className="relative flex-1"><AutoGrowTextarea
                   ref={inputRef}
                   value={text}
                   onChange={(e) => { setText(e.target.value); broadcastTyping(e.target.value.trim().length > 0); }}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
                   placeholder="Type a message…"
-                  className="input w-full rounded-2xl border-0 bg-ink-50 pr-16 ring-1 ring-ink-100 focus:bg-ink-100 focus:ring-brand-300"
+                  className="input min-h-10 w-full rounded-2xl border-0 bg-ink-50 py-2.5 pr-16 ring-1 ring-ink-100 focus:bg-ink-100 focus:ring-brand-300"
                   maxLength={1000}
                   autoFocus
                 /><span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-ink-300">{text.length}/1000</span></div>
