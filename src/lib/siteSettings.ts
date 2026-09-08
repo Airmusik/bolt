@@ -6,6 +6,7 @@ import { applySiteTheme, DEFAULT_SITE_THEME } from './siteTheme';
 export const DEFAULT_SITE_SETTINGS = {
   ...AD_DEFAULTS,
   site_name: '11Drive',
+  header_name_animation: 'glow',
   site_tagline: 'The right driver. The right car. A trusted connection.',
   site_logo_url: '',
   maintenance_mode: 'false',

@@ -1400,6 +1400,18 @@ function AdminSettings() {
             <input id="admin-site-name" value={settings['site_name'] || ''} onChange={(e) => setSettings({ ...settings, site_name: e.target.value })} className="input" />
           </div>
           <div>
+            <label htmlFor="admin-header-name-animation" className="label">Top header name animation</label>
+            <div className="grid gap-3 rounded-2xl border border-ink-100 bg-ink-50/60 p-4 dark:bg-[#101012] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div><select id="admin-header-name-animation" value={settings.header_name_animation} onChange={(event) => setSettings({ ...settings, header_name_animation: event.target.value })} className="input">
+                <option value="off">Off — no movement</option>
+                <option value="glow">Colour sweep &amp; glow</option>
+                <option value="pulse">Soft pulse</option>
+                <option value="float">Gentle float</option>
+              </select><p className="mt-1 text-xs text-ink-500">Controls only the site name in the top navigation. Reduced-motion preferences are always respected.</p></div>
+              <span className={`site-wordmark site-wordmark--${settings.header_name_animation} inline-block truncate px-2 font-display text-2xl font-extrabold tracking-tight`}>{settings.site_name === '11Drive' ? <>11<span className="text-[0.85em]">Drive</span></> : settings.site_name}</span>
+            </div>
+          </div>
+          <div>
             <label htmlFor="admin-site-tagline" className="label">Site tagline</label>
             <input id="admin-site-tagline" maxLength={100} value={settings.site_tagline} onChange={(e) => setSettings({ ...settings, site_tagline: e.target.value })} className="input" placeholder="A short promise to your members" />
             <p className="mt-1 text-xs text-ink-400">Shown prominently on the homepage and in the footer.</p>

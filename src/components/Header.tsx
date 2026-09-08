@@ -61,6 +61,7 @@ export function Header() {
   const [unread, setUnread] = useState(0);
   const [unreadUpdates, setUnreadUpdates] = useState(0);
   const { settings } = useSiteSettings();
+  const headerNameAnimation = ['off', 'glow', 'pulse', 'float'].includes(settings.header_name_animation) ? settings.header_name_animation : 'glow';
 
   useEffect(() => {
     let unlocked = false;
@@ -171,7 +172,7 @@ export function Header() {
       <div className="container-content flex h-16 items-center justify-between gap-2 sm:gap-4">
         <Link to="/" aria-label={`${settings.site_name} home`} className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <SiteLogo />
-          <span className="site-wordmark truncate font-display text-2xl font-extrabold tracking-tight lg:text-3xl">
+          <span className={cn('site-wordmark truncate font-display text-2xl font-extrabold tracking-tight lg:text-3xl', `site-wordmark--${headerNameAnimation}`)}>
             {settings.site_name === '11Drive' ? <>11<span className="text-[0.85em]">Drive</span></> : settings.site_name}
           </span>
         </Link>

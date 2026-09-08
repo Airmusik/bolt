@@ -351,7 +351,9 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .site-wordmark { animation: wordmark-glow 6s ease-in-out infinite; }
+  .site-wordmark--glow { animation: wordmark-glow 6s ease-in-out infinite; }
+  .site-wordmark--pulse { animation: wordmark-pulse 4.8s ease-in-out infinite; }
+  .site-wordmark--float { animation: wordmark-float 5.5s ease-in-out infinite; }
   .card { animation: card-enter 0.45s cubic-bezier(0.16,1,0.3,1) both; }
   .card:nth-child(2) { animation-delay: 45ms; }
   .card:nth-child(3) { animation-delay: 90ms; }
@@ -363,6 +365,16 @@
   0%, 18% { background-position: 100% 50%; filter: drop-shadow(0 0 0 transparent); }
   48%, 62% { background-position: 0% 50%; filter: drop-shadow(0 2px 7px rgb(var(--accent-500) / 0.18)); }
   100% { background-position: -100% 50%; filter: drop-shadow(0 0 0 transparent); }
+}
+
+@keyframes wordmark-pulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 transparent); }
+  50% { transform: scale(1.035); filter: drop-shadow(0 2px 6px rgb(var(--accent-500) / 0.2)); }
+}
+
+@keyframes wordmark-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
 }
 
 @keyframes metric-rise {

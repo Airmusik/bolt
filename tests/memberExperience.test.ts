@@ -64,6 +64,17 @@ test('admin theme choices expose their real colour codes',()=>{
   assert.match(admin,/Base.*Action.*Surface/s);
   assert.match(themes,/#13d0ff/);
 });
+test('admin controls the top header name animation',()=>{
+  const header=readFileSync('src/components/Header.tsx','utf8');
+  const admin=readFileSync('src/pages/AdminPage.tsx','utf8');
+  const styles=readFileSync('src/index.css','utf8');
+  assert.match(header,/header_name_animation/);
+  assert.match(admin,/Top header name animation/);
+  assert.match(admin,/value="off"/);
+  assert.match(styles,/site-wordmark--glow/);
+  assert.match(styles,/site-wordmark--pulse/);
+  assert.match(styles,/site-wordmark--float/);
+});
 test('suspensions are atomic and queue reasoned email notifications',()=>{
   const migration=readFileSync('supabase/migrations/20260909008000_suspension_email_notification.sql','utf8');
   const admin=readFileSync('src/pages/AdminPage.tsx','utf8');
