@@ -199,14 +199,13 @@ export function AdminPage() {
 
   const suspend = async (p: Profile, reason: string) => {
     setSuspending(true);
-    const { error } = await supabase.from('profiles').update({ is_suspended: true, suspension_reason: reason, suspended_at: new Date().toISOString() }).eq('id', p.id);
+    const { error } = await supabase.rpc('admin_suspend_member', { p_user_id: p.id, p_reason: reason });
     if (error) { toast('Suspend failed: ' + error.message, 'error'); setSuspending(false); return; }
-    await notifyUser(p.id, 'suspension', 'Account suspended', `Your account has been suspended: ${reason}`);
     if (suspensionReportId) {
       const { error: reportError } = await supabase.from('reports').update({ status: 'resolved' }).eq('id', suspensionReportId);
       if (reportError) toast('The user was suspended, but the report could not be marked solved: ' + reportError.message, 'error');
     }
-    toast(suspensionReportId ? 'User suspended and report marked solved.' : 'User suspended.');
+    toast(suspensionReportId ? 'User suspended, notified by email and in-app, and report marked solved.' : 'User suspended and notified by email and in-app.');
     setSuspendingUser(null);
     setSuspendReason('');
     setSuspensionReportId(null);

@@ -24,3 +24,11 @@ test('member tools include profile, report, connection, and calendar states',()=
   const migration=readFileSync('supabase/migrations/20260909006000_member_experience_tools.sql','utf8');
   assert.match(migration,/UNIQUE\(user_id, day_of_week\)/);assert.match(migration,/user_id=auth\.uid\(\)/);
 });
+test('suspensions are atomic and queue reasoned email notifications',()=>{
+  const migration=readFileSync('supabase/migrations/20260909008000_suspension_email_notification.sql','utf8');
+  const admin=readFileSync('src/pages/AdminPage.tsx','utf8');
+  assert.match(admin,/rpc\('admin_suspend_member'/);
+  assert.match(migration,/Reason: '\|\|reason/);
+  assert.match(migration,/NEW\.type IN \('connection_accepted','message','suspension'\)/);
+  assert.match(migration,/event_email_html\(heading,email_message/);
+});
