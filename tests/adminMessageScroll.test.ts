@@ -12,4 +12,6 @@ test('desktop admin message panes keep scrolling inside the active chat', () => 
 
 test('member updates control uses compact header sizing', () => {
   assert.match(header, /updates-header-button relative flex h-9 items-center gap-1/);
+  assert.match(header, /updates-header-button[^']*text-ink-900/);
+  assert.doesNotMatch(header, /updates-header-button[^']*border-accent/);
 });

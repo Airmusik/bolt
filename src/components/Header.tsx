@@ -202,10 +202,10 @@ export function Header() {
             <>
               {!isSuspended && (
                 <>
-                  <Link to="/updates" className={cn('updates-header-button relative flex h-9 items-center gap-1 rounded-full border border-accent-200 bg-accent-50 px-2 text-accent-600 transition hover:-translate-y-0.5 hover:bg-accent-100 hover:shadow-sm', unreadUpdates > 0 && 'updates-header-unread')} aria-label="Member updates">
+                  <Link to="/updates" className={cn('updates-header-button relative flex h-9 items-center gap-1 px-2 text-ink-900 transition-opacity hover:opacity-65', unreadUpdates > 0 && 'updates-header-unread')} aria-label="Member updates">
                     <Megaphone className="h-5 w-5" />
                     <span className="hidden text-xs font-bold lg:inline">Updates</span>
-                    {unreadUpdates > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-600 px-1 text-[10px] font-bold text-white">{unreadUpdates > 9 ? '9+' : unreadUpdates}</span>}
+                    {unreadUpdates > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink-900 px-1 text-[10px] font-bold text-white">{unreadUpdates > 9 ? '9+' : unreadUpdates}</span>}
                   </Link>
                   <Link to="/notifications" className="relative rounded-full p-2 text-ink-600 hover:bg-ink-100" aria-label="Notifications">
                     <Bell className="h-5 w-5" />
