@@ -17,10 +17,10 @@ test('installable site has manifest and safe navigation fallback',()=>{
   assert.ok(manifest.icons.some((icon:{src:string;sizes:string;purpose:string})=>icon.src.startsWith('/app-icon-512.png')&&icon.sizes==='512x512'&&icon.purpose.includes('maskable')));
   assert.match(readFileSync('public/app-icon.svg','utf8'),/aria-label="11Drive"/);
   const worker=readFileSync('public/sw.js','utf8');assert.match(worker,/request\.mode==='navigate'/);
-  assert.match(worker,/11drive-shell-v3/);
+  assert.match(worker,/11drive-shell-v4/);
   const document=readFileSync('index.html','utf8');
   assert.match(document,/name="theme-color" content="#ffffff"/);
-  assert.match(document,/apple-touch-icon[^>]+app-icon-192\.png\?v=3/);
+  assert.match(document,/apple-touch-icon[^>]+app-icon-192\.png\?v=4/);
   const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);assert.doesNotMatch(intro,/launch-caret/);
   assert.match(intro,/ElevenDriveWordmark decorative/);
   assert.match(intro,/setTimeout\(onComplete, 5400\)/);
