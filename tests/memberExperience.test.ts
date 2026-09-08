@@ -16,6 +16,7 @@ test('installable site has manifest and safe navigation fallback',()=>{
   assert.ok(manifest.icons.some((icon:{src:string;sizes:string})=>icon.src==='/app-icon-512.png'&&icon.sizes==='512x512'));
   const worker=readFileSync('public/sw.js','utf8');assert.match(worker,/request\.mode==='navigate'/);
   const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);assert.doesNotMatch(intro,/launch-caret/);
+  assert.match(intro,/ElevenDriveWordmark decorative/);
   assert.match(intro,/setTimeout\(onComplete, 5400\)/);
   const styles=readFileSync('src/index.css','utf8');
   assert.match(styles,/launch-slide-away/);
@@ -70,6 +71,7 @@ test('admin theme choices expose their real colour codes',()=>{
 });
 test('admin controls the top header name animation',()=>{
   const header=readFileSync('src/components/Header.tsx','utf8');
+  const wordmark=readFileSync('src/components/ElevenDriveWordmark.tsx','utf8');
   const admin=readFileSync('src/pages/AdminPage.tsx','utf8');
   const styles=readFileSync('src/index.css','utf8');
   assert.match(header,/header_name_animation/);
@@ -78,8 +80,8 @@ test('admin controls the top header name animation',()=>{
   assert.match(admin,/Top header name colours/);
   assert.match(admin,/11 dark · Drive theme/);
   assert.match(admin,/value="off"/);
-  assert.match(header,/site-wordmark-eleven/);
-  assert.match(header,/site-wordmark-drive/);
+  assert.match(wordmark,/site-wordmark-eleven/);
+  assert.match(wordmark,/site-wordmark-drive/);
   assert.doesNotMatch(admin,/Colour sweep/);
   assert.match(styles,/site-wordmark--pulse/);
   assert.match(styles,/site-wordmark--float/);

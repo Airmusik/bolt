@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { ElevenDriveWordmark } from './ElevenDriveWordmark';
 
 type LaunchIntroProps = {
   siteName: string;
@@ -35,7 +36,9 @@ export function LaunchIntro({ siteName, backgroundEnabled, backgroundType, backg
         <div className="pointer-events-none absolute inset-0 -z-10 bg-white dark:bg-[#0b0b0d]" style={{ opacity: overlayOpacity }} aria-hidden="true" />
       </>}
       <div className="launch-wordmark whitespace-nowrap rounded-3xl bg-white/45 px-[0.2em] pb-[0.08em] font-display text-[clamp(3.5rem,16vw,10rem)] font-extrabold tracking-[-0.07em] text-ink-950 backdrop-blur-[2px] dark:bg-black/25">
-        <span>{prefix}</span><span className="text-brand-600">{suffix}</span>
+        {siteName === '11Drive'
+          ? <ElevenDriveWordmark decorative className="site-wordmark site-wordmark-colours--split h-auto w-[min(82vw,44rem)]" />
+          : <><span>{prefix}</span><span className="text-brand-600">{suffix}</span></>}
       </div>
     </div>
   );

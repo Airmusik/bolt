@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { ThemeToggle } from './ThemeToggle';
 import { SiteLogo } from './SiteLogo';
+import { ElevenDriveWordmark } from './ElevenDriveWordmark';
 import { NOTIFICATIONS_CHANGED_EVENT } from '@/lib/notificationEvents';
 import { usePromotionLive } from '@/lib/promotionLive';
 
@@ -172,10 +173,11 @@ export function Header() {
     <header ref={headerRef} className="sticky top-0 z-50 border-b border-ink-100 bg-white/90 backdrop-blur-md dark:bg-[#0b0b0d]/90">
       <div className="container-content flex h-16 items-center justify-between gap-2 sm:gap-4">
         <Link to="/" aria-label={`${settings.site_name} home`} className="flex min-w-0 items-center gap-1.5 sm:gap-2">
-          <SiteLogo />
-          <span className={cn('site-wordmark truncate font-display text-2xl font-extrabold tracking-tight lg:text-3xl', `site-wordmark--${headerNameAnimation}`, `site-wordmark-colours--${headerNameColours}`)}>
-            {settings.site_name === '11Drive' ? <><span className="site-wordmark-eleven">11</span><span className="site-wordmark-drive text-[0.85em]">Drive</span></> : settings.site_name}
-          </span>
+          {settings.site_name === '11Drive' ? (
+            <ElevenDriveWordmark className={cn('site-wordmark h-auto w-[138px] sm:w-[148px]', `site-wordmark--${headerNameAnimation}`, `site-wordmark-colours--${headerNameColours}`)} />
+          ) : (
+            <><SiteLogo /><span className={cn('site-wordmark truncate font-display text-2xl font-extrabold tracking-tight lg:text-3xl', `site-wordmark--${headerNameAnimation}`)}>{settings.site_name}</span></>
+          )}
         </Link>
 
         <nav className={cn('hidden items-center gap-1', user ? 'md:flex' : 'lg:flex')}>
