@@ -1,5 +1,5 @@
 import { Link, Routes, Route } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { Wrench } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -44,8 +44,15 @@ export default function App() {
   const { profile, loading: authLoading } = useAuth();
   const { settings, loading } = useSiteSettings();
   const path = window.location.pathname;
+  const [allowBackgroundVideo, setAllowBackgroundVideo] = useState(false);
   const adminAllowed = path.startsWith('/admin') || path === '/auth/callback' || profile?.role === 'admin';
   const unavailable = (message: string) => <div className="container-content py-20 text-center"><h1 className="text-2xl font-bold text-ink-900">Temporarily unavailable</h1><p className="mt-3 text-ink-600">{message}</p><Link to="/" className="btn-secondary mt-6">Back to homepage</Link></div>;
+
+  useEffect(() => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    setAllowBackgroundVideo(!reducedMotion && !connection?.saveData);
+  }, []);
 
   // Never mount guest/default actions while restoring a member's account or
   // loading admin-controlled branding/settings. Applies to every route.
@@ -57,14 +64,31 @@ export default function App() {
   }
 
   if (!loading && settings.maintenance_mode === 'true' && !adminAllowed) {
+    const showBackground = settings.homepage_background_enabled === 'true' && Boolean(settings.homepage_background_url);
+    const backgroundPosition = `${settings.homepage_background_position_x}% ${settings.homepage_background_position_y}%`;
+    const overlayOpacity = Math.min(95, Math.max(20, Number(settings.homepage_background_overlay) || 78)) / 100;
     return (
       <Layout>
-        <div className="container-content flex min-h-[70vh] flex-col items-center justify-center py-16 text-center">
-          <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
-            <Wrench className="h-8 w-8" />
-          </span>
-          <h1 className="font-display text-3xl font-bold text-ink-900">{settings.site_name} is under maintenance</h1>
-          <p className="mt-3 max-w-md text-ink-600">{settings.maintenance_message}</p>
+        <div className={showBackground ? 'relative isolate overflow-hidden' : ''}>
+          {showBackground && <>
+            <div className="pointer-events-none absolute inset-0 -z-20 overflow-hidden bg-ink-900" aria-hidden="true">
+              {settings.homepage_background_type === 'video' && allowBackgroundVideo
+                ? <video src={settings.homepage_background_url} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" style={{ objectPosition: backgroundPosition }} />
+                : settings.homepage_background_type === 'image'
+                  ? <img src={settings.homepage_background_url} alt="" loading="eager" decoding="async" className="h-full w-full object-cover" style={{ objectPosition: backgroundPosition }} />
+                  : null}
+            </div>
+            <div className="pointer-events-none absolute inset-0 -z-10 bg-white dark:bg-[#0b0b0d]" style={{ opacity: overlayOpacity }} aria-hidden="true" />
+          </>}
+          <div className="container-content flex min-h-[70vh] items-center justify-center py-16 text-center">
+            <div className="flex max-w-xl flex-col items-center rounded-3xl border border-white/40 bg-white/75 px-6 py-10 shadow-xl backdrop-blur-md dark:border-white/10 dark:bg-[#111114]/80 sm:px-12">
+              <span className="flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-50 text-brand-700 ring-1 ring-brand-100">
+                <Wrench className="h-8 w-8" />
+              </span>
+              <h1 className="mt-6 font-display text-3xl font-bold text-ink-900">{settings.site_name} is under maintenance</h1>
+              <p className="mt-3 max-w-md text-ink-600">{settings.maintenance_message}</p>
+            </div>
+          </div>
         </div>
       </Layout>
     );
