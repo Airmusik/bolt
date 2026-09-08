@@ -412,6 +412,18 @@ button[aria-expanded][class~="bg-ink-950"][class~="shadow-xl"] > :first-child sv
 .dark button[aria-expanded][class~="bg-ink-950"][class~="shadow-xl"]:hover {
   background: #f97316 !important;
 }
+@keyframes assistant-eye-blink {
+  0%, 44%, 48%, 100% { transform: scaleY(1); }
+  46% { transform: scaleY(0.12); }
+}
+.fixed[class*="bottom-"] .lucide-bot path:nth-last-of-type(-n+2) {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: assistant-eye-blink 4.8s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fixed[class*="bottom-"] .lucide-bot path:nth-last-of-type(-n+2) { animation: none; }
+}
 
 /* Scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
