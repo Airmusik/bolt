@@ -6,6 +6,8 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/lib/useAuth';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { useSeo } from '@/lib/useSeo';
+import { SecurityDeviceTracker } from '@/components/SecurityDeviceTracker';
+import { AdminMfaGate } from '@/components/AdminMfaGate';
 
 const HomePage = lazy(() => import('@/pages/HomePage').then((module) => ({ default: module.HomePage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((module) => ({ default: module.LoginPage })));
@@ -73,6 +75,7 @@ export default function App() {
 
   return (
     <Layout>
+      <SecurityDeviceTracker />
       <Suspense fallback={<div role="status" className="min-h-48"><span className="sr-only">Loading page…</span></div>}>
       <Routes>
         <Route path="/" element={<HomePage />} />
@@ -105,7 +108,7 @@ export default function App() {
         <Route path="/promotions" element={<ProtectedRoute roles={['owner', 'driver']}><PromotionsPage /></ProtectedRoute>} />
         <Route path="/suspended" element={<ProtectedRoute><SuspendedPage /></ProtectedRoute>} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
-        <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminPage /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute roles={['admin']}><AdminMfaGate><AdminPage /></AdminMfaGate></ProtectedRoute>} />
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>

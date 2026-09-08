@@ -67,6 +67,20 @@ export const DEFAULT_SITE_SETTINGS = {
   analytics_retention_days: '90',
   notification_retention_days: '365',
   chat_retention_days: '730',
+  security_risk_alerts: 'true',
+  security_rate_limits: 'true',
+  security_new_device_alerts: 'true',
+  security_admin_mfa_required: 'false',
+  security_auto_restrictions: 'false',
+  security_upload_validation: 'true',
+  security_spam_detection: 'true',
+  security_account_history: 'true',
+  security_admin_notifications: 'true',
+  security_blocklist: 'true',
+  security_immutable_audit: 'true',
+  security_data_minimization: 'true',
+  security_connection_hourly_limit: '20',
+  security_message_minute_limit: '30',
 } as const;
 
 export type SiteSettingKey = keyof typeof DEFAULT_SITE_SETTINGS;
