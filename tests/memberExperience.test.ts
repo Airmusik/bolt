@@ -56,6 +56,14 @@ test('member tools include profile, report, connection, and calendar states',()=
   const migration=readFileSync('supabase/migrations/20260909006000_member_experience_tools.sql','utf8');
   assert.match(migration,/UNIQUE\(user_id, day_of_week\)/);assert.match(migration,/user_id=auth\.uid\(\)/);
 });
+test('admin theme choices expose their real colour codes',()=>{
+  const admin=readFileSync('src/pages/AdminPage.tsx','utf8');
+  const themes=readFileSync('src/lib/siteTheme.ts','utf8');
+  assert.match(admin,/Every swatch shows its exact HEX code/);
+  assert.match(admin,/\{colour\}/);
+  assert.match(admin,/Base.*Action.*Surface/s);
+  assert.match(themes,/#13d0ff/);
+});
 test('suspensions are atomic and queue reasoned email notifications',()=>{
   const migration=readFileSync('supabase/migrations/20260909008000_suspension_email_notification.sql','utf8');
   const admin=readFileSync('src/pages/AdminPage.tsx','utf8');

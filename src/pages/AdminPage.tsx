@@ -1382,14 +1382,14 @@ function AdminSettings() {
         <div className="mt-4 space-y-4">
           <fieldset>
             <legend className="label flex items-center gap-2"><Palette className="h-4 w-4" /> Theme &amp; colours</legend>
-            <p className="mb-3 text-xs text-ink-500">Choose a curated palette. Selecting one previews it immediately; save settings to publish it for everyone.</p>
+            <p className="mb-3 text-xs text-ink-500">Choose a curated palette. Every swatch shows its exact HEX code. Selecting one previews it immediately; save settings to publish it for everyone.</p>
             <div className="grid gap-3 sm:grid-cols-2">
               {SITE_THEMES.map((theme) => {
                 const selected = settings.site_theme === theme.id;
                 return <button key={theme.id} type="button" aria-pressed={selected} onClick={() => setSettings({ ...settings, site_theme: theme.id })} className={`rounded-xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 ${selected ? 'border-accent-500 bg-accent-50 ring-1 ring-accent-200' : 'border-ink-200 bg-white hover:border-ink-400 dark:bg-[#141416]'}`}>
                   <span className="flex items-center justify-between gap-3"><span className="font-semibold text-ink-900">{theme.name}</span>{selected && <Check className="h-4 w-4 text-accent-600" />}</span>
                   <span className="mt-1 block text-xs leading-5 text-ink-500">{theme.description}</span>
-                  <span className="mt-3 flex gap-2" aria-hidden="true">{theme.swatches.map((colour) => <span key={colour} className="h-7 w-7 rounded-full border border-black/10 shadow-sm" style={{ backgroundColor: colour }} />)}</span>
+                  <span className="mt-3 grid grid-cols-3 gap-2">{theme.swatches.map((colour, index) => <span key={colour} className="min-w-0"><span className="flex items-center gap-1.5"><span className="h-7 w-7 shrink-0 rounded-full border border-black/10 shadow-sm" style={{ backgroundColor: colour }} aria-hidden="true" /><span className="truncate text-[10px] font-semibold uppercase text-ink-700">{colour}</span></span><span className="mt-1 block text-[9px] uppercase tracking-wide text-ink-400">{index === 0 ? 'Base' : index === 1 ? 'Action' : 'Surface'}</span></span>)}</span>
                 </button>;
               })}
             </div>
