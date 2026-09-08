@@ -123,6 +123,9 @@ export function AdminPage() {
   const [suspendingUser, setSuspendingUser] = useState<Profile | null>(null);
   const [suspendReason, setSuspendReason] = useState('');
   const [suspending, setSuspending] = useState(false);
+  const [reinstatingUser, setReinstatingUser] = useState<Profile | null>(null);
+  const [reinstatementMessage, setReinstatementMessage] = useState('');
+  const [reinstating, setReinstating] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<AdminVehicle | null>(null);
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
   const [viewingUser, setViewingUser] = useState<Profile | null>(null);
@@ -212,13 +215,18 @@ export function AdminPage() {
     setSuspending(false);
     load();
   };
-  const unban = async (p: Profile) => {
-    const { error } = await supabase.from('profiles').update({ is_suspended: false, suspension_reason: null, suspended_at: null }).eq('id', p.id);
+  const reinstate = async (p: Profile, message: string) => {
+    setReinstating(true);
+    const { error } = await supabase.rpc('admin_reinstate_member', { p_user_id: p.id, p_message: message.trim() || null });
+    setReinstating(false);
     if (error) { toast('Reinstate failed: ' + error.message, 'error'); return; }
-    toast('User reinstated.');
+    toast('User reinstated and notified by email and in-app.');
+    setReinstatingUser(null);
+    setReinstatementMessage('');
     setViewingUser(null);
     load();
   };
+  const openReinstate = (p: Profile) => { setReinstatingUser(p); setReinstatementMessage(''); };
   const resolveReport = async (r: Report, status: 'resolved' | 'dismissed') => {
     const { error } = await supabase.from('reports').update({ status }).eq('id', r.id);
     if (error) { toast('Could not update report: ' + error.message, 'error'); return; }
@@ -646,7 +654,7 @@ export function AdminPage() {
                 <span className={member.email_confirmed ? 'badge-success' : 'badge-warning'}>{member.email_confirmed ? 'Email confirmed' : 'Email not confirmed'}</span>
                 {member.email_confirmed === false && member.role !== 'admin' && <button className="btn-secondary px-3 py-2 text-sm" onClick={() => setConfirmAction({ message: `Manually confirm ${member.email}? This bypasses the email-link check. Continue only if you have independently verified that this member owns the address. This action is recorded.`, label: 'Confirm email', onConfirm: async () => { const { error } = await supabase.rpc('admin_confirm_member_email', { p_user: member.id }); if (error) { toast(error.message, 'error'); return; } toast('Email confirmed.'); await load(); } })}>Confirm email</button>}
                 {member.is_suspended && <span className="badge-danger"><Ban className="h-3 w-3" /> Suspended</span>}
-                {member.is_suspended && <button onClick={() => unban(member)} className="btn-secondary px-3 py-2 text-sm text-success"><ShieldCheck className="h-4 w-4" /> Reinstate</button>}
+                {member.is_suspended && <button onClick={() => openReinstate(member)} className="btn-secondary px-3 py-2 text-sm text-success"><ShieldCheck className="h-4 w-4" /> Reinstate</button>}
                 <button onClick={() => setViewingUser(member)} className="btn-primary px-3 py-2 text-sm"><Eye className="h-4 w-4" /> Manage profile</button>
               </div>
             ))}
@@ -675,7 +683,7 @@ export function AdminPage() {
                   <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Message</button>
                   <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
                   {u.is_suspended ? (
-                    <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
+                    <button onClick={() => openReinstate(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
                   ) : (
                     <button onClick={() => { setSuspensionReportId(null); setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
                   )}
@@ -705,7 +713,7 @@ export function AdminPage() {
                   <button onClick={() => adminStartChat(u)} className="btn-ghost text-sm"><MessageSquare className="h-4 w-4" /> Message</button>
                   <button onClick={() => setChangingPinUser(u)} className="btn-ghost text-sm"><KeyRound className="h-4 w-4" /> Password</button>
                   {u.is_suspended ? (
-                    <button onClick={() => unban(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
+                    <button onClick={() => openReinstate(u)} className="btn-ghost text-success text-sm"><ShieldCheck className="h-4 w-4" /> Reinstate</button>
                   ) : (
                     <button onClick={() => { setSuspensionReportId(null); setSuspendingUser(u); setSuspendReason(''); }} className="btn-ghost text-danger text-sm"><Ban className="h-4 w-4" /> Suspend</button>
                   )}
@@ -951,6 +959,19 @@ export function AdminPage() {
         </Modal>
       )}
 
+      {reinstatingUser && (
+        <Modal title={`Reinstate ${reinstatingUser.full_name}`} onClose={() => { if (!reinstating) { setReinstatingUser(null); setReinstatementMessage(''); } }}>
+          <p className="text-sm text-ink-600">Access will be restored immediately. The member will receive an in-app notification and email.</p>
+          <label htmlFor="reinstatement-message" className="label mt-4">Message <span className="font-normal text-ink-400">(optional)</span></label>
+          <textarea id="reinstatement-message" value={reinstatementMessage} onChange={e => setReinstatementMessage(e.target.value)} rows={4} maxLength={1000} placeholder="Add a personal note, next steps, or guidance for the member…" className="input" />
+          <p className="mt-1 text-right text-xs text-ink-400">{reinstatementMessage.length}/1000</p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <button type="button" disabled={reinstating} onClick={() => { setReinstatingUser(null); setReinstatementMessage(''); }} className="btn-secondary w-full">Cancel</button>
+            <button type="button" disabled={reinstating} onClick={() => void reinstate(reinstatingUser, reinstatementMessage)} className="btn-primary w-full"><ShieldCheck className="h-4 w-4" />{reinstating ? 'Reinstating…' : 'Reinstate and notify'}</button>
+          </div>
+        </Modal>
+      )}
+
       {/* Confirm dialog */}
       {confirmAction && (
         <ConfirmDialog
@@ -975,7 +996,7 @@ export function AdminPage() {
           user={viewingUser}
           onClose={() => setViewingUser(null)}
           onSuspend={() => { setSuspensionReportId(null); setSuspendingUser(viewingUser); setSuspendReason(''); setViewingUser(null); }}
-          onReinstate={() => unban(viewingUser)}
+          onReinstate={() => { openReinstate(viewingUser); setViewingUser(null); }}
           onViewDoc={async (doc: DocumentRow) => {
             const { data } = await supabase.from('documents').select('*').eq('user_id', viewingUser.id).eq('type', doc.type).maybeSingle();
             if (data) setViewingDoc(data as DocumentRow);

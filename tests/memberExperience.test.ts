@@ -39,3 +39,12 @@ test('reinstated members refresh immediately without signing out',()=>{
   assert.match(page,/if \(profile && !profile\.is_suspended\) navigate\('\/dashboard'/);
   assert.match(page,/Check access again/);
 });
+test('admin reinstatement supports an optional message and both delivery channels',()=>{
+  const migration=readFileSync('supabase/migrations/20260909009000_reinstatement_email_notification.sql','utf8');
+  const admin=readFileSync('src/pages/AdminPage.tsx','utf8');
+  assert.match(admin,/Message <span[^>]*>\(optional\)/);
+  assert.match(admin,/rpc\('admin_reinstate_member'/);
+  assert.match(migration,/Message from support:/);
+  assert.match(migration,/NEW\.type IN \('admin_announcement','reinstatement'\)/);
+  assert.match(migration,/event_email_html\(NEW\.title,NEW\.body/);
+});
