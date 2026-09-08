@@ -63,6 +63,7 @@ test('member tools include profile, report, connection, and calendar states',()=
   assert.match(checklist,/Complete your profile/);
   assert.match(checklist,/profile-health#about-you/);
   assert.match(checklist,/profile-health#platform-history/);
+  assert.match(checklist,/platform_history_submitted\|\|!driverNeedsApproval\(profile\)/);
   assert.match(checklist,/!photoComplete\|\|!aboutComplete\?'\/settings\?from=profile-health#profile-details'/);
   assert.match(checklist,/Next: add \{nextStep\}/);
   const onboarding=readFileSync('src/pages/DriverOnboardingPage.tsx','utf8');

@@ -1,12 +1,15 @@
 import { CheckCircle2, Circle, UserRoundCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import type { Profile } from '@/lib/types';
+import { driverNeedsApproval } from '@/lib/driverEligibility';
 
 export function ProfileCompletionChecklist({profile}:{profile:Profile}){
  const photoComplete=!!profile.avatar_url;
  const aboutComplete=!!profile.location&&(profile.languages||[]).length>=2&&(profile.bio||'').trim().length>=20;
  const driverDetailsComplete=profile.role!=='driver'||(!!profile.age&&profile.age>=18&&profile.driving_experience_years>=1);
- const historyComplete=profile.role!=='driver'||!!profile.platform_history_submitted;
+ // Approval clears the pending/submitted flag, so an approved and still-valid
+ // history is complete even though `platform_history_submitted` is false.
+ const historyComplete=profile.role!=='driver'||!!profile.platform_history_submitted||!driverNeedsApproval(profile);
  const items=[['Profile photo',photoComplete],['Specific residential area',!!profile.location],['At least two languages',(profile.languages||[]).length>=2],['Helpful introduction',(profile.bio||'').trim().length>=20],...(profile.role==='driver'?[['Age and experience',driverDetailsComplete],['Platform history submitted',historyComplete]]:[]) ] as [string,boolean][];
  const done=items.filter(([,complete])=>complete).length, percent=Math.round(done/items.length*100);
  const finishPath=!photoComplete||!aboutComplete?'/settings?from=profile-health#profile-details':profile.role==='driver'&&!driverDetailsComplete?'/onboarding?from=profile-health#about-you':profile.role==='driver'&&!historyComplete?'/onboarding?from=profile-health#platform-history':'/settings?from=profile-health#profile-details';
