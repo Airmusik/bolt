@@ -1,2 +1,1 @@
-{"name":"11Drive","short_name":"11Drive","description":"Find the right driver or the right car across Kenya.","start_url":"/","display":"standalone","background_color":"#ffffff","theme_color":"#171717","icons":[{"src":"/favicon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
-
+{"name":"11Drive","short_name":"11Drive","description":"Find the right driver or the right car across Kenya.","start_url":"/","display":"standalone","background_color":"#ffffff","theme_color":"#171717","icons":[{"src":"/app-icon-192.png","sizes":"192x192","type":"image/png","purpose":"any"},{"src":"/app-icon-512.png","sizes":"512x512","type":"image/png","purpose":"any"},{"src":"/app-icon-512.png","sizes":"512x512","type":"image/png","purpose":"maskable"}]}

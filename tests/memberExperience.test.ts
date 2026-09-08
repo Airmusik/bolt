@@ -12,7 +12,11 @@ test('location radius recognizes nearby and distant Kenyan areas',()=>{
 test('installable site has manifest and safe navigation fallback',()=>{
   const manifest=JSON.parse(readFileSync('public/manifest.webmanifest','utf8'));
   assert.equal(manifest.display,'standalone');assert.equal(manifest.name,'11Drive');
+  assert.ok(manifest.icons.some((icon:{src:string;sizes:string})=>icon.src==='/app-icon-192.png'&&icon.sizes==='192x192'));
+  assert.ok(manifest.icons.some((icon:{src:string;sizes:string})=>icon.src==='/app-icon-512.png'&&icon.sizes==='512x512'));
   const worker=readFileSync('public/sw.js','utf8');assert.match(worker,/request\.mode==='navigate'/);
+  const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);
+  assert.match(readFileSync('src/App.tsx','utf8'),/11drive-launch-intro-seen/);
 });
 test('member tools include profile, report, connection, and calendar states',()=>{
   assert.match(readFileSync('src/components/ProfileCompletionChecklist.tsx','utf8'),/Complete your profile/);

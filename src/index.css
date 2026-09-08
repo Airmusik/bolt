@@ -99,6 +99,24 @@
   50% { box-shadow: 0 0 0 5px rgb(var(--accent-500) / 0.10); transform: translateY(-1px); }
 }
 @media (prefers-reduced-motion: no-preference) {
+  @keyframes launch-type {
+    from { clip-path: inset(0 100% 0 0); }
+    to { clip-path: inset(0 0 0 0); }
+  }
+  @keyframes launch-caret-blink {
+    0%, 48% { opacity: 1; }
+    49%, 100% { opacity: 0; }
+  }
+  @keyframes launch-fade {
+    0%, 72% { opacity: 1; visibility: visible; }
+    100% { opacity: 0; visibility: hidden; }
+  }
+  .launch-intro { animation: launch-fade 3s ease-in-out forwards; }
+  .launch-wordmark { animation: launch-type 1.35s steps(7, end) 0.25s both; }
+  .launch-caret { animation: launch-caret-blink 0.65s step-end infinite; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
   .updates-header-unread { animation: updates-button-breathe 3.2s ease-in-out infinite; }
   .updates-header-unread > svg { animation: member-nav-float 4.8s ease-in-out infinite; }
 }

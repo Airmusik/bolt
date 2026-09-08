@@ -9,6 +9,7 @@ import { useSeo } from '@/lib/useSeo';
 import { SecurityDeviceTracker } from '@/components/SecurityDeviceTracker';
 import { AdminMfaGate } from '@/components/AdminMfaGate';
 import { SiteAssistant } from '@/components/SiteAssistant';
+import { LaunchIntro } from '@/components/LaunchIntro';
 
 const HomePage = lazy(() => import('@/pages/HomePage').then((module) => ({ default: module.HomePage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((module) => ({ default: module.LoginPage })));
@@ -45,6 +46,14 @@ export default function App() {
   const { settings, loading } = useSiteSettings();
   const path = window.location.pathname;
   const [allowBackgroundVideo, setAllowBackgroundVideo] = useState(false);
+  const [showLaunchIntro, setShowLaunchIntro] = useState(() => {
+    if (window.location.pathname !== '/' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    try {
+      if (sessionStorage.getItem('11drive-launch-intro-seen')) return false;
+      sessionStorage.setItem('11drive-launch-intro-seen', 'true');
+      return true;
+    } catch { return true; }
+  });
   const adminAllowed = path.startsWith('/admin') || path === '/auth/callback' || profile?.role === 'admin';
   const unavailable = (message: string) => <div className="container-content py-20 text-center"><h1 className="text-2xl font-bold text-ink-900">Temporarily unavailable</h1><p className="mt-3 text-ink-600">{message}</p><Link to="/" className="btn-secondary mt-6">Back to homepage</Link></div>;
 
@@ -95,7 +104,8 @@ export default function App() {
   }
 
   return (
-    <Layout>
+      <Layout>
+      {showLaunchIntro && <LaunchIntro siteName={settings.site_name} onComplete={() => setShowLaunchIntro(false)} />}
       <SecurityDeviceTracker />
       <SiteAssistant />
       <Suspense fallback={<div role="status" className="min-h-48"><span className="sr-only">Loading page…</span></div>}>
