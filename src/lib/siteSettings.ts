@@ -19,6 +19,19 @@ export const DEFAULT_SITE_SETTINGS = {
   instagram_url: '',
   linkedin_url: '',
   site_theme: DEFAULT_SITE_THEME,
+  footer_description: 'Connecting car owners and ride-hailing drivers across Kenya.',
+  footer_company_title: 'Company',
+  footer_company_about_label: 'About',
+  footer_company_contact_label: 'Contact',
+  footer_company_faq_label: 'FAQ',
+  footer_company_how_label: 'How it works',
+  footer_legal_title: 'Legal',
+  footer_legal_terms_label: 'Terms of Service',
+  footer_legal_privacy_label: 'Privacy Policy',
+  footer_legal_contact_label: 'Contact Us',
+  footer_contact_title: 'Get in touch',
+  footer_location: 'Nairobi, Kenya',
+  footer_copyright_note: 'All rights reserved. 11Drive does not process payments between users.',
 } as const;
 
 export type SiteSettingKey = keyof typeof DEFAULT_SITE_SETTINGS;

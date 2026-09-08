@@ -34,7 +34,7 @@ export function Footer() {
               </span>
             </Link>
             <p className="mt-3 text-sm font-medium leading-6 text-ink-600">{settings.site_tagline}</p>
-            <p className="mt-1 text-xs leading-5 text-ink-400">Connecting car owners and ride-hailing drivers across Kenya.</p>
+            <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-ink-400">{settings.footer_description}</p>
             {(settings.facebook_url || settings.instagram_url || settings.linkedin_url) && <div className="mt-4 flex gap-3">
               {settings.facebook_url && <SocialLink href={settings.facebook_url} label="Facebook" icon={<Facebook className="h-4 w-4" />} />}
               {settings.instagram_url && <SocialLink href={settings.instagram_url} label="Instagram" icon={<Instagram className="h-4 w-4" />} />}
@@ -42,31 +42,31 @@ export function Footer() {
             </div>}
           </div>
 
-          <FooterCol title="Company" links={[
-            { to: '/about', label: 'About' },
-            { to: '/contact', label: 'Contact' },
-            { to: '/help', label: 'FAQ' },
-            { to: '/how-it-works', label: 'How it works' },
+          <FooterCol title={settings.footer_company_title} links={[
+            { to: '/about', label: settings.footer_company_about_label },
+            { to: '/contact', label: settings.footer_company_contact_label },
+            { to: '/help', label: settings.footer_company_faq_label },
+            { to: '/how-it-works', label: settings.footer_company_how_label },
           ]} />
 
-          <FooterCol title="Legal" links={[
-            { to: '/terms', label: 'Terms of Service' },
-            { to: '/privacy', label: 'Privacy Policy' },
-            { to: '/contact', label: 'Contact Us' },
+          <FooterCol title={settings.footer_legal_title} links={[
+            { to: '/terms', label: settings.footer_legal_terms_label },
+            { to: '/privacy', label: settings.footer_legal_privacy_label },
+            { to: '/contact', label: settings.footer_legal_contact_label },
           ]} />
 
           <div>
-            <h4 className="text-sm font-semibold text-ink-900">Get in touch</h4>
+            <h4 className="text-sm font-semibold text-ink-900">{settings.footer_contact_title}</h4>
             <ul className="mt-3 space-y-2 text-sm text-ink-500">
               <li className="flex items-center gap-2"><Mail className="h-4 w-4" /> {settings.admin_contact_email}</li>
               <li className="flex items-center gap-2"><Phone className="h-4 w-4" /> {settings.admin_contact_phone}</li>
-              <li className="flex items-center gap-2"><MapPin className="h-4 w-4" /> Nairobi, Kenya</li>
+              <li className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {settings.footer_location}</li>
             </ul>
           </div>
         </div>
 
         <div className="mt-6 border-t border-ink-100 pt-4 text-center text-xs text-ink-400 md:mt-10 md:pt-6">
-          © {new Date().getFullYear()} {settings.site_name}. All rights reserved. {settings.site_name} does not process payments between users.
+          © {new Date().getFullYear()} {settings.site_name}. {settings.footer_copyright_note}
         </div>
       </div>
     </footer>

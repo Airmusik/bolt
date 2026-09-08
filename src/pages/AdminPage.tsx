@@ -1177,6 +1177,8 @@ function AdminSettings() {
     if (Number(settings.max_vehicles_per_owner) < 1 || Number(settings.max_vehicles_per_owner) > 100) { toast('Vehicle limit must be between 1 and 100.', 'error'); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(settings.admin_contact_email.trim())) { toast('Enter a valid admin contact email.', 'error'); return; }
     if (settings.admin_contact_phone.trim().length < 7) { toast('Enter a valid admin contact phone number.', 'error'); return; }
+    const footerFields = [settings.footer_description, settings.footer_company_title, settings.footer_company_about_label, settings.footer_company_contact_label, settings.footer_company_faq_label, settings.footer_company_how_label, settings.footer_legal_title, settings.footer_legal_terms_label, settings.footer_legal_privacy_label, settings.footer_legal_contact_label, settings.footer_contact_title, settings.footer_location, settings.footer_copyright_note];
+    if (footerFields.some(value => !value.trim())) { toast('Footer fields cannot be empty.', 'error'); return; }
     for (const [label, value] of [['Facebook', settings.facebook_url], ['Instagram', settings.instagram_url], ['LinkedIn', settings.linkedin_url]]) {
       if (!value) continue;
       try { const url = new URL(value); if (!['http:', 'https:'].includes(url.protocol)) throw new Error(); }
@@ -1195,6 +1197,19 @@ function AdminSettings() {
       facebook_url: settings.facebook_url.trim(),
       instagram_url: settings.instagram_url.trim(),
       linkedin_url: settings.linkedin_url.trim(),
+      footer_description: settings.footer_description.trim(),
+      footer_company_title: settings.footer_company_title.trim(),
+      footer_company_about_label: settings.footer_company_about_label.trim(),
+      footer_company_contact_label: settings.footer_company_contact_label.trim(),
+      footer_company_faq_label: settings.footer_company_faq_label.trim(),
+      footer_company_how_label: settings.footer_company_how_label.trim(),
+      footer_legal_title: settings.footer_legal_title.trim(),
+      footer_legal_terms_label: settings.footer_legal_terms_label.trim(),
+      footer_legal_privacy_label: settings.footer_legal_privacy_label.trim(),
+      footer_legal_contact_label: settings.footer_legal_contact_label.trim(),
+      footer_contact_title: settings.footer_contact_title.trim(),
+      footer_location: settings.footer_location.trim(),
+      footer_copyright_note: settings.footer_copyright_note.trim(),
     };
     const { error } = await supabase.from('site_settings').upsert(
       Object.entries(nextSettings).filter(([key]) => !key.startsWith('ads_') && !key.startsWith('adsense_')).map(([key, value]) => ({ key, value, updated_at })),
@@ -1317,11 +1332,43 @@ function AdminSettings() {
             <div><label htmlFor="admin-instagram-url" className="label">Instagram URL</label><input id="admin-instagram-url" type="url" value={settings.instagram_url} onChange={(e) => setSettings({ ...settings, instagram_url: e.target.value })} className="input" placeholder="https://instagram.com/…" /></div>
             <div><label htmlFor="admin-linkedin-url" className="label">LinkedIn URL</label><input id="admin-linkedin-url" type="url" value={settings.linkedin_url} onChange={(e) => setSettings({ ...settings, linkedin_url: e.target.value })} className="input" placeholder="https://linkedin.com/…" /></div>
           </div>
+          <fieldset className="rounded-2xl border border-ink-200 p-4 sm:p-5">
+            <legend className="px-2 font-display text-base font-bold text-ink-900">Footer content</legend>
+            <p className="mb-4 text-xs leading-5 text-ink-500">Edit the footer wording. Each link remains connected to its existing safe destination.</p>
+            <div className="grid gap-5 lg:grid-cols-3">
+              <section className="space-y-3">
+                <h3 className="text-sm font-bold text-ink-800">Brand area</h3>
+                <div><label htmlFor="footer-description" className="label">Description</label><textarea id="footer-description" maxLength={180} rows={3} className="input" value={settings.footer_description} onChange={e => setSettings({ ...settings, footer_description: e.target.value })} /></div>
+                <div><label htmlFor="footer-copyright" className="label">Copyright note</label><textarea id="footer-copyright" maxLength={180} rows={3} className="input" value={settings.footer_copyright_note} onChange={e => setSettings({ ...settings, footer_copyright_note: e.target.value })} /><p className="mt-1 text-xs text-ink-400">The year and site name are added automatically.</p></div>
+              </section>
+              <section className="space-y-3">
+                <h3 className="text-sm font-bold text-ink-800">Company column</h3>
+                <FooterSettingInput id="footer-company-title" label="Column heading" value={settings.footer_company_title} onChange={value => setSettings({ ...settings, footer_company_title: value })} />
+                <FooterSettingInput id="footer-company-about" label="About link label" value={settings.footer_company_about_label} onChange={value => setSettings({ ...settings, footer_company_about_label: value })} />
+                <FooterSettingInput id="footer-company-contact" label="Contact link label" value={settings.footer_company_contact_label} onChange={value => setSettings({ ...settings, footer_company_contact_label: value })} />
+                <FooterSettingInput id="footer-company-faq" label="FAQ link label" value={settings.footer_company_faq_label} onChange={value => setSettings({ ...settings, footer_company_faq_label: value })} />
+                <FooterSettingInput id="footer-company-how" label="How it works label" value={settings.footer_company_how_label} onChange={value => setSettings({ ...settings, footer_company_how_label: value })} />
+              </section>
+              <section className="space-y-3">
+                <h3 className="text-sm font-bold text-ink-800">Legal &amp; contact columns</h3>
+                <FooterSettingInput id="footer-legal-title" label="Legal heading" value={settings.footer_legal_title} onChange={value => setSettings({ ...settings, footer_legal_title: value })} />
+                <FooterSettingInput id="footer-legal-terms" label="Terms link label" value={settings.footer_legal_terms_label} onChange={value => setSettings({ ...settings, footer_legal_terms_label: value })} />
+                <FooterSettingInput id="footer-legal-privacy" label="Privacy link label" value={settings.footer_legal_privacy_label} onChange={value => setSettings({ ...settings, footer_legal_privacy_label: value })} />
+                <FooterSettingInput id="footer-legal-contact" label="Legal contact label" value={settings.footer_legal_contact_label} onChange={value => setSettings({ ...settings, footer_legal_contact_label: value })} />
+                <FooterSettingInput id="footer-contact-title" label="Contact heading" value={settings.footer_contact_title} onChange={value => setSettings({ ...settings, footer_contact_title: value })} />
+                <FooterSettingInput id="footer-location" label="Displayed location" value={settings.footer_location} onChange={value => setSettings({ ...settings, footer_location: value })} />
+              </section>
+            </div>
+          </fieldset>
         </div>
         <button onClick={save} disabled={saving} className="btn-primary mt-4"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save settings'}</button>
       </div>
     </div>
   );
+}
+
+function FooterSettingInput({ id, label, value, onChange }: { id: string; label: string; value: string; onChange: (value: string) => void }) {
+  return <div><label htmlFor={id} className="label">{label}</label><input id={id} maxLength={60} className="input" value={value} onChange={event => onChange(event.target.value)} /></div>;
 }
 
 // ---------- Edit Vehicle Modal ----------
