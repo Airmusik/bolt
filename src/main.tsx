@@ -6,6 +6,9 @@ import { ToastProvider } from '@/components/Toast';
 import App from './App';
 import './index.css';
 import './styles/site-palette.css';
+import { applyCachedSiteTheme } from '@/lib/siteTheme';
+
+applyCachedSiteTheme();
 import { getInitialTheme, applyTheme } from '@/lib/theme';
 import { SiteSettingsProvider } from '@/lib/siteSettings';
 import { PromotionLiveProvider } from '@/lib/promotionLive';

@@ -5,10 +5,11 @@ import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { AdminAdvertisements } from '@/components/AdminAdvertisements';
 import { AdminSiteAnalytics } from '@/components/AdminSiteAnalytics';
-import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays } from 'lucide-react';
+import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
+import { applySiteTheme, DEFAULT_SITE_THEME, isSiteTheme, SITE_THEMES } from '@/lib/siteTheme';
 import { AdminPromotions, OwnerListingAllowance } from '@/components/AdminPromotions';
 import { AdminExpiredDocuments } from '@/components/AdminExpiredDocuments';
 import { DocumentExpiry } from '@/components/DocumentExpiry';
@@ -1160,6 +1161,11 @@ function AdminSettings() {
     setSettings(liveSettings);
   }, [liveSettings]);
 
+  useEffect(() => {
+    applySiteTheme(settings.site_theme);
+    return () => { applySiteTheme(liveSettings.site_theme); };
+  }, [settings.site_theme, liveSettings.site_theme]);
+
   const save = async () => {
     const siteName = settings.site_name.trim();
     if (siteName.length < 2 || siteName.length > 40) { toast('Site name must be between 2 and 40 characters.', 'error'); return; }
@@ -1177,6 +1183,7 @@ function AdminSettings() {
     const updated_at = new Date().toISOString();
     const nextSettings = {
       ...settings,
+      site_theme: isSiteTheme(settings.site_theme) ? settings.site_theme : DEFAULT_SITE_THEME,
       max_vehicles_per_owner: '3',
       site_name: siteName,
       site_tagline: siteTagline,
@@ -1233,6 +1240,21 @@ function AdminSettings() {
         <h2 className="font-display text-lg font-bold text-ink-900">Site Settings</h2>
         <p className="mt-1 text-sm text-ink-500">Configure platform-wide settings.</p>
         <div className="mt-4 space-y-4">
+          <fieldset>
+            <legend className="label flex items-center gap-2"><Palette className="h-4 w-4" /> Theme &amp; colours</legend>
+            <p className="mb-3 text-xs text-ink-500">Choose a curated palette. Selecting one previews it immediately; save settings to publish it for everyone.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {SITE_THEMES.map((theme) => {
+                const selected = settings.site_theme === theme.id;
+                return <button key={theme.id} type="button" aria-pressed={selected} onClick={() => setSettings({ ...settings, site_theme: theme.id })} className={`rounded-xl border p-4 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 ${selected ? 'border-accent-500 bg-accent-50 ring-1 ring-accent-200' : 'border-ink-200 bg-white hover:border-ink-400 dark:bg-[#141416]'}`}>
+                  <span className="flex items-center justify-between gap-3"><span className="font-semibold text-ink-900">{theme.name}</span>{selected && <Check className="h-4 w-4 text-accent-600" />}</span>
+                  <span className="mt-1 block text-xs leading-5 text-ink-500">{theme.description}</span>
+                  <span className="mt-3 flex gap-2" aria-hidden="true">{theme.swatches.map((colour) => <span key={colour} className="h-7 w-7 rounded-full border border-black/10 shadow-sm" style={{ backgroundColor: colour }} />)}</span>
+                </button>;
+              })}
+            </div>
+            <button type="button" className="btn-ghost mt-2 px-3 py-2 text-xs" onClick={() => setSettings({ ...settings, site_theme: DEFAULT_SITE_THEME })}>Restore default theme</button>
+          </fieldset>
           <div>
             <label htmlFor="admin-site-name" className="label">Site name</label>
             <input id="admin-site-name" value={settings['site_name'] || ''} onChange={(e) => setSettings({ ...settings, site_name: e.target.value })} className="input" />

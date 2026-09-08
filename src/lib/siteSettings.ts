@@ -1,6 +1,7 @@
 import { createContext, createElement, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabase';
 import { AD_DEFAULTS } from './ads';
+import { applySiteTheme, DEFAULT_SITE_THEME } from './siteTheme';
 
 export const DEFAULT_SITE_SETTINGS = {
   ...AD_DEFAULTS,
@@ -17,6 +18,7 @@ export const DEFAULT_SITE_SETTINGS = {
   facebook_url: '',
   instagram_url: '',
   linkedin_url: '',
+  site_theme: DEFAULT_SITE_THEME,
 } as const;
 
 export type SiteSettingKey = keyof typeof DEFAULT_SITE_SETTINGS;
@@ -90,6 +92,10 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     favicon.href = settings.site_logo_url || '/favicon.svg';
     favicon.type = settings.site_logo_url ? '' : 'image/svg+xml';
   }, [settings.site_logo_url, loading]);
+
+  useEffect(() => {
+    if (!loading) applySiteTheme(settings.site_theme, true);
+  }, [settings.site_theme, loading]);
 
   const value = useMemo(() => ({ settings, loading, refreshSettings }), [settings, loading, refreshSettings]);
   return createElement(SiteSettingsContext.Provider, { value }, children);

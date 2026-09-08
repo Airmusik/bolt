@@ -226,7 +226,7 @@
 .site-wordmark {
   display: inline-block;
   color: rgb(var(--ink-900));
-  background-image: linear-gradient(100deg, rgb(var(--ink-950)) 10%, #f97316 42%, #fb923c 52%, rgb(var(--ink-950)) 86%);
+  background-image: linear-gradient(100deg, rgb(var(--ink-950)) 10%, rgb(var(--accent-500)) 42%, rgb(var(--accent-400)) 52%, rgb(var(--ink-950)) 86%);
   background-size: 240% 100%;
   background-position: 100% 50%;
   background-clip: text;
@@ -246,7 +246,7 @@
 
 /* Overview decoration never changes account data, layout, or click targets. */
 .overview-motion .overview-ambient {
-  background: radial-gradient(ellipse, rgb(249 115 22 / 0.13), transparent 70%);
+  background: radial-gradient(ellipse, rgb(var(--accent-500) / 0.13), transparent 70%);
 }
 .overview-motion .overview-recommendation::after {
   content: '';
@@ -254,7 +254,7 @@
   inset: 0;
   z-index: -1;
   pointer-events: none;
-  background: linear-gradient(105deg, transparent 35%, rgb(249 115 22 / 0.08) 50%, transparent 65%);
+  background: linear-gradient(105deg, transparent 35%, rgb(var(--accent-500) / 0.08) 50%, transparent 65%);
   opacity: 0;
 }
 .overview-motion .overview-availability-dot { position: relative; }
@@ -323,7 +323,7 @@
 }
 .chat-canvas {
   background-image:
-    radial-gradient(circle at 8% 10%, rgb(249 115 22 / 0.07), transparent 24%),
+    radial-gradient(circle at 8% 10%, rgb(var(--accent-500) / 0.07), transparent 24%),
     radial-gradient(circle at 92% 88%, rgb(139 92 246 / 0.07), transparent 28%),
     radial-gradient(rgb(var(--ink-300) / 0.13) 0.75px, transparent 0.75px);
   background-size: auto, auto, 18px 18px;
@@ -340,7 +340,7 @@
 
 @keyframes wordmark-glow {
   0%, 18% { background-position: 100% 50%; filter: drop-shadow(0 0 0 transparent); }
-  48%, 62% { background-position: 0% 50%; filter: drop-shadow(0 2px 7px rgb(249 115 22 / 0.18)); }
+  48%, 62% { background-position: 0% 50%; filter: drop-shadow(0 2px 7px rgb(var(--accent-500) / 0.18)); }
   100% { background-position: -100% 50%; filter: drop-shadow(0 0 0 transparent); }
 }
 

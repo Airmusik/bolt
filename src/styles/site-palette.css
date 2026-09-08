@@ -1,6 +1,24 @@
 /* One restrained interface palette. Status colours and chart series stay semantic. */
-:root { --action: #b9470a; --action-hover: #963908; }
-.dark { --action: #a83d08; --action-hover: #bf490b; }
+:root, :root[data-site-theme="heritage"] {
+  --action: #b9470a; --action-hover: #963908; --theme-active: #242424;
+  --accent-50: 255 247 237; --accent-100: 255 237 213; --accent-200: 254 215 170;
+  --accent-300: 253 186 116; --accent-400: 251 146 60; --accent-500: 249 115 22; --accent-600: 234 88 12;
+}
+:root[data-site-theme="coastal"] {
+  --action: #276b91; --action-hover: #1d526f; --theme-active: #172536;
+  --accent-50: 239 247 251; --accent-100: 219 237 246; --accent-200: 179 214 231;
+  --accent-300: 124 181 207; --accent-400: 67 139 174; --accent-500: 39 107 145; --accent-600: 29 82 111;
+}
+:root[data-site-theme="forest"] {
+  --action: #397159; --action-hover: #2a5844; --theme-active: #202724;
+  --accent-50: 241 247 243; --accent-100: 221 237 226; --accent-200: 183 214 193;
+  --accent-300: 132 181 148; --accent-400: 81 139 101; --accent-500: 57 113 89; --accent-600: 42 88 68;
+}
+:root[data-site-theme="clay"] {
+  --action: #a64f38; --action-hover: #813b2b; --theme-active: #272321;
+  --accent-50: 250 244 241; --accent-100: 243 228 220; --accent-200: 228 195 181;
+  --accent-300: 205 151 130; --accent-400: 178 99 74; --accent-500: 166 79 56; --accent-600: 129 59 43;
+}
 .btn-primary { background-color: var(--action); color: #fff; }
 .btn-primary:hover { background-color: var(--action-hover); }
 .member-nav-button,
@@ -12,8 +30,8 @@
 .admin-nav-button:hover { background: rgb(var(--ink-100)); }
 .member-nav-button.member-nav-active,
 .admin-nav-button[aria-pressed="true"] {
-  background: #242424; color: #fff; border-color: #242424;
-  box-shadow: inset 0 -3px 0 #c95418;
+  background: var(--theme-active); color: #fff; border-color: var(--theme-active);
+  box-shadow: inset 0 -3px 0 var(--action);
 }
 .dark .member-nav-button.member-nav-active,
 .dark .admin-nav-button[aria-pressed="true"] { background: #343434; border-color: #666; }
