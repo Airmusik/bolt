@@ -222,7 +222,7 @@ export function SettingsPage() {
               <p className="mt-1 text-xs text-ink-400">Type any town, estate, neighbourhood, or landmark in Kenya.</p>
             </div>
             <div><label className="label">Languages spoken <span className="text-danger">*</span></label><div className="relative"><Languages className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={languages} onChange={(e) => setLanguages(e.target.value)} className="input pl-10" placeholder="English, Swahili" /></div><p className="mt-1 text-xs text-ink-400">Add at least two languages and separate them with commas.</p></div>
-            <div><label className="label">Bio <span className="text-xs font-normal text-ink-400">(optional)</span></label><textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="input" /><p className="mt-1 text-xs text-ink-400">Briefly describe yourself, your work, or what you are looking for.</p></div>
+            <div><label className="label">Bio <span className="text-xs font-normal text-ink-400">(20 characters for a complete profile)</span></label><textarea value={bio} onChange={(e) => setBio(e.target.value)} rows={3} className="input" /><p className="mt-1 text-xs text-ink-400">Briefly describe yourself, your work, or what you are looking for.</p></div>
           </div>
           <button onClick={save} disabled={saving} className="btn-primary mt-4">
             {saving ? 'Saving…' : justSaved ? <><Check className="h-4 w-4" /> Saved</> : 'Save changes'}
