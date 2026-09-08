@@ -21,6 +21,9 @@ test('installable site has manifest and safe navigation fallback',()=>{
   const document=readFileSync('index.html','utf8');
   assert.match(document,/name="theme-color" content="#ffffff"/);
   assert.match(document,/apple-touch-icon[^>]+app-icon-192\.png\?v=4/);
+  assert.match(document,/data-pwa-launch/);
+  assert.match(document,/class="boot-splash" role="status" aria-label="Opening 11Drive"/);
+  assert.match(document,/new URLSearchParams\(location\.search\)\.get\('source'\) === 'pwa'/);
   const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);assert.doesNotMatch(intro,/launch-caret/);
   assert.match(intro,/ElevenDriveWordmark decorative/);
   assert.match(intro,/setTimeout\(onComplete, 5400\)/);
@@ -37,6 +40,10 @@ test('installable site has manifest and safe navigation fallback',()=>{
   assert.match(app,/11drive-launch-intro-seen/);
   assert.match(app,/display-mode: standalone/);
   assert.match(app,/get\('source'\) === 'pwa'/);
+  assert.match(app,/const launchOverlay =/);
+  assert.match(app,/const completeLaunchIntro = useCallback/);
+  assert.match(app,/if \(authLoading \|\| loading\)[\s\S]*\{launchOverlay\}/);
+  assert.doesNotMatch(app,/onComplete=\{\(\) => setShowLaunchIntro/);
   assert.match(app,/!showLaunchIntro && <span aria-hidden="true"/);
   assert.match(app,/settings\.launch_intro_enabled === 'true'/);
   assert.match(app,/settings\.launch_intro_background_enabled === 'true'/);

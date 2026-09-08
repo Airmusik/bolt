@@ -1,5 +1,5 @@
 import { Link, Routes, Route } from 'react-router-dom';
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Wrench } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -57,6 +57,17 @@ export default function App() {
       return true;
     } catch { return true; }
   });
+  const completeLaunchIntro = useCallback(() => setShowLaunchIntro(false), []);
+  const launchOverlay = showLaunchIntro && settings.launch_intro_enabled === 'true' ? <LaunchIntro
+    siteName={settings.site_name}
+    backgroundEnabled={settings.launch_intro_background_enabled === 'true'}
+    backgroundType={settings.homepage_background_type}
+    backgroundUrl={settings.homepage_background_url}
+    backgroundPosition={`${settings.homepage_background_position_x}% ${settings.homepage_background_position_y}%`}
+    overlayOpacity={Math.min(95, Math.max(20, Number(settings.homepage_background_overlay) || 78)) / 100}
+    allowVideo={allowBackgroundVideo}
+    onComplete={completeLaunchIntro}
+  /> : null;
   const adminAllowed = path.startsWith('/admin') || path === '/auth/callback' || profile?.role === 'admin';
   const unavailable = (message: string) => <div className="container-content py-20 text-center"><h1 className="text-2xl font-bold text-ink-900">Temporarily unavailable</h1><p className="mt-3 text-ink-600">{message}</p><Link to="/" className="btn-secondary mt-6">Back to homepage</Link></div>;
 
@@ -69,10 +80,13 @@ export default function App() {
   // Never mount guest/default actions while restoring a member's account or
   // loading admin-controlled branding/settings. Applies to every route.
   if (authLoading || loading) {
-    return <div role="status" aria-live="polite" className={`flex min-h-screen items-center justify-center dark:bg-[#0b0b0d] ${showLaunchIntro ? 'bg-white' : 'bg-orange-50/40'}`}>
-      <span className="sr-only">Loading…</span>
-      {!showLaunchIntro && <span aria-hidden="true" className="h-7 w-7 rounded-full border-2 border-orange-200 border-t-orange-500 motion-safe:animate-spin dark:border-orange-950 dark:border-t-orange-400" />}
-    </div>;
+    return <>
+      {launchOverlay}
+      <div role="status" aria-live="polite" className={`flex min-h-screen items-center justify-center dark:bg-[#0b0b0d] ${showLaunchIntro ? 'bg-white' : 'bg-orange-50/40'}`}>
+        <span className="sr-only">Loading…</span>
+        {!showLaunchIntro && <span aria-hidden="true" className="h-7 w-7 rounded-full border-2 border-orange-200 border-t-orange-500 motion-safe:animate-spin dark:border-orange-950 dark:border-t-orange-400" />}
+      </div>
+    </>;
   }
 
   if (!loading && settings.maintenance_mode === 'true' && !adminAllowed) {
@@ -107,17 +121,9 @@ export default function App() {
   }
 
   return (
+    <>
+      {launchOverlay}
       <Layout>
-      {showLaunchIntro && settings.launch_intro_enabled === 'true' && <LaunchIntro
-        siteName={settings.site_name}
-        backgroundEnabled={settings.launch_intro_background_enabled === 'true'}
-        backgroundType={settings.homepage_background_type}
-        backgroundUrl={settings.homepage_background_url}
-        backgroundPosition={`${settings.homepage_background_position_x}% ${settings.homepage_background_position_y}%`}
-        overlayOpacity={Math.min(95, Math.max(20, Number(settings.homepage_background_overlay) || 78)) / 100}
-        allowVideo={allowBackgroundVideo}
-        onComplete={() => setShowLaunchIntro(false)}
-      />}
       <SecurityDeviceTracker />
       <SiteAssistant />
       <Suspense fallback={<div role="status" className="min-h-48"><span className="sr-only">Loading page…</span></div>}>
@@ -158,5 +164,6 @@ export default function App() {
       </Routes>
       </Suspense>
     </Layout>
+    </>
   );
 }
