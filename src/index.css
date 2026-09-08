@@ -412,6 +412,30 @@ button[aria-expanded][class~="bg-ink-950"][class~="shadow-xl"] > :first-child sv
 .dark button[aria-expanded][class~="bg-ink-950"][class~="shadow-xl"]:hover {
   background: #f97316 !important;
 }
+.dark .fixed[class*="bottom-"] section[aria-label] > header {
+  background: #171717 !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.dark .fixed[class*="bottom-"] section[aria-label] > header p,
+.dark .fixed[class*="bottom-"] section[aria-label] > header svg {
+  color: #ffffff !important;
+}
+.dark .fixed[class*="bottom-"] section[aria-label] > header p:last-child {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+.dark .fixed[class*="bottom-"] section[aria-label] > p {
+  color: #a3a3a3 !important;
+  border-color: #343438 !important;
+}
+.dark .fixed[class*="bottom-"] section[aria-label] textarea {
+  background: #202024 !important;
+  color: #f5f5f5 !important;
+  border-color: #3f3f46 !important;
+}
+.dark .fixed[class*="bottom-"] section[aria-label] textarea::placeholder {
+  color: #a3a3a3 !important;
+}
 @keyframes assistant-eye-blink {
   0%, 44%, 48%, 100% { transform: scaleY(1); }
   46% { transform: scaleY(0.12); }
