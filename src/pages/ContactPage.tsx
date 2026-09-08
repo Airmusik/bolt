@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FileText, Loader2, Mail, MapPin, MessageSquare, Paperclip, Phone, Send } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import { SiteLogo } from '@/components/SiteLogo';
@@ -19,6 +19,7 @@ const CONTACT_FILE_ACCEPT = 'image/*,.heic,.heif,.pdf,.txt,.doc,.docx,applicatio
 export function ContactPage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [form, setForm] = useState({ name: profile?.full_name || '', email: user?.email || '', message: searchParams.get('topic') === 'listing-limit' ? 'Hello, I would like to request permission to list more than my current car allowance. Number of cars I would like to list: ' : searchParams.get('topic') === 'account-standing' ? 'Hello, I would like help understanding my rating or a warning on my account. Details: ' : '' });
   const [attachment, setAttachment] = useState<File | null>(null);
@@ -65,6 +66,12 @@ export function ContactPage() {
   useEffect(() => { void loadThreads(); }, [loadThreads]);
 
   useEffect(() => {
+    if (user && !loadingThreads && !activeId && !searchParams.get('topic') && threads[0]) {
+      setSearchParams({ message: threads[0].id }, { replace: true });
+    }
+  }, [activeId, loadingThreads, searchParams, setSearchParams, threads, user]);
+
+  useEffect(() => {
     if (!user) return;
     const channel = supabase.channel(`contact-thread-${user.id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'contact_messages', filter: `user_id=eq.${user.id}` }, () => void loadThreads())
@@ -98,18 +105,24 @@ export function ContactPage() {
       email: user ? user.email || form.email.trim().toLowerCase() : form.email.trim().toLowerCase(),
       message: form.message.trim(),
     };
-    const result = user
-      ? await supabase.from('contact_messages').insert(payload).select().maybeSingle()
-      : await supabase.from('contact_messages').insert(payload);
-    const data = 'data' in result ? result.data : null;
-    if (result.error || (user && !data)) {
+    let threadId: string | null = null;
+    let submitError: { message: string } | null = null;
+    if (user) {
+      const result = await supabase.rpc('send_member_support_message', { p_message: payload.message });
+      threadId = result.data;
+      submitError = result.error;
+    } else {
+      const result = await supabase.from('contact_messages').insert(payload);
+      submitError = result.error;
+    }
+    if (submitError || (user && !threadId)) {
       setLoading(false);
       toast('Could not send your message. Please use the contact email instead.', 'error');
       return;
     }
-    if (attachment && user && data) {
+    if (attachment && user && threadId) {
       try {
-        await addAttachmentEntry(data.id, attachment, 'user');
+        await addAttachmentEntry(threadId, attachment, 'user');
       } catch (uploadError) {
         toast(`Your message was sent, but the attachment failed: ${uploadError instanceof Error ? uploadError.message : 'Please try again in the thread.'}`, 'error');
       }
@@ -119,9 +132,9 @@ export function ContactPage() {
     setAttachment(null);
     if (newFileRef.current) newFileRef.current.value = '';
     toast(user ? 'Message sent. Replies and history will stay here.' : 'Message sent. Support will reply using your email address.');
-    if (user && data) {
+    if (user && threadId) {
       await loadThreads();
-      setSearchParams({ message: data.id });
+      navigate(`/contact?message=${threadId}`, { replace: true });
     }
   };
 
@@ -157,18 +170,18 @@ export function ContactPage() {
   };
 
   return (
-    <div className="container-content py-10">
+    <div className="container-content overflow-x-hidden py-6 sm:py-10">
       {threads.map(thread => <SupportReceipt key={thread.id} thread={thread.id} entries={thread.entries || []} active={activeId === thread.id} />)}
       <BackButton to={user ? '/dashboard' : '/'} />
       <h1 className="mt-4 font-display text-3xl font-bold text-ink-900">Messages</h1>
       <p className="mt-2 text-ink-600">Contact support and keep every reply and attachment together.</p>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
-        <div className="space-y-5">
+      <div className="mt-6 grid min-w-0 gap-5 sm:mt-8 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
+        <div className={cn('min-w-0 space-y-5', active && user && 'hidden lg:block')}>
           <div className="card space-y-3 p-5">
-            <a href={`mailto:${settings.admin_contact_email}`} className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-ink-50"><Mail className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Email</p><p className="text-sm text-ink-500">{settings.admin_contact_email}</p></div></a>
-            <a href={`tel:${settings.admin_contact_phone.replace(/\s/g, '')}`} className="flex items-center gap-3 rounded-xl p-2 transition hover:bg-ink-50"><Phone className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Phone</p><p className="text-sm text-ink-500">{settings.admin_contact_phone}</p></div></a>
-            <div className="flex items-center gap-3 p-2"><MapPin className="h-5 w-5 text-brand-600" /><div><p className="text-sm font-medium text-ink-900">Address</p><p className="text-sm text-ink-500">Nairobi, Kenya</p></div></div>
+            <a href={`mailto:${settings.admin_contact_email}`} className="flex min-w-0 items-center gap-3 rounded-xl p-2 transition hover:bg-ink-50"><Mail className="h-5 w-5 shrink-0 text-brand-600" /><div className="min-w-0"><p className="text-sm font-medium text-ink-900">Email</p><p className="break-all text-sm text-ink-500">{settings.admin_contact_email}</p></div></a>
+            <a href={`tel:${settings.admin_contact_phone.replace(/\s/g, '')}`} className="flex min-w-0 items-center gap-3 rounded-xl p-2 transition hover:bg-ink-50"><Phone className="h-5 w-5 shrink-0 text-brand-600" /><div className="min-w-0"><p className="text-sm font-medium text-ink-900">Phone</p><p className="break-words text-sm text-ink-500">{settings.admin_contact_phone}</p></div></a>
+            <div className="flex min-w-0 items-center gap-3 p-2"><MapPin className="h-5 w-5 shrink-0 text-brand-600" /><div className="min-w-0"><p className="text-sm font-medium text-ink-900">Address</p><p className="text-sm text-ink-500">Nairobi, Kenya</p></div></div>
           </div>
 
           {user && (
@@ -186,8 +199,8 @@ export function ContactPage() {
         </div>
 
         {active && user ? (
-          <div className="card flex min-h-[560px] flex-col overflow-hidden">
-            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ink-100 p-4"><div className="flex min-w-0 items-center gap-3"><SiteLogo size={40} /><div><h2 className="text-sm font-semibold text-ink-900">Official {settings.site_name} Support</h2><p className="mt-1 text-xs text-ink-500">Started {formatDateTime(active.created_at)} · history is saved</p></div></div><button type="button" onClick={() => setSearchParams({})} className="btn-secondary px-3 py-1.5 text-xs">New message</button></div>
+          <div className="card flex min-h-[65dvh] min-w-0 flex-col overflow-hidden sm:min-h-[560px]">
+            <div className="flex items-start gap-3 border-b border-ink-100 p-4"><SiteLogo size={40} /><div className="min-w-0"><h2 className="text-sm font-semibold text-ink-900">Official {settings.site_name} Support</h2><p className="mt-1 text-xs text-ink-500">Started {formatDateTime(active.created_at)} · history is saved</p></div></div>
             <div className="flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4">
               {(active.entries || []).map((entry) => {
                 const mine = entry.sender_role === 'user';
@@ -201,7 +214,7 @@ export function ContactPage() {
             </div>
           </div>
         ) : (
-          <form onSubmit={submit} className="card self-start p-6">
+          <form onSubmit={submit} className="card min-w-0 self-start p-4 sm:p-6">
             <h2 className="font-display text-xl font-bold text-ink-900">Start a message</h2>
             <p className="mt-1 text-xs text-ink-500">{user ? 'Your message, attachments, and all support replies will remain in your history.' : 'Sign in if you want attachments and in-app reply history. Support uses the supplied email address for guest responses.'}</p>
             <div className="mt-5"><label className="label">Name <span className="text-danger">*</span></label><input value={user ? profile?.full_name || form.name : form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} className="input" required readOnly={Boolean(user)} /><p className="mt-1.5 text-xs text-ink-400">{user ? 'Your registered account name is used so support can identify you correctly.' : 'Tell support what name to use when replying.'}</p></div>
