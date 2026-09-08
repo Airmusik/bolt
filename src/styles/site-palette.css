@@ -5,10 +5,11 @@
   --accent-300: 253 186 116; --accent-400: 251 146 60; --accent-500: 249 115 22; --accent-600: 234 88 12;
 }
 :root[data-site-theme="coastal"] {
-  --action: #276b91; --action-hover: #1d526f; --theme-active: #172536;
-  --accent-50: 239 247 251; --accent-100: 219 237 246; --accent-200: 179 214 231;
-  --accent-300: 124 181 207; --accent-400: 67 139 174; --accent-500: 39 107 145; --accent-600: 29 82 111;
+  --action: #13d0ff; --action-hover: #08b9e6; --theme-active: #123743;
+  --accent-50: 238 252 255; --accent-100: 211 247 255; --accent-200: 166 239 255;
+  --accent-300: 105 226 255; --accent-400: 55 216 255; --accent-500: 19 208 255; --accent-600: 8 174 218;
 }
+:root[data-site-theme="coastal"] .btn-primary { color: #082f3a; }
 :root[data-site-theme="forest"] {
   --action: #397159; --action-hover: #2a5844; --theme-active: #202724;
   --accent-50: 241 247 243; --accent-100: 221 237 226; --accent-200: 183 214 193;
