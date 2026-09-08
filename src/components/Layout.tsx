@@ -7,6 +7,7 @@ import { useSiteSettings } from '@/lib/siteSettings';
 import { DashboardNavigation } from './DashboardNavigation';
 import { ActionAd } from './AdSlot';
 import { SiteAnalyticsTracker } from './SiteAnalyticsTracker';
+import { InstallAppPrompt } from './InstallAppPrompt';
 
 const SUSPENDED_ALLOWED = ['/', '/about', '/contact', '/terms', '/privacy', '/suspended', '/login', '/register'];
 
@@ -38,6 +39,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <SiteAnalyticsTracker />
       {showMemberNavigation && <DashboardNavigation key={user.id} role={profile.role as 'owner' | 'driver'} userId={user.id} />}
       <ActionAd />
+      {settings.maintenance_mode !== 'true' && !location.pathname.startsWith('/admin') && <InstallAppPrompt />}
       <main key={location.pathname} className={location.pathname.startsWith('/chat') || location.pathname.startsWith('/admin') ? 'flex-1' : 'page-enter flex-1'}>{children}</main>
       <Footer key={`footer:${location.pathname}`} />
     </div>

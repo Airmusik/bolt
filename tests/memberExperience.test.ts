@@ -17,6 +17,10 @@ test('installable site has manifest and safe navigation fallback',()=>{
   const worker=readFileSync('public/sw.js','utf8');assert.match(worker,/request\.mode==='navigate'/);
   const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);
   assert.match(readFileSync('src/App.tsx','utf8'),/11drive-launch-intro-seen/);
+  const installPrompt=readFileSync('src/components/InstallAppPrompt.tsx','utf8');
+  assert.match(installPrompt,/2 \* 24 \* 60 \* 60 \* 1000/);
+  assert.match(installPrompt,/beforeinstallprompt/);
+  assert.match(readFileSync('src/components/Layout.tsx','utf8'),/<InstallAppPrompt/);
 });
 test('member tools include profile, report, connection, and calendar states',()=>{
   assert.match(readFileSync('src/components/ProfileCompletionChecklist.tsx','utf8'),/Complete your profile/);
