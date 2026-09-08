@@ -20,6 +20,9 @@ test('installable site has manifest and safe navigation fallback',()=>{
   assert.match(intro,/setTimeout\(onComplete, 5400\)/);
   const styles=readFileSync('src/index.css','utf8');
   assert.match(styles,/launch-slide-away/);
+  assert.match(styles,/launch-logo-enter/);
+  assert.match(styles,/launch-wheel-turn/);
+  assert.match(styles,/launch-loading-progress/);
   assert.match(styles,/translateY\(-100%\)/);
   assert.doesNotMatch(styles,/launch-fade/);
   assert.match(intro,/backgroundType === 'video' && allowVideo/);

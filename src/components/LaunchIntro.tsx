@@ -35,10 +35,18 @@ export function LaunchIntro({ siteName, backgroundEnabled, backgroundType, backg
         </div>
         <div className="pointer-events-none absolute inset-0 -z-10 bg-white dark:bg-[#0b0b0d]" style={{ opacity: overlayOpacity }} aria-hidden="true" />
       </>}
-      <div className="launch-wordmark whitespace-nowrap rounded-3xl bg-white/45 px-[0.2em] pb-[0.08em] font-display text-[clamp(3.5rem,16vw,10rem)] font-extrabold tracking-[-0.07em] text-ink-950 backdrop-blur-[2px] dark:bg-black/25">
-        {siteName === '11Drive'
-          ? <ElevenDriveWordmark decorative className="site-wordmark site-wordmark-colours--split h-auto w-[min(82vw,44rem)]" />
-          : <><span>{prefix}</span><span className="text-brand-600">{suffix}</span></>}
+      <div className="launch-content flex w-full flex-col items-center px-6">
+        <div className="launch-wordmark whitespace-nowrap rounded-3xl bg-white/45 px-[0.2em] pb-[0.08em] font-display text-[clamp(3.5rem,16vw,10rem)] font-extrabold tracking-[-0.07em] text-ink-950 backdrop-blur-[2px] dark:bg-black/25">
+          {siteName === '11Drive'
+            ? <ElevenDriveWordmark decorative className="site-wordmark site-wordmark-colours--split h-auto w-[min(82vw,44rem)]" />
+            : <><span>{prefix}</span><span className="text-brand-600">{suffix}</span></>}
+        </div>
+        <p className="launch-tagline mt-5 font-display text-sm font-semibold uppercase tracking-[0.32em] text-ink-700 dark:text-white/80 sm:text-base">
+          True Connections
+        </p>
+        <div className="launch-loading-track mt-5 h-1 w-28 overflow-hidden rounded-full bg-ink-200/80 dark:bg-white/20" aria-hidden="true">
+          <span className="launch-loading-line block h-full origin-left rounded-full bg-orange-500" />
+        </div>
       </div>
     </div>
   );

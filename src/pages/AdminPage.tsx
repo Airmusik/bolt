@@ -1466,7 +1466,7 @@ function AdminSettings() {
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-ink-100 bg-white p-3 dark:bg-[#17171a]">
                   <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-orange-600" checked={settings.launch_intro_enabled === 'true'} onChange={(event) => setSettings({ ...settings, launch_intro_enabled: String(event.target.checked) })} />
-                  <span><span className="block text-sm font-semibold text-ink-900">Animated 11Drive launch</span><span className="mt-1 block text-xs leading-5 text-ink-500">Show the full-page typed 11Drive name once per browsing session.</span></span>
+                  <span><span className="block text-sm font-semibold text-ink-900">Animated 11Drive launch</span><span className="mt-1 block text-xs leading-5 text-ink-500">Show the full-page logo entrance, “True Connections” tagline, and loading line once per browsing session.</span></span>
                 </label>
                 <label className={`flex items-start gap-3 rounded-xl border border-ink-100 bg-white p-3 dark:bg-[#17171a] ${settings.launch_intro_enabled === 'true' && settings.homepage_background_url ? 'cursor-pointer' : 'cursor-not-allowed opacity-55'}`}>
                   <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-orange-600" disabled={settings.launch_intro_enabled !== 'true' || !settings.homepage_background_url} checked={settings.launch_intro_background_enabled === 'true'} onChange={(event) => setSettings({ ...settings, launch_intro_background_enabled: String(event.target.checked) })} />
