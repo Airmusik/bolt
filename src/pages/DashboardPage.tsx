@@ -24,6 +24,8 @@ import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ConnectionProgress } from '@/components/ConnectionProgress';
 import { DeleteListingButton } from '@/components/DeleteListingButton';
 import { driverNeedsApproval, driverApprovalMessage } from '@/lib/driverEligibility';
+import { ProfileCompletionChecklist } from '@/components/ProfileCompletionChecklist';
+import { ReportFollowUpTracker } from '@/components/ReportFollowUpTracker';
 
 import { dashboardDestination, dashboardTabFromSearch, getDashboardTabs, type DashboardTab as Tab } from '@/lib/dashboardNavigation';
 type OwnerApplication = Application & { driver?: Profile; vehicle?: VehicleWithRelations };
@@ -230,7 +232,7 @@ export function DashboardPage() {
           </div>}
           <p className="mt-2 text-xs text-ink-500">Filter the dashboard recommendations. Use More search options to search the full directory.</p>
         </div>}
-        {tab === 'overview' && <OverviewTab conversations={conversations} pendingConnections={pendingConnections} />}
+        {tab === 'overview' && user && <OverviewTab conversations={conversations} pendingConnections={pendingConnections} profile={profile} userId={user.id} />}
         {tab === 'drivers' && isOwner && <DriversTab users={drivers.filter(d => `${d.full_name} ${(d.platforms_worked || []).join(' ')}`.toLowerCase().includes(search.trim().toLowerCase()) && (d.location || '').toLowerCase().includes(locationFilter.trim().toLowerCase()))} loading={loading} siteName={settings.site_name} />}
         {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars.filter(v => `${v.make} ${v.model}`.toLowerCase().includes(search.trim().toLowerCase()) && (v.location || '').toLowerCase().includes(locationFilter.trim().toLowerCase()))} loading={loading} />}
         {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} onDeleted={load} />}
@@ -243,12 +245,16 @@ export function DashboardPage() {
   );
 }
 
-function OverviewTab({ conversations, pendingConnections }: {
+function OverviewTab({ conversations, pendingConnections, profile, userId }: {
   conversations: ConversationWithRelations[];
   pendingConnections: IncomingConnection[];
+  profile: Profile;
+  userId: string;
 }) {
   return (
     <div className="space-y-4 sm:space-y-5">
+      <ProfileCompletionChecklist profile={profile} />
+      <ReportFollowUpTracker userId={userId} />
       <div className="grid gap-3">
         <div className="dashboard-panel">
           <div className="flex items-center justify-between gap-3"><h3 className="text-sm font-semibold text-ink-900">Recent activity</h3><span className="dashboard-icon"><Activity className="h-4 w-4" /></span></div>

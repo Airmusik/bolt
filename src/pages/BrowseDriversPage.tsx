@@ -17,6 +17,7 @@ import { BackButton } from '@/components/BackButton';
 import { useToast } from '@/components/useToast';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { matchesLocation, matchesPlatform } from '@/lib/searchMatching';
+import { withinLocationRadius } from '@/lib/locationRadius';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras'];
 
@@ -32,6 +33,7 @@ export function BrowseDriversPage() {
   const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [name, setName] = useState(() => params.get('q') || '');
   const [availableOnly, setAvailableOnly] = useState(false);
+  const [radiusKm, setRadiusKm] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -46,12 +48,13 @@ export function BrowseDriversPage() {
     return drivers.filter((d) => {
       if (name.trim() && !d.full_name.toLowerCase().includes(name.trim().toLowerCase())) return false;
       if (availableOnly && d.availability !== 'available') return false;
-      if (!matchesLocation(d.location, location)) return false;
+      if (!radiusKm && !matchesLocation(d.location, location)) return false;
+      if (radiusKm && !withinLocationRadius(d.location, location, Number(radiusKm))) return false;
       if (!matchesPlatform(d.platforms_worked, platform)) return false;
       if (verifiedOnly && !d.platform_history_approved) return false;
       return true;
     });
-  }, [drivers, location, platform, verifiedOnly, name, availableOnly]);
+  }, [drivers, location, platform, verifiedOnly, name, availableOnly, radiusKm]);
 
   return (
     <div className="container-content py-8">
@@ -63,6 +66,7 @@ export function BrowseDriversPage() {
       <div className="mt-6 flex flex-wrap gap-3">
         <input aria-label="Search driver name" className="input w-full sm:w-60" placeholder="Driver name" value={name} onChange={e => setName(e.target.value)} />
         <div className="w-full sm:w-72"><PlaceAutocomplete value={location} onChange={setLocation} placeholder="All locations" className="py-2" /></div>
+        <div><select aria-label="Distance from location" value={radiusKm} onChange={e=>setRadiusKm(e.target.value)} disabled={!location} className="input w-auto py-2"><option value="">Any distance</option><option value="5">Within 5 km</option><option value="10">Within 10 km</option><option value="20">Within 20 km</option><option value="50">Within 50 km</option></select><p className="mt-1 text-[11px] text-ink-400">Approximate area distance; no GPS is used.</p></div>
         <select aria-label="Driver platform" value={platform} onChange={(e) => setPlatform(e.target.value)} className="input w-auto py-2">
           <option value="">All platforms</option>
           {PLATFORMS.map((p) => <option key={p} value={p}>{titleCase(p)}</option>)}
@@ -72,7 +76,7 @@ export function BrowseDriversPage() {
           Approved history only
         </label>
         <label className="flex min-h-11 items-center gap-2 text-sm"><input type="checkbox" checked={availableOnly} onChange={e => setAvailableOnly(e.target.checked)} />Available now</label>
-        {(name || location || platform || verifiedOnly || availableOnly) && <button type="button" className="btn-secondary" onClick={() => { setName(''); setLocation(''); setPlatform(''); setVerifiedOnly(false); setAvailableOnly(false); }}>Clear filters</button>}
+        {(name || location || platform || verifiedOnly || availableOnly || radiusKm) && <button type="button" className="btn-secondary" onClick={() => { setName(''); setLocation(''); setPlatform(''); setVerifiedOnly(false); setAvailableOnly(false); setRadiusKm(''); }}>Clear filters</button>}
       </div>
 
       <div className="mt-6">

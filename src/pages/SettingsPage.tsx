@@ -19,6 +19,8 @@ import { PersonNameFields } from '@/components/PersonNameFields';
 import { DriverApprovalNotice } from '@/components/DriverApprovalNotice';
 import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { driverNeedsApproval, driverApprovalMessage } from '@/lib/driverEligibility';
+import { AvailabilityCalendar } from '@/components/AvailabilityCalendar';
+import { InstallAppButton } from '@/components/InstallAppButton';
 
 export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
@@ -234,6 +236,10 @@ export function SettingsPage() {
             </button>
           </div>}
         </div>
+
+        {user && profile?.role !== 'admin' && <AvailabilityCalendar userId={user.id} />}
+
+        <InstallAppButton />
 
         <div className="card flex items-center justify-between gap-4 p-5">
           <div>

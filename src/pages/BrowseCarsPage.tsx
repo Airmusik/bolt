@@ -12,6 +12,7 @@ import { BackButton } from '@/components/BackButton';
 import { useToast } from '@/components/useToast';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { matchesLocation, matchesPlatform, withinBudget } from '@/lib/searchMatching';
+import { withinLocationRadius } from '@/lib/locationRadius';
 
 const FUELS = ['petrol', 'diesel', 'hybrid', 'electric'];
 const TRANSMISSIONS = ['automatic', 'manual'];
@@ -26,6 +27,7 @@ interface Filters {
   maxWeekly: string;
   maxDeposit: string;
   availableNow: boolean;
+  radiusKm: string;
 }
 
 export function BrowseCarsPage() {
@@ -47,6 +49,7 @@ export function BrowseCarsPage() {
     maxWeekly: '',
     maxDeposit: '',
     availableNow: false,
+    radiusKm: '',
   });
 
   useEffect(() => {
@@ -66,7 +69,8 @@ export function BrowseCarsPage() {
         const hay = `${v.make} ${v.model} ${v.location}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (!matchesLocation(v.location, filters.location)) return false;
+      if (!filters.radiusKm && !matchesLocation(v.location, filters.location)) return false;
+      if (filters.radiusKm && !withinLocationRadius(v.location, filters.location, Number(filters.radiusKm))) return false;
       if (filters.make && v.make !== filters.make) return false;
       if (filters.transmission && v.transmission !== filters.transmission) return false;
       if (filters.fuel && v.fuel_type !== filters.fuel) return false;
@@ -109,7 +113,7 @@ export function BrowseCarsPage() {
             <div className="flex items-center justify-between">
               <h2 className="font-semibold text-ink-900">Filters</h2>
               {activeCount > 0 && (
-                <button onClick={() => setFilters({ q: filters.q, location: '', make: '', transmission: '', fuel: '', platform: '', maxWeekly: '', maxDeposit: '', availableNow: false })} className="text-xs font-medium text-brand-700 hover:underline">
+                <button onClick={() => setFilters({ q: filters.q, location: '', make: '', transmission: '', fuel: '', platform: '', maxWeekly: '', maxDeposit: '', availableNow: false, radiusKm: '' })} className="text-xs font-medium text-brand-700 hover:underline">
                   Clear all
                 </button>
               )}
@@ -124,6 +128,7 @@ export function BrowseCarsPage() {
                 </div>
               </div>
               <div><label className="label">Location</label><PlaceAutocomplete value={filters.location} onChange={(location) => setFilters({ ...filters, location })} placeholder="All locations" className="py-2" /></div>
+              <div><label className="label">Distance from location</label><select value={filters.radiusKm} onChange={e=>setFilters({...filters,radiusKm:e.target.value})} disabled={!filters.location} className="input py-2"><option value="">Any distance</option><option value="5">Within 5 km</option><option value="10">Within 10 km</option><option value="20">Within 20 km</option><option value="50">Within 50 km</option></select><p className="mt-1 text-[11px] text-ink-400">Approximate area distance; no GPS permission is used.</p></div>
               <Select label="Make" value={filters.make} onChange={(v) => setFilters({ ...filters, make: v })} options={VEHICLE_MAKES} placeholder="All makes" />
               <Select label="Transmission" value={filters.transmission} onChange={(v) => setFilters({ ...filters, transmission: v })} options={TRANSMISSIONS} placeholder="Any" />
               <Select label="Fuel" value={filters.fuel} onChange={(v) => setFilters({ ...filters, fuel: v })} options={FUELS} placeholder="Any" />
@@ -164,7 +169,7 @@ export function BrowseCarsPage() {
               title={hasSearch ? 'No vehicles match your filters' : 'No vehicles are listed yet'}
               description={hasSearch ? 'Try widening your search or clearing some filters.' : 'Check back soon, or register as an owner to add the first vehicle.'}
               action={hasSearch
-                ? <button onClick={() => setFilters({ q: '', location: '', make: '', transmission: '', fuel: '', platform: '', maxWeekly: '', maxDeposit: '', availableNow: false })} className="btn-secondary">Clear filters</button>
+                ? <button onClick={() => setFilters({ q: '', location: '', make: '', transmission: '', fuel: '', platform: '', maxWeekly: '', maxDeposit: '', availableNow: false, radiusKm: '' })} className="btn-secondary">Clear filters</button>
                 : undefined}
             />
           )}

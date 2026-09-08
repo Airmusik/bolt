@@ -1,0 +1,7 @@
+import { useEffect, useState } from 'react';
+import { CalendarClock } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+type Slot={day_of_week:number;available:boolean;start_time:string;end_time:string};
+const DAYS=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const time=(value:string)=>value.slice(0,5);
+export function WeeklyAvailabilityView({userId}:{userId:string}){const[slots,setSlots]=useState<Slot[]>([]);useEffect(()=>{void supabase.from('availability_slots').select('day_of_week,available,start_time,end_time').eq('user_id',userId).order('day_of_week').then(({data})=>setSlots((data as Slot[])||[]))},[userId]);if(!slots.length)return null;return <section className="mt-6"><h2 className="flex items-center gap-2 font-display text-lg font-bold text-ink-900"><CalendarClock className="h-5 w-5"/>Usual weekly availability</h2><p className="mt-1 text-xs text-ink-500">Planning guide only—confirm current availability directly.</p><div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">{DAYS.map((day,index)=>{const slot=slots.find(item=>item.day_of_week===index);return <div key={day} className={`rounded-xl p-3 text-center ring-1 ${slot?.available?'bg-emerald-50 text-emerald-800 ring-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-200':'bg-ink-50 text-ink-400 ring-ink-100'}`}><p className="text-xs font-bold">{day}</p><p className="mt-1 text-[10px]">{slot?.available?`${time(slot.start_time)}–${time(slot.end_time)}`:'Unavailable'}</p></div>})}</div></section>}

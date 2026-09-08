@@ -16,6 +16,7 @@ import { ReportModal } from './VehicleDetailsPage';
 import { titleCase, timeAgo } from '@/lib/utils';
 import { AccountStanding } from '@/components/AccountStanding';
 import { MemberSafetyNotice } from '@/components/MemberSafetyNotice';
+import { WeeklyAvailabilityView } from '@/components/WeeklyAvailabilityView';
 
 export function DriverProfilePage() {
   const { id } = useParams();
@@ -108,6 +109,7 @@ export function DriverProfilePage() {
 
           {user?.id === profile.id && <AccountStanding key={profile.id} />}
           {user?.id === profile.id && profile.role === 'driver' && !profile.onboarding_completed && <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Your profile is not public yet. <Link to="/onboarding" className="font-semibold underline">Complete About You</Link> to publish it.</div>}
+          <WeeklyAvailabilityView userId={profile.id} />
 
           {/* Languages */}
           {profile.languages?.length > 0 && (

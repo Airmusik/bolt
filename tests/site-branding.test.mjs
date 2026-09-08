@@ -11,10 +11,12 @@ const admin = '10000000-0000-4000-8000-000000000003';
 test('initial HTML and settings fallback use 11Drive', async () => {
   const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
   const settings = await readFile(new URL('../src/lib/siteSettings.ts', import.meta.url), 'utf8');
+  const seo = await readFile(new URL('../src/lib/useSeo.ts', import.meta.url), 'utf8');
   assert.match(html, /<title>11Drive —/);
   assert.match(settings, /site_name: '11Drive'/);
   assert.doesNotMatch(html + settings, /Drivevell|GariLink/);
-  assert.match(settings, /document\.title = `\$\{settings\.site_name\}/);
+  assert.match(seo, /document\.title = title/);
+  assert.match(seo, /settings\.seo_home_title/);
 });
 
 test('branding migration cleans only generated text, preserves history and follows future settings', async () => {
