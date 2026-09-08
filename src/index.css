@@ -94,6 +94,14 @@
 }
 
 .page-enter { animation: fade-in 0.35s ease-out both; }
+@keyframes updates-button-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(var(--accent-500) / 0); transform: translateY(0); }
+  50% { box-shadow: 0 0 0 5px rgb(var(--accent-500) / 0.10); transform: translateY(-1px); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .updates-header-unread { animation: updates-button-breathe 3.2s ease-in-out infinite; }
+  .updates-header-unread > svg { animation: member-nav-float 4.8s ease-in-out infinite; }
+}
 .member-nav-button { isolation: isolate; overflow: hidden; }
 .member-nav-button::before {
   content: '';

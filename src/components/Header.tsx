@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { Menu, X, Bell, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy, User } from 'lucide-react';
+import { Menu, X, Bell, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy, User, Megaphone } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -59,6 +59,7 @@ export function Header() {
   const headerRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [unread, setUnread] = useState(0);
+  const [unreadUpdates, setUnreadUpdates] = useState(0);
   const { settings } = useSiteSettings();
 
   useEffect(() => {
@@ -106,12 +107,11 @@ export function Header() {
     if (!user) return;
     let active = true;
     const load = async () => {
-      const { count } = await supabase
-        .from('notifications')
-        .select('*', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('read', false);
-      if (active) setUnread(count ?? 0);
+      const [ordinary, updates] = await Promise.all([
+        supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false).neq('type', 'admin_announcement'),
+        supabase.from('notifications').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('read', false).eq('type', 'admin_announcement'),
+      ]);
+      if (active) { setUnread(ordinary.count ?? 0); setUnreadUpdates(updates.count ?? 0); }
     };
     void load();
     const fallbackPoll = window.setInterval(() => void load(), 20_000);
@@ -199,18 +199,17 @@ export function Header() {
           {user ? (
             <>
               {!isSuspended && (
-                <Link
-                  to="/notifications"
-                  className="relative rounded-full p-2 text-ink-600 hover:bg-ink-100"
-                  aria-label="Notifications"
-                >
-                  <Bell className="h-5 w-5" />
-                  {unread > 0 && (
-                    <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
-                      {unread > 9 ? '9+' : unread}
-                    </span>
-                  )}
-                </Link>
+                <>
+                  <Link to="/updates" className={cn('updates-header-button relative flex h-10 items-center gap-1.5 rounded-full border border-accent-200 bg-accent-50 px-2.5 text-accent-600 transition hover:-translate-y-0.5 hover:bg-accent-100 hover:shadow-sm', unreadUpdates > 0 && 'updates-header-unread')} aria-label="Member updates">
+                    <Megaphone className="h-5 w-5" />
+                    <span className="hidden text-xs font-bold lg:inline">Updates</span>
+                    {unreadUpdates > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-600 px-1 text-[10px] font-bold text-white">{unreadUpdates > 9 ? '9+' : unreadUpdates}</span>}
+                  </Link>
+                  <Link to="/notifications" className="relative rounded-full p-2 text-ink-600 hover:bg-ink-100" aria-label="Notifications">
+                    <Bell className="h-5 w-5" />
+                    {unread > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">{unread > 9 ? '9+' : unread}</span>}
+                  </Link>
+                </>
               )}
             </>
           ) : (

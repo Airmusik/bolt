@@ -40,7 +40,7 @@ export function NotificationsPage() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('notifications').select('*').eq('user_id', user.id).neq('type', 'admin_announcement').order('created_at', { ascending: false });
     if (error) {
       setLoading(false);
       toast('Could not load notifications: ' + error.message, 'error');
@@ -88,7 +88,7 @@ export function NotificationsPage() {
 
   const markAllRead = async () => {
     if (!user) return;
-    const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false);
+    const { error } = await supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false).neq('type', 'admin_announcement');
     if (error) { toast('Could not mark notifications as read.', 'error'); return; }
     await load();
     notifyUnreadCountChanged();
