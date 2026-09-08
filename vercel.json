@@ -1,4 +1,19 @@
 {
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "bolt-phi-indol.vercel.app" }],
+      "destination": "https://www.11drive.com/$1",
+      "permanent": true
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "bolt-phi-indol.vercel.app" }],
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }]
+    }
+  ],
   "rewrites": [
     { "source": "/api/analytics", "destination": "/api/analytics" },
     { "source": "/", "destination": "/index.html" },
