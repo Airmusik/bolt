@@ -42,6 +42,7 @@ export default function App() {
   const { settings, loading } = useSiteSettings();
   const path = window.location.pathname;
   const adminAllowed = path.startsWith('/admin') || path === '/auth/callback' || profile?.role === 'admin';
+  const unavailable = (message: string) => <div className="container-content py-20 text-center"><h1 className="text-2xl font-bold text-ink-900">Temporarily unavailable</h1><p className="mt-3 text-ink-600">{message}</p><Link to="/" className="btn-secondary mt-6">Back to homepage</Link></div>;
 
   // Never mount guest/default actions while restoring a member's account or
   // loading admin-controlled branding/settings. Applies to every route.
@@ -60,7 +61,7 @@ export default function App() {
             <Wrench className="h-8 w-8" />
           </span>
           <h1 className="font-display text-3xl font-bold text-ink-900">{settings.site_name} is under maintenance</h1>
-          <p className="mt-3 max-w-md text-ink-600">We're making updates right now. Please check back soon.</p>
+          <p className="mt-3 max-w-md text-ink-600">{settings.maintenance_message}</p>
           <Link to="/admin/login" className="btn-secondary mt-8">
             <LockKeyhole className="h-4 w-4" /> Admin sign in
           </Link>
@@ -77,7 +78,7 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/register" element={settings.registration_enabled === 'true' ? <RegisterPage /> : unavailable('New registrations are currently paused. Please check back later.')} />
         <Route path="/auth/callback" element={<AuthCallbackPage />} />
         <Route path="/browse-cars" element={<BrowseCarsPage />} />
         <Route path="/browse-drivers" element={<BrowseDriversPage />} />
@@ -92,7 +93,7 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
 
         <Route path="/dashboard" element={<ProtectedRoute roles={['owner', 'driver']}><DashboardPage /></ProtectedRoute>} />
-        <Route path="/vehicles/new" element={<ProtectedRoute roles={['owner']}><VehicleFormPage /></ProtectedRoute>} />
+        <Route path="/vehicles/new" element={<ProtectedRoute roles={['owner']}>{settings.new_listings_enabled === 'true' ? <VehicleFormPage /> : unavailable('New vehicle listings are currently paused.')}</ProtectedRoute>} />
         <Route path="/vehicles/:id/edit" element={<ProtectedRoute roles={['owner']}><VehicleFormPage /></ProtectedRoute>} />
         <Route path="/onboarding" element={<ProtectedRoute roles={['driver']}><DriverOnboardingPage /></ProtectedRoute>} />
         <Route path="/chat" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />

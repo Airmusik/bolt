@@ -130,7 +130,7 @@ export function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="auth-card" aria-busy={loading}>
           {error && <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-          {!completingGoogle && <GoogleSignInButton role={role} disabled={loading || termsLoading} onBusyChange={setGoogleBusy} onError={setError} />}
+          {!completingGoogle && settings.google_signin_enabled === 'true' && <GoogleSignInButton role={role} disabled={loading || termsLoading} onBusyChange={setGoogleBusy} onError={setError} />}
           {completingGoogle && <p className="mb-4 text-sm leading-6 text-ink-600">Your profile is not published yet. No new password is needed. <button type="button" className="font-semibold underline" onClick={() => void signOut()}>Use a different account</button></p>}
           <p className="mb-4 text-xs text-ink-500"><span className="font-bold text-danger">*</span> Required information</p>
 

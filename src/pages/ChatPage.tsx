@@ -639,8 +639,8 @@ export function ChatPage() {
               {/* Input */}
               {!chatClosed && !chatBlocked && <div className="flex items-center gap-1.5 border-t border-ink-100 bg-white px-2 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] sm:gap-2 sm:p-3 dark:bg-[#141416]">
                 <button onClick={() => setShowEmoji((v) => !v)} aria-label="Choose emoji" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100"><Smile className="h-5 w-5" /></button>
-                <input ref={imageInputRef} type="file" disabled={preparingImage || uploadingImage} accept="image/*,.heic,.heif" className="hidden" onClick={() => rememberMobileUploadPicker('chat-image')} onChange={(event) => { const file = event.target.files?.[0]; if (file) void previewImage(file); }} />
-<button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage || preparingImage} aria-label="Preview an image" title="Send an image" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage || preparingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
+                {settings.chat_images_enabled === 'true' && <><input ref={imageInputRef} type="file" disabled={preparingImage || uploadingImage} accept="image/*,.heic,.heif" className="hidden" onClick={() => rememberMobileUploadPicker('chat-image')} onChange={(event) => { const file = event.target.files?.[0]; if (file) void previewImage(file); }} />
+<button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage || preparingImage} aria-label="Preview an image" title="Send an image" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-ink-400 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage || preparingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button></>}
                 <div className="relative flex-1"><input
                   ref={inputRef}
                   value={text}

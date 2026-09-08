@@ -60,14 +60,14 @@ export function HomePage() {
   useEffect(() => {
     (async () => {
       const [{ data: v }, { data: d }] = await Promise.all([
-        supabase.rpc('discover_vehicles', { p_limit: 6 }),
-        supabase.rpc('discover_drivers', { p_limit: 4, p_verified_only: true }),
+        supabase.rpc('discover_vehicles', { p_limit: Number(settings.homepage_featured_cars) || 6 }),
+        supabase.rpc('discover_drivers', { p_limit: Number(settings.homepage_featured_drivers) || 4, p_verified_only: true }),
       ]);
       setFeatured((v as VehicleWithRelations[]) || []);
       setDrivers((d as Profile[]) || []);
       setLoading(false);
     })();
-  }, [revision]);
+  }, [revision, settings.homepage_featured_cars, settings.homepage_featured_drivers]);
 
   const scrollFeatured = useCallback((direction: 1 | -1) => {
     const track = featuredTrackRef.current;
@@ -121,14 +121,14 @@ export function HomePage() {
         <div className="container-content relative pt-9 pb-2 sm:pt-14 lg:pt-16">
           <div className="mx-auto max-w-3xl text-center animate-slide-up">
             <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-ink-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-ink-700 dark:bg-[#141416]">
-              <ShieldCheck className="h-4 w-4 shrink-0 text-accent-600 dark:text-accent-400" /> Admin-reviewed driver history
+              <ShieldCheck className="h-4 w-4 shrink-0 text-accent-600 dark:text-accent-400" /> {settings.homepage_badge}
             </span>
             <h1 className="font-display text-[clamp(1.75rem,7.8vw,3.75rem)] font-extrabold leading-[1.12] tracking-tight text-ink-950">
-              <span className="block">Find the right driver.</span>
-              <span className="block">Find the right car.</span>
+              <span className="block">{settings.homepage_heading_line_1}</span>
+              <span className="block">{settings.homepage_heading_line_2}</span>
             </h1>
             <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-ink-600 sm:text-base">
-              Connect with car owners and ride-hailing drivers across Kenya. Compare platform history and reviews, then find your match.
+              {settings.homepage_intro}
             </p>
           </div>
 

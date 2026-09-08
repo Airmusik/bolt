@@ -137,7 +137,7 @@ export function LoginPage() {
               {error === LOGIN_REGISTRATION_GUIDANCE && <Link to="/register" className="mt-2 inline-flex min-h-11 items-center font-semibold underline">Register now</Link>}
             </div>
           )}
-          <GoogleSignInButton disabled={loading} onBusyChange={setGoogleBusy} onError={setError} />
+          {settings.google_signin_enabled === 'true' && <GoogleSignInButton disabled={loading} onBusyChange={setGoogleBusy} onError={setError} />}
           <div>
             <label htmlFor="login-email" className="label">Email address <span className="text-danger">*</span></label>
             <div className="relative">
