@@ -16,7 +16,11 @@ test('installable site has manifest and safe navigation fallback',()=>{
   assert.ok(manifest.icons.some((icon:{src:string;sizes:string})=>icon.src==='/app-icon-512.png'&&icon.sizes==='512x512'));
   const worker=readFileSync('public/sw.js','utf8');assert.match(worker,/request\.mode==='navigate'/);
   const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);assert.doesNotMatch(intro,/launch-caret/);
-  assert.match(intro,/setTimeout\(onComplete, 4500\)/);
+  assert.match(intro,/setTimeout\(onComplete, 5400\)/);
+  const styles=readFileSync('src/index.css','utf8');
+  assert.match(styles,/launch-slide-away/);
+  assert.match(styles,/translateY\(-100%\)/);
+  assert.doesNotMatch(styles,/launch-fade/);
   assert.match(intro,/backgroundType === 'video' && allowVideo/);
   assert.match(intro,/objectPosition: backgroundPosition/);
   const app=readFileSync('src/App.tsx','utf8');

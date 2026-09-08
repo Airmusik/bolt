@@ -13,7 +13,7 @@ type LaunchIntroProps = {
 
 export function LaunchIntro({ siteName, backgroundEnabled, backgroundType, backgroundUrl, backgroundPosition, overlayOpacity, allowVideo, onComplete }: LaunchIntroProps) {
   useEffect(() => {
-    const timer = window.setTimeout(onComplete, 4500);
+    const timer = window.setTimeout(onComplete, 5400);
     return () => window.clearTimeout(timer);
   }, [onComplete]);
 

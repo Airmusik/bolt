@@ -103,11 +103,11 @@
     from { clip-path: inset(0 100% 0 0); }
     to { clip-path: inset(0 0 0 0); }
   }
-  @keyframes launch-fade {
-    0%, 72% { opacity: 1; visibility: visible; }
-    100% { opacity: 0; visibility: hidden; }
+  @keyframes launch-slide-away {
+    0%, 85% { transform: translateY(0); }
+    100% { transform: translateY(-100%); }
   }
-  .launch-intro { animation: launch-fade 4.5s ease-in-out forwards; }
+  .launch-intro { animation: launch-slide-away 5.4s cubic-bezier(0.76, 0, 0.24, 1) forwards; will-change: transform; }
   .launch-wordmark { animation: launch-type 2.2s steps(7, end) 0.4s both; }
 }
 
