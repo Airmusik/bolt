@@ -84,6 +84,12 @@ test('admin controls the top header name animation',()=>{
   assert.match(styles,/site-wordmark--pulse/);
   assert.match(styles,/site-wordmark--float/);
 });
+
+test('dark dashboard navigation uses neutral buttons instead of green',()=>{
+  const navigation=readFileSync('src/components/DashboardNavigation.tsx','utf8');
+  assert.match(navigation,/dark:bg-\[#17171a\]/);
+  assert.doesNotMatch(navigation,/dark:bg-emerald-950/);
+});
 test('suspensions are atomic and queue reasoned email notifications',()=>{
   const migration=readFileSync('supabase/migrations/20260909008000_suspension_email_notification.sql','utf8');
   const admin=readFileSync('src/pages/AdminPage.tsx','utf8');
