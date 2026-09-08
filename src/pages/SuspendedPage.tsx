@@ -1,12 +1,25 @@
-import { ShieldOff, LogOut, FileText, Mail, Info, Shield } from 'lucide-react';
+import { useEffect } from 'react';
+import { ShieldOff, LogOut, FileText, Mail, Info, Shield, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSiteSettings } from '@/lib/siteSettings';
 
 export function SuspendedPage() {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const { settings } = useSiteSettings();
+
+  useEffect(() => {
+    void refreshProfile();
+    const check = () => void refreshProfile();
+    const timer = window.setInterval(check, 5000);
+    window.addEventListener('focus', check);
+    return () => { window.clearInterval(timer); window.removeEventListener('focus', check); };
+  }, [refreshProfile]);
+
+  useEffect(() => {
+    if (profile && !profile.is_suspended) navigate('/dashboard', { replace: true });
+  }, [profile, navigate]);
 
   return (
     <div className="flex min-h-[80vh] flex-col items-center justify-center px-4">
@@ -32,9 +45,12 @@ export function SuspendedPage() {
         <p className="mt-4 text-xs text-ink-500">
           If you believe this is a mistake, please contact support at <a href={`mailto:${settings.admin_contact_email}`} className="font-medium text-brand-600 hover:underline">{settings.admin_contact_email}</a>.
         </p>
+        <button type="button" onClick={() => void refreshProfile()} className="btn-primary mt-6 w-full">
+          <RefreshCw className="h-4 w-4" /> Check access again
+        </button>
         <button
           onClick={async () => { await signOut(); navigate('/'); }}
-          className="btn-secondary mt-6 w-full"
+          className="btn-secondary mt-3 w-full"
         >
           <LogOut className="h-4 w-4" /> Sign out
         </button>

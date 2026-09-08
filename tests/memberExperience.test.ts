@@ -32,3 +32,10 @@ test('suspensions are atomic and queue reasoned email notifications',()=>{
   assert.match(migration,/NEW\.type IN \('connection_accepted','message','suspension'\)/);
   assert.match(migration,/event_email_html\(heading,email_message/);
 });
+test('reinstated members refresh immediately without signing out',()=>{
+  const auth=readFileSync('src/lib/auth.tsx','utf8');
+  const page=readFileSync('src/pages/SuspendedPage.tsx','utf8');
+  assert.match(auth,/is_suspended: next\.is_suspended/);
+  assert.match(page,/if \(profile && !profile\.is_suspended\) navigate\('\/dashboard'/);
+  assert.match(page,/Check access again/);
+});

@@ -44,8 +44,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // heartbeats must not trigger dashboard refetches or reset form drafts.
         setProfile(current => {
           if (!current || current.id !== user.id || typeof next.platform_history_approved !== 'boolean' || typeof next.platform_history_submitted !== 'boolean') return current;
-          if (current.platform_history_approved === next.platform_history_approved && current.platform_history_submitted === next.platform_history_submitted && current.is_verified === next.is_verified && current.verification_status === next.verification_status) return current;
-          return { ...current, platform_history_approved: next.platform_history_approved, platform_history_submitted: next.platform_history_submitted, is_verified: next.is_verified, verification_status: next.verification_status };
+          if (current.platform_history_approved === next.platform_history_approved && current.platform_history_submitted === next.platform_history_submitted && current.is_verified === next.is_verified && current.verification_status === next.verification_status && current.is_suspended === next.is_suspended && current.suspension_reason === next.suspension_reason && current.suspended_at === next.suspended_at) return current;
+          return { ...current, platform_history_approved: next.platform_history_approved, platform_history_submitted: next.platform_history_submitted, is_verified: next.is_verified, verification_status: next.verification_status, is_suspended: next.is_suspended, suspension_reason: next.suspension_reason, suspended_at: next.suspended_at };
         });
       }).subscribe();
     return () => { void supabase.removeChannel(channel); };
