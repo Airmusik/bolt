@@ -66,6 +66,12 @@ export function DriverOnboardingPage() {
   const canAddHistory = trustLoaded && !awaitingReview && !history.some(item => historyState(item, now) === 'approved');
   const canSubmitHistory = trustLoaded && !awaitingReview && history.some(item => historyState(item, now) === 'draft');
 
+  useEffect(() => {
+    if (!trustLoaded || !window.location.hash) return;
+    const target = document.getElementById(window.location.hash.slice(1));
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [trustLoaded]);
+
   const hydrateProfileForm = useCallback((savedProfile: typeof profile) => {
     if (!savedProfile) return;
     setProfileForm({
@@ -373,8 +379,12 @@ export function DriverOnboardingPage() {
         </Section>
 
         <AboutFields profileForm={profileForm} setProfileForm={setProfileForm} />
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center">
+          <button type="button" onClick={saveAbout} disabled={saving} className="btn-primary">{saving ? 'Saving…' : 'Save profile details'}</button>
+          <p className="text-xs text-ink-500">Saved changes update your profile health immediately.</p>
+        </div>
 
-        <Section title="Platform history and proof (required)" desc="Add at least one platform, enter your recent activity, and upload its latest Uber, Bolt, Faras, Little Cab, or other platform history. Admins see the private proof; other members only see approved activity.">
+        <Section id="platform-history" title="Platform history and proof (required)" desc="Add at least one platform, enter your recent activity, and upload its latest Uber, Bolt, Faras, Little Cab, or other platform history. Admins see the private proof; other members only see approved activity.">
           <div className="space-y-3">{history.map((item) => historyState(item, now) !== 'draft' ? <div key={item.id} className="rounded-xl border border-ink-200 p-4">
             <p className="text-sm font-semibold capitalize">{item.platform} · {historyState(item, now)}</p>{item.uploaded_by && <span className="badge badge-brand">Uploaded by admin</span>}
             {item.rejection_reason && <p className="mt-2 text-sm text-danger">Reason: {item.rejection_reason}</p>}
@@ -444,7 +454,7 @@ export function DriverOnboardingPage() {
 }
 
 function AboutFields({ profileForm, setProfileForm }: { profileForm: DriverAboutForm; setProfileForm: (value: DriverAboutForm) => void }) {
-  return <Section title="About you" desc="This information is required before your driver profile can appear publicly.">
+  return <Section id="about-you" title="About you" desc="This information is required before your driver profile can appear publicly.">
     <div className="mb-4"><PersonNameFields firstName={profileForm.firstName} secondName={profileForm.secondName} onFirstNameChange={(firstName) => setProfileForm({ ...profileForm, firstName })} onSecondNameChange={(secondName) => setProfileForm({ ...profileForm, secondName })} /></div>
     <div className="grid gap-4 sm:grid-cols-2">
       <Field label="Age" required hint="Drivers must be between 18 and 85 years old."><input type="number" min={18} max={85} value={profileForm.age} onChange={(e) => setProfileForm({ ...profileForm, age: e.target.value })} className="input" /></Field>
@@ -475,8 +485,8 @@ function TrustNote({ icon, title, text }: { icon: React.ReactNode; title: string
   return <div className="rounded-xl bg-brand-50 p-4 text-brand-800">{icon}<p className="mt-2 text-sm font-semibold">{title}</p><p className="mt-1 text-xs text-brand-700">{text}</p></div>;
 }
 
-function Section({ title, desc, children }: { title: string; desc?: string; children: React.ReactNode }) {
-  return <div className="card p-5"><h2 className="font-display text-lg font-bold text-ink-900">{title}</h2>{desc && <p className="mt-1 text-xs text-ink-500">{desc}</p>}<div className="mt-4">{children}</div></div>;
+function Section({ id, title, desc, children }: { id?: string; title: string; desc?: string; children: React.ReactNode }) {
+  return <div id={id} className="card scroll-mt-24 p-5"><h2 className="font-display text-lg font-bold text-ink-900">{title}</h2>{desc && <p className="mt-1 text-xs text-ink-500">{desc}</p>}<div className="mt-4">{children}</div></div>;
 }
 
 function Field({ label, children, hint, required = false }: { label: string; children: React.ReactNode; hint?: string; required?: boolean }) {

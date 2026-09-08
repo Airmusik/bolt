@@ -44,6 +44,12 @@ export function SettingsPage() {
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   useEffect(() => {
+    if (!window.location.hash) return;
+    const frame = window.requestAnimationFrame(() => document.getElementById(window.location.hash.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
     (async () => {
       const [{ count: connectionCount }, { count: applicationCount }] = await Promise.all([
@@ -183,7 +189,7 @@ export function SettingsPage() {
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Settings</h1>
       <div className="mt-6 max-w-2xl space-y-6">
         {/* Profile */}
-        <div className="card p-5">
+        <div id="profile-details" className="card scroll-mt-24 p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink-900"><User className="h-5 w-5" /> Profile</h2>
           <p className="mt-1 text-xs text-ink-400"><span className="font-bold text-danger">*</span> Required information</p>
 

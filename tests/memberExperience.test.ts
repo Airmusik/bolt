@@ -37,7 +37,13 @@ test('installable site has manifest and safe navigation fallback',()=>{
   assert.match(readFileSync('src/components/Layout.tsx','utf8'),/<InstallAppPrompt/);
 });
 test('member tools include profile, report, connection, and calendar states',()=>{
-  assert.match(readFileSync('src/components/ProfileCompletionChecklist.tsx','utf8'),/Complete your profile/);
+  const checklist=readFileSync('src/components/ProfileCompletionChecklist.tsx','utf8');
+  assert.match(checklist,/Complete your profile/);
+  assert.match(checklist,/profile-health#about-you/);
+  assert.match(checklist,/profile-health#platform-history/);
+  const onboarding=readFileSync('src/pages/DriverOnboardingPage.tsx','utf8');
+  assert.match(onboarding,/Save profile details/);
+  assert.match(onboarding,/update your profile health immediately/);
   assert.match(readFileSync('src/components/ReportFollowUpTracker.tsx','utf8'),/Under review/);
   assert.match(readFileSync('src/components/ConnectionProgress.tsx','utf8'),/Awaiting reply/);
   assert.match(readFileSync('src/components/AvailabilityCalendar.tsx','utf8'),/Weekly availability/);
