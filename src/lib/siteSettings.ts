@@ -44,6 +44,10 @@ export const DEFAULT_SITE_SETTINGS = {
   homepage_background_overlay: '78',
   homepage_background_position_x: '50',
   homepage_background_position_y: '50',
+  chatbot_enabled: 'true',
+  chatbot_title: '11Drive Assistant',
+  chatbot_welcome: 'Hi! Ask me how 11Drive works, about connections, listings, documents, safety, or your account.',
+  chatbot_unanswered_logging: 'true',
   maintenance_message: "We're making updates right now. Please check back soon.",
   registration_enabled: 'true',
   google_signin_enabled: 'true',
@@ -87,7 +91,7 @@ export const DEFAULT_SITE_SETTINGS = {
   security_data_minimization: 'true',
   security_connection_hourly_limit: '20',
   security_message_minute_limit: '30',
-  admin_nav_order: 'overview,members,cars,contact,chat,documents,reports,expired,updates,analytics,promotions,advertisements,content,controls,security,history,settings',
+  admin_nav_order: 'overview,members,cars,contact,chat,documents,reports,expired,updates,analytics,promotions,advertisements,assistant,content,controls,security,history,settings',
 } as const;
 
 export type SiteSettingKey = keyof typeof DEFAULT_SITE_SETTINGS;

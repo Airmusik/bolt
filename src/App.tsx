@@ -8,6 +8,7 @@ import { useSiteSettings } from '@/lib/siteSettings';
 import { useSeo } from '@/lib/useSeo';
 import { SecurityDeviceTracker } from '@/components/SecurityDeviceTracker';
 import { AdminMfaGate } from '@/components/AdminMfaGate';
+import { SiteAssistant } from '@/components/SiteAssistant';
 
 const HomePage = lazy(() => import('@/pages/HomePage').then((module) => ({ default: module.HomePage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((module) => ({ default: module.LoginPage })));
@@ -76,6 +77,7 @@ export default function App() {
   return (
     <Layout>
       <SecurityDeviceTracker />
+      <SiteAssistant />
       <Suspense fallback={<div role="status" className="min-h-48"><span className="sr-only">Loading page…</span></div>}>
       <Routes>
         <Route path="/" element={<HomePage />} />

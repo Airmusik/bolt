@@ -11,7 +11,8 @@ import { AdminAddMember } from '@/components/AdminAddMember';
 import { AdminControlCentre } from '@/components/AdminControlCentre';
 import { AdminSecurityCentre } from '@/components/AdminSecurityCentre';
 import { AdminMfaSetup } from '@/components/AdminMfaSetup';
-import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone, ChevronUp, ChevronDown, SlidersHorizontal, RotateCcw } from 'lucide-react';
+import { AdminChatbot } from '@/components/AdminChatbot';
+import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone, ChevronUp, ChevronDown, SlidersHorizontal, RotateCcw, Bot } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
@@ -81,9 +82,9 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'advertisements' | 'analytics' | 'overview' | 'members' | 'updates' | 'content' | 'controls' | 'security' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
+type Tab = 'advertisements' | 'analytics' | 'overview' | 'members' | 'updates' | 'content' | 'controls' | 'security' | 'assistant' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
 
-const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members', 'updates', 'content', 'controls', 'security', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
+const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members', 'updates', 'content', 'controls', 'security', 'assistant', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -452,6 +453,7 @@ export function AdminPage() {
     { key: 'analytics', label: 'Site analytics', icon: TrendingUp },
     { key: 'promotions', label: 'Promotions', icon: TrendingUp },
     { key: 'advertisements', label: 'Advertisements', icon: Eye },
+    { key: 'assistant', label: 'Chat assistant', icon: Bot },
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
@@ -573,6 +575,7 @@ export function AdminPage() {
         {tab === 'content' && !loading && <AdminLegalContent />}
         {tab === 'controls' && !loading && <AdminControlCentre />}
         {tab === 'security' && !loading && <><AdminMfaSetup /><div className="h-5"/><AdminSecurityCentre /></>}
+        {tab === 'assistant' && !loading && <AdminChatbot />}
         {tab === 'overview' && !loading && (
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card p-5 lg:col-span-2">
