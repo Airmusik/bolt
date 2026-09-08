@@ -45,12 +45,14 @@ export default function App() {
   const { profile, loading: authLoading } = useAuth();
   const { settings, loading } = useSiteSettings();
   const path = window.location.pathname;
+  const installedAppLaunch = path === '/' && (
+    window.matchMedia('(display-mode: standalone)').matches
+    || Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+    || new URLSearchParams(window.location.search).get('source') === 'pwa'
+  );
   const [allowBackgroundVideo, setAllowBackgroundVideo] = useState(false);
   const [showLaunchIntro, setShowLaunchIntro] = useState(() => {
-    if (window.location.pathname !== '/' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
-    const installedApp = window.matchMedia('(display-mode: standalone)').matches
-      || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
-    if (installedApp || new URLSearchParams(window.location.search).get('source') === 'pwa') return true;
+    if (installedAppLaunch || window.location.pathname !== '/' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
     try {
       if (sessionStorage.getItem('11drive-launch-intro-seen')) return false;
       sessionStorage.setItem('11drive-launch-intro-seen', 'true');
@@ -82,9 +84,9 @@ export default function App() {
   if (authLoading || loading) {
     return <>
       {launchOverlay}
-      <div role="status" aria-live="polite" className={`flex min-h-screen items-center justify-center dark:bg-[#0b0b0d] ${showLaunchIntro ? 'bg-white' : 'bg-orange-50/40'}`}>
+      <div role="status" aria-live="polite" className={`flex min-h-screen items-center justify-center dark:bg-[#0b0b0d] ${showLaunchIntro || installedAppLaunch ? 'bg-white' : 'bg-orange-50/40'}`}>
         <span className="sr-only">Loading…</span>
-        {!showLaunchIntro && <span aria-hidden="true" className="h-7 w-7 rounded-full border-2 border-orange-200 border-t-orange-500 motion-safe:animate-spin dark:border-orange-950 dark:border-t-orange-400" />}
+        {!showLaunchIntro && !installedAppLaunch && <span aria-hidden="true" className="h-7 w-7 rounded-full border-2 border-orange-200 border-t-orange-500 motion-safe:animate-spin dark:border-orange-950 dark:border-t-orange-400" />}
       </div>
     </>;
   }
