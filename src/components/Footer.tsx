@@ -10,7 +10,7 @@ export function Footer() {
   const { settings } = useSiteSettings();
 
   return (
-    <footer className="border-t border-ink-100 bg-white dark:bg-[#0b0b0d]">
+    <footer className="relative z-10 border-t border-ink-100 bg-white/95 backdrop-blur-sm dark:bg-[#0b0b0d]/95">
       <div className="container-content py-6">
         <AdSlot placement="footer" />
         {/* Mobile: collapsed behind a button */}
@@ -57,10 +57,10 @@ export function Footer() {
 
           <div>
             <h4 className="text-sm font-semibold text-ink-900">{settings.footer_contact_title}</h4>
-            <ul className="mt-3 space-y-2 text-sm text-ink-500">
-              <li className="flex items-center gap-2"><Mail className="h-4 w-4" /> {settings.admin_contact_email}</li>
-              <li className="flex items-center gap-2"><Phone className="h-4 w-4" /> {settings.admin_contact_phone}</li>
-              <li className="flex items-center gap-2"><MapPin className="h-4 w-4" /> {settings.footer_location}</li>
+            <ul className="mt-3 space-y-2 text-sm font-medium text-ink-700">
+              <li><a href={`mailto:${settings.admin_contact_email}`} className="flex min-w-0 items-center gap-2 rounded-lg bg-ink-50/90 px-2.5 py-2 hover:text-brand-700"><Mail className="h-4 w-4 shrink-0 text-brand-600" /><span className="min-w-0 break-all">{settings.admin_contact_email}</span></a></li>
+              <li><a href={`tel:${settings.admin_contact_phone.replace(/\s/g, '')}`} className="flex items-center gap-2 rounded-lg bg-ink-50/90 px-2.5 py-2 hover:text-brand-700"><Phone className="h-4 w-4 shrink-0 text-brand-600" /><span>{settings.admin_contact_phone}</span></a></li>
+              <li className="flex items-center gap-2 rounded-lg bg-ink-50/90 px-2.5 py-2"><MapPin className="h-4 w-4 shrink-0 text-brand-600" /><span>{settings.footer_location}</span></li>
             </ul>
           </div>
         </div>

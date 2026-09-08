@@ -48,3 +48,9 @@ test('admin reinstatement supports an optional message and both delivery channel
   assert.match(migration,/NEW\.type IN \('admin_announcement','reinstatement'\)/);
   assert.match(migration,/event_email_html\(NEW\.title,NEW\.body/);
 });
+test('footer contact details remain readable over a full-page background',()=>{
+  const footer=readFileSync('src/components/Footer.tsx','utf8');
+  assert.match(footer,/relative z-10/);
+  assert.match(footer,/mailto:\$\{settings\.admin_contact_email\}/);
+  assert.match(footer,/bg-ink-50\/90/);
+});
