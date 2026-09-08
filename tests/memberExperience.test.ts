@@ -19,6 +19,8 @@ test('member tools include profile, report, connection, and calendar states',()=
   assert.match(readFileSync('src/components/ReportFollowUpTracker.tsx','utf8'),/Under review/);
   assert.match(readFileSync('src/components/ConnectionProgress.tsx','utf8'),/Awaiting reply/);
   assert.match(readFileSync('src/components/AvailabilityCalendar.tsx','utf8'),/Weekly availability/);
+  assert.match(readFileSync('src/components/AvailabilityCalendar.tsx','utf8'),/Show on profile/);
+  assert.match(readFileSync('src/components/WeeklyAvailabilityView.tsx','utf8'),/!enabled\|\|!slots\.length/);
   const migration=readFileSync('supabase/migrations/20260909006000_member_experience_tools.sql','utf8');
   assert.match(migration,/UNIQUE\(user_id, day_of_week\)/);assert.match(migration,/user_id=auth\.uid\(\)/);
 });
