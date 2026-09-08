@@ -11,7 +11,7 @@ import { AdminAddMember } from '@/components/AdminAddMember';
 import { AdminControlCentre } from '@/components/AdminControlCentre';
 import { AdminSecurityCentre } from '@/components/AdminSecurityCentre';
 import { AdminMfaSetup } from '@/components/AdminMfaSetup';
-import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone } from 'lucide-react';
+import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone, ChevronUp, ChevronDown, SlidersHorizontal, RotateCcw } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
@@ -87,7 +87,7 @@ const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members',
 export function AdminPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { settings: siteSettings } = useSiteSettings();
+  const { settings: siteSettings, refreshSettings } = useSiteSettings();
   const [composeTarget, setComposeTarget] = useState<Profile | null>(null);
   const [firstMessage, setFirstMessage] = useState('');
   const [startingSupport, setStartingSupport] = useState(false);
@@ -134,6 +134,9 @@ export function AdminPage() {
   const [carStatusFilter, setCarStatusFilter] = useState<'all' | 'live' | 'pending'>('all');
   const [memberRoleFilter, setMemberRoleFilter] = useState<'all' | 'driver' | 'owner'>('all');
   const [addingMember, setAddingMember] = useState(false);
+  const [organizingTabs, setOrganizingTabs] = useState(false);
+  const [navOrderDraft, setNavOrderDraft] = useState<Tab[]>([]);
+  const [savingNavOrder, setSavingNavOrder] = useState(false);
   const [suspensionReportId, setSuspensionReportId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -451,6 +454,27 @@ export function AdminPage() {
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
+  const savedNavOrder = siteSettings.admin_nav_order.split(',').filter((key): key is Tab => ADMIN_TABS.includes(key as Tab));
+  const completeNavOrder = [...new Set([...savedNavOrder, ...tabs.map((item) => item.key)])];
+  const orderedTabs = completeNavOrder.map((key) => tabs.find((item) => item.key === key)).filter((item): item is (typeof tabs)[number] => Boolean(item));
+  const openTabOrganizer = () => { setNavOrderDraft(orderedTabs.map((item) => item.key)); setOrganizingTabs(true); };
+  const moveNavItem = (index: number, direction: -1 | 1) => setNavOrderDraft((current) => {
+    const target = index + direction;
+    if (target < 0 || target >= current.length) return current;
+    const next = [...current];
+    [next[index], next[target]] = [next[target], next[index]];
+    return next;
+  });
+  const saveNavOrder = async () => {
+    setSavingNavOrder(true);
+    const { error } = await supabase.from('site_settings').upsert({ key: 'admin_nav_order', value: navOrderDraft.join(','), updated_at: new Date().toISOString() }, { onConflict: 'key' });
+    setSavingNavOrder(false);
+    if (error) { toast('Could not save the admin button order: ' + error.message, 'error'); return; }
+    await refreshSettings();
+    setOrganizingTabs(false);
+    toast('Admin button order saved.');
+  };
+
   const filteredDrivers = drivers.filter((d) => `${d.full_name} ${d.email || ''} ${d.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
   const filteredOwners = owners.filter((o) => `${o.full_name} ${o.email || ''} ${o.phone || ''}`.toLowerCase().includes(search.toLowerCase()));
   const filteredUsers = users.filter((member) => {
@@ -486,14 +510,38 @@ export function AdminPage() {
         ))}
       </div>
 
-      <div className="mt-8 flex gap-2 overflow-x-auto rounded-2xl border border-sky-100 bg-sky-50/50 p-2 dark:border-sky-900 dark:bg-sky-950/20" aria-label="Admin sections">
-        {tabs.map((t, index) => (
+      <div className="mt-8 flex items-center gap-2 rounded-2xl border border-sky-100 bg-sky-50/50 p-2 dark:border-sky-900 dark:bg-sky-950/20">
+        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto" aria-label="Admin sections">
+        {orderedTabs.map((t, index) => (
           <button type="button" key={t.key} aria-pressed={tab === t.key} style={{ animationDelay: `${index * .3}s` }} onClick={() => { if (t.key === 'cars') setCarStatusFilter('all'); setTab(t.key); }} className={cn('admin-nav-button flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500', tab === t.key ? 'border-transparent bg-gradient-to-r from-sky-700 to-teal-700 text-white shadow-sm' : 'border-sky-100 bg-white text-sky-800 hover:border-teal-300 hover:bg-teal-50 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-100 dark:hover:bg-teal-950')}>
             <t.icon className="h-4 w-4" /> {t.label}
             {t.badge !== undefined && t.badge > 0 && <span className="ml-0.5 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{t.badge}</span>}
           </button>
         ))}
+        </div>
+        <button type="button" onClick={openTabOrganizer} className="btn-secondary min-h-11 shrink-0 px-3" title="Rearrange admin buttons" aria-label="Rearrange admin buttons"><SlidersHorizontal className="h-4 w-4" /><span className="hidden xl:inline">Arrange</span></button>
       </div>
+
+      {organizingTabs && <Modal title="Arrange admin buttons" onClose={() => setOrganizingTabs(false)}>
+        <p className="mb-4 text-sm text-ink-500">Move the most-used sections toward the front. The saved order applies to the admin navigation on every device.</p>
+        <div className="max-h-[55vh] space-y-2 overflow-y-auto pr-1">
+          {navOrderDraft.map((key, index) => {
+            const item = tabs.find((entry) => entry.key === key);
+            if (!item) return null;
+            return <div key={key} className="flex items-center gap-3 rounded-xl border border-ink-200 bg-white p-3 dark:bg-ink-900">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-50 text-xs font-bold text-sky-800">{index + 1}</span>
+              <item.icon className="h-4 w-4 text-teal-700" />
+              <span className="min-w-0 flex-1 text-sm font-semibold text-ink-900">{item.label}</span>
+              <button type="button" className="btn-secondary h-9 w-9 p-0" disabled={index === 0} onClick={() => moveNavItem(index, -1)} aria-label={`Move ${item.label} up`}><ChevronUp className="h-4 w-4" /></button>
+              <button type="button" className="btn-secondary h-9 w-9 p-0" disabled={index === navOrderDraft.length - 1} onClick={() => moveNavItem(index, 1)} aria-label={`Move ${item.label} down`}><ChevronDown className="h-4 w-4" /></button>
+            </div>;
+          })}
+        </div>
+        <div className="mt-5 flex flex-wrap justify-between gap-2">
+          <button type="button" className="btn-secondary" onClick={() => setNavOrderDraft(tabs.map((item) => item.key))}><RotateCcw className="h-4 w-4" />Reset</button>
+          <div className="flex gap-2"><button type="button" className="btn-secondary" onClick={() => setOrganizingTabs(false)}>Cancel</button><button type="button" className="btn-primary" disabled={savingNavOrder} onClick={() => void saveNavOrder()}><Save className="h-4 w-4" />{savingNavOrder ? 'Saving…' : 'Save order'}</button></div>
+        </div>
+      </Modal>}
 
       <div className="mt-6">
         {(tab === 'members' || tab === 'cars') && (
@@ -1771,8 +1819,7 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
             <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-semibold text-ink-900">{message.user?.full_name || message.name}</p><span className={cn('badge shrink-0 text-[10px] capitalize', message.status === 'new' ? 'badge-warning' : message.status === 'resolved' ? 'badge-success' : 'badge-brand')}>{message.status}</span></div><p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">{message.user?.role === 'owner' ? 'Car owner' : message.user?.role === 'driver' ? 'Driver' : 'Guest'}</p><p className="mt-0.5 truncate text-xs text-ink-600">{lastContactEntry(message)?.body || lastContactEntry(message)?.attachment_name || message.message}</p><p className="mt-1 text-[10px] text-ink-400">{formatDateTime(message.updated_at || message.created_at)}</p></div>
           </button>
         ))}
-      </div>
-
+        </div>
       <div className={cn('card flex flex-col overflow-hidden', !active && 'hidden lg:flex')}>
         {active ? <>
           <div className="flex flex-wrap items-center gap-3 border-b border-ink-100 p-4">

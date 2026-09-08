@@ -81,6 +81,7 @@ export const DEFAULT_SITE_SETTINGS = {
   security_data_minimization: 'true',
   security_connection_hourly_limit: '20',
   security_message_minute_limit: '30',
+  admin_nav_order: 'overview,members,cars,contact,chat,documents,reports,expired,updates,analytics,promotions,advertisements,content,controls,security,history,settings',
 } as const;
 
 export type SiteSettingKey = keyof typeof DEFAULT_SITE_SETTINGS;
