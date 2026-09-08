@@ -92,8 +92,15 @@ test('admin controls the top header name animation',()=>{
 
 test('dark dashboard navigation uses neutral buttons instead of green',()=>{
   const navigation=readFileSync('src/components/DashboardNavigation.tsx','utf8');
+  const baseStyles=readFileSync('src/index.css','utf8');
+  const palette=readFileSync('src/styles/site-palette.css','utf8');
   assert.match(navigation,/dark:bg-\[#17171a\]/);
   assert.doesNotMatch(navigation,/dark:bg-emerald-950/);
+  assert.match(baseStyles,/--ink-50: 36 38 44/);
+  assert.match(baseStyles,/dark:bg-\[#17191f\]/);
+  assert.match(palette,/A lifted dark palette/);
+  assert.match(palette,/\.dark \.card/);
+  assert.match(palette,/dark:bg-\[#1d1d20\]/);
 });
 test('suspensions are atomic and queue reasoned email notifications',()=>{
   const migration=readFileSync('supabase/migrations/20260909008000_suspension_email_notification.sql','utf8');

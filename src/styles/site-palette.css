@@ -153,6 +153,31 @@
   background-color: rgb(var(--ink-50)); color: rgb(var(--ink-700)); --tw-ring-color: rgb(var(--ink-200));
 }
 .car-palette { background: transparent; }
+
+/* A lifted dark palette: near-black still anchors the interface, while page,
+   card, control, and raised surfaces remain visibly separate and readable. */
+.dark body { background-color: #17191f; }
+.dark .card {
+  background-color: #22252b;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.28), 0 8px 24px rgb(0 0 0 / 0.14);
+}
+.dark .input { background-color: #292d34; }
+.dark [class~="dark:bg-[#0b0b0d]"],
+.dark [class~="dark:bg-[#0b0b0d]/90"],
+.dark [class~="dark:bg-[#0b0b0d]/95"] { background-color: rgb(23 25 31 / 0.95); }
+.dark [class~="dark:bg-[#101012]"] { background-color: #1d2026; }
+.dark [class~="dark:bg-[#111114]/80"] { background-color: rgb(31 34 40 / 0.88); }
+.dark [class~="dark:bg-[#141416]"],
+.dark [class~="dark:bg-[#141416]/90"] { background-color: rgb(34 37 43 / 0.96); }
+.dark [class~="dark:bg-[#17171a]"],
+.dark [class~="dark:bg-[#17171a]/95"] { background-color: rgb(39 42 49 / 0.96); }
+.dark [class~="dark:bg-[#1b1b1e]"] { background-color: #292d34; }
+.dark [class~="dark:bg-[#1d1d20]"] { background-color: #30343c; }
+.dark [class~="dark:bg-[#202024]"] { background-color: #353942; }
+.dark [class~="dark:bg-[#242426]"] { background-color: #3a3f48; }
+.dark :is(.card, .input, [role="dialog"], header, footer) {
+  border-color: rgb(var(--ink-200) / 0.72);
+}
 /* Decorative page gradients are neutral; photos and data visualisations are untouched. */
 section.bg-gradient-to-b, .auth-page, .auth-card, .landing-search,
 .overview-recommendation { background-image: none; }
