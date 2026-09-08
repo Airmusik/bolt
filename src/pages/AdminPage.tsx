@@ -7,6 +7,7 @@ import { AdminAdvertisements } from '@/components/AdminAdvertisements';
 import { AdminSiteAnalytics } from '@/components/AdminSiteAnalytics';
 import { AdminMemberUpdates } from '@/components/AdminMemberUpdates';
 import { AdminLegalContent } from '@/components/AdminLegalContent';
+import { AdminAddMember } from '@/components/AdminAddMember';
 import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
@@ -129,6 +130,7 @@ export function AdminPage() {
   const [viewingReport, setViewingReport] = useState<AdminReport | null>(null);
   const [carStatusFilter, setCarStatusFilter] = useState<'all' | 'live' | 'pending'>('all');
   const [memberRoleFilter, setMemberRoleFilter] = useState<'all' | 'driver' | 'owner'>('all');
+  const [addingMember, setAddingMember] = useState(false);
   const [suspensionReportId, setSuspensionReportId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -570,13 +572,15 @@ export function AdminPage() {
         {/* ---------- All members ---------- */}
         {tab === 'members' && !loading && (
           <div className="space-y-2">
-            <div className="mb-3 flex flex-wrap gap-2">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
               {(['all', 'driver', 'owner'] as const).map((role) => (
                 <button key={role} onClick={() => setMemberRoleFilter(role)} className={cn('rounded-full px-3 py-1.5 text-xs font-medium capitalize ring-1', memberRoleFilter === role ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-600 ring-ink-200')}>
                   {role === 'all' ? `All members (${users.length})` : `${role === 'driver' ? 'Drivers' : 'Owners'} (${role === 'driver' ? drivers.length : owners.length})`}
                 </button>
               ))}
+              <button type="button" onClick={() => setAddingMember(true)} className="btn-primary ml-auto px-3 py-2 text-sm"><UserPlus className="h-4 w-4" /> Add member</button>
             </div>
+            {addingMember && <AdminAddMember onClose={() => setAddingMember(false)} onCreated={load} />}
             {filteredUsers.map((member) => (
               <div key={member.id} className="card flex flex-wrap items-center gap-3 p-4">
                 <Avatar name={member.full_name} src={member.avatar_url} size={42} verified={member.role === 'driver' && member.is_verified} />
