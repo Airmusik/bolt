@@ -63,6 +63,7 @@ test('admin theme choices expose their real colour codes',()=>{
   assert.match(admin,/\{colour\}/);
   assert.match(admin,/Base.*Action.*Surface/s);
   assert.match(themes,/#13d0ff/);
+  for(const colour of ['#172554','#2563eb','#4f46e5','#064e3b','#10b981','#134e4a','#14b8a6','#431407','#f97316','#450a0a','#e11d48','#2e1065','#7c3aed','#164e63','#06b6d4']) assert.match(themes,new RegExp(colour));
 });
 test('admin controls the top header name animation',()=>{
   const header=readFileSync('src/components/Header.tsx','utf8');
