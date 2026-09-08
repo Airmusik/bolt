@@ -54,3 +54,11 @@ test('footer contact details remain readable over a full-page background',()=>{
   assert.match(footer,/mailto:\$\{settings\.admin_contact_email\}/);
   assert.match(footer,/bg-ink-50\/90/);
 });
+test('assistant answers from only the signed-in account summary',()=>{
+  const context=readFileSync('src/lib/assistantAccountContext.ts','utf8');
+  const assistant=readFileSync('src/components/SiteAssistant.tsx','utf8');
+  assert.match(context,/\.eq\('owner_id',userId\)/);
+  assert.match(context,/do not inspect private message contents/);
+  assert.match(context,/Suggested next steps/);
+  assert.match(assistant,/loadAssistantAccountContext\(user\.id,profile\)/);
+});
