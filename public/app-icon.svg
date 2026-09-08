@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="11Drive">
+  <rect width="512" height="512" rx="112" fill="#ffffff"/>
+  <circle cx="256" cy="256" r="218" fill="#f4fbfd" stroke="#d9f4f8" stroke-width="8"/>
+  <g transform="translate(48 155) scale(.96)">
+    <g fill="#090909">
+      <path d="M28 38 75 18v164H28V70L0 82V44l28-6Zm86 0 47-20v164h-47V70L86 82V44l28-6Z"/>
+    </g>
+    <g fill="#0fb4cf">
+      <path fill-rule="evenodd" d="M190 18h83c102 0 153 32 153 82s-51 82-153 82h-83V18Zm49 41v82h37c61 0 96-14 96-41s-35-41-96-41h-37Z"/>
+      <g>
+        <circle cx="304" cy="100" r="31" fill="none" stroke="#0fb4cf" stroke-width="12"/>
+        <circle cx="304" cy="100" r="8"/>
+        <path d="m300 105-19 27-10-8 20-28 9 9Zm8 0 19 27 10-8-20-28-9 9Zm-4-17 29-1-1-12-29 1 1 12Z"/>
+      </g>
+    </g>
+  </g>
+</svg>

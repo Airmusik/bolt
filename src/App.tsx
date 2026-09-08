@@ -48,6 +48,9 @@ export default function App() {
   const [allowBackgroundVideo, setAllowBackgroundVideo] = useState(false);
   const [showLaunchIntro, setShowLaunchIntro] = useState(() => {
     if (window.location.pathname !== '/' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    const installedApp = window.matchMedia('(display-mode: standalone)').matches
+      || Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+    if (installedApp || new URLSearchParams(window.location.search).get('source') === 'pwa') return true;
     try {
       if (sessionStorage.getItem('11drive-launch-intro-seen')) return false;
       sessionStorage.setItem('11drive-launch-intro-seen', 'true');

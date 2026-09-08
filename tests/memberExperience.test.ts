@@ -12,9 +12,15 @@ test('location radius recognizes nearby and distant Kenyan areas',()=>{
 test('installable site has manifest and safe navigation fallback',()=>{
   const manifest=JSON.parse(readFileSync('public/manifest.webmanifest','utf8'));
   assert.equal(manifest.display,'standalone');assert.equal(manifest.name,'11Drive');
-  assert.ok(manifest.icons.some((icon:{src:string;sizes:string})=>icon.src==='/app-icon-192.png'&&icon.sizes==='192x192'));
-  assert.ok(manifest.icons.some((icon:{src:string;sizes:string})=>icon.src==='/app-icon-512.png'&&icon.sizes==='512x512'));
+  assert.equal(manifest.start_url,'/?source=pwa');assert.equal(manifest.background_color,'#ffffff');
+  assert.ok(manifest.icons.some((icon:{src:string;sizes:string})=>icon.src.startsWith('/app-icon-192.png')&&icon.sizes==='192x192'));
+  assert.ok(manifest.icons.some((icon:{src:string;sizes:string;purpose:string})=>icon.src.startsWith('/app-icon-512.png')&&icon.sizes==='512x512'&&icon.purpose.includes('maskable')));
+  assert.match(readFileSync('public/app-icon.svg','utf8'),/aria-label="11Drive"/);
   const worker=readFileSync('public/sw.js','utf8');assert.match(worker,/request\.mode==='navigate'/);
+  assert.match(worker,/11drive-shell-v3/);
+  const document=readFileSync('index.html','utf8');
+  assert.match(document,/name="theme-color" content="#ffffff"/);
+  assert.match(document,/apple-touch-icon[^>]+app-icon-192\.png\?v=3/);
   const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);assert.doesNotMatch(intro,/launch-caret/);
   assert.match(intro,/ElevenDriveWordmark decorative/);
   assert.match(intro,/setTimeout\(onComplete, 5400\)/);
@@ -29,6 +35,8 @@ test('installable site has manifest and safe navigation fallback',()=>{
   assert.match(intro,/objectPosition: backgroundPosition/);
   const app=readFileSync('src/App.tsx','utf8');
   assert.match(app,/11drive-launch-intro-seen/);
+  assert.match(app,/display-mode: standalone/);
+  assert.match(app,/get\('source'\) === 'pwa'/);
   assert.match(app,/!showLaunchIntro && <span aria-hidden="true"/);
   assert.match(app,/settings\.launch_intro_enabled === 'true'/);
   assert.match(app,/settings\.launch_intro_background_enabled === 'true'/);
