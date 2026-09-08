@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { AdminAdvertisements } from '@/components/AdminAdvertisements';
 import { AdminSiteAnalytics } from '@/components/AdminSiteAnalytics';
 import { AdminMemberUpdates } from '@/components/AdminMemberUpdates';
+import { AdminLegalContent } from '@/components/AdminLegalContent';
 import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
@@ -75,9 +76,9 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'advertisements' | 'analytics' | 'overview' | 'members' | 'updates' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
+type Tab = 'advertisements' | 'analytics' | 'overview' | 'members' | 'updates' | 'content' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
 
-const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members', 'updates', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
+const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members', 'updates', 'content', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -429,6 +430,7 @@ export function AdminPage() {
     { key: 'overview', label: 'Overview', icon: TrendingUp },
     { key: 'members', label: 'Members', icon: Users, badge: users.length },
     { key: 'updates', label: 'Member updates', icon: Megaphone },
+    { key: 'content', label: 'Page content', icon: FileText },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'contact', label: 'Messages', icon: Mail, badge: newContactMessages.length },
     { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
@@ -512,6 +514,7 @@ export function AdminPage() {
         {tab === 'analytics' && <AdminSiteAnalytics />}
         {tab === 'advertisements' && <AdminAdvertisements />}
         {tab === 'updates' && !loading && <AdminMemberUpdates users={users} />}
+        {tab === 'content' && !loading && <AdminLegalContent />}
         {tab === 'overview' && !loading && (
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card p-5 lg:col-span-2">

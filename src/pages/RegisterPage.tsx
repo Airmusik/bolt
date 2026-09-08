@@ -13,7 +13,7 @@ import { PersonNameFields } from '@/components/PersonNameFields';
 import { Modal } from '@/components/Modal';
 import { TermsContent } from '@/components/TermsContent';
 import { MemberSafetyNotice } from '@/components/MemberSafetyNotice';
-import { TERMS_VERSION } from '@/lib/legal';
+import { FALLBACK_TERMS, useLegalDocument } from '@/lib/legalDocuments';
 import { GoogleSignInButton } from '@/components/GoogleSignInButton';
 import { GOOGLE_ROLE_KEY, googleAuthDestination, googleSetupError } from '@/lib/googleAuth';
 import { supabase } from '@/lib/supabase';
@@ -25,6 +25,8 @@ export function RegisterPage() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { settings } = useSiteSettings();
+  const { document: termsDocument, loading: termsLoading } = useLegalDocument('terms', FALLBACK_TERMS);
+  const termsVersion = termsDocument?.version || FALLBACK_TERMS.version;
   const [firstName, setFirstName] = useState('');
   const [secondName, setSecondName] = useState('');
   const [phone, setPhone] = useState('');
@@ -64,7 +66,7 @@ export function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (loading || googleBusy || authLoading) return;
+    if (loading || googleBusy || authLoading || termsLoading) return;
     setError(null);
     if (!acceptedTerms) { setError('Read and accept the Terms of Service before creating an account.'); return; }
     const fullName = normalizePersonName(`${firstName} ${secondName}`);
@@ -82,7 +84,7 @@ export function RegisterPage() {
         const { error: setupError } = await supabase.rpc('complete_google_registration', {
           p_role: role, p_full_name: fullName, p_phone: normalizePhone(phone),
           p_location: location.trim(), p_languages: selectedLanguages,
-          p_terms_version: TERMS_VERSION, p_accept_terms: acceptedTerms,
+          p_terms_version: termsVersion, p_accept_terms: acceptedTerms,
         });
         if (setupError) { setError(googleSetupError(setupError)); return; }
         try { sessionStorage.removeItem(GOOGLE_ROLE_KEY); } catch { /* Optional convenience only. */ }
@@ -91,7 +93,7 @@ export function RegisterPage() {
         navigate('/dashboard', { replace: true });
         return;
       }
-      const result = await signUp(phone, pin, fullName, role, email, location, selectedLanguages, acceptedTerms ? TERMS_VERSION : null);
+      const result = await signUp(phone, pin, fullName, role, email, location, selectedLanguages, acceptedTerms ? termsVersion : null);
       if (result.error) {
         setError(result.error);
       } else if (result.requiresEmailConfirmation) {
@@ -128,7 +130,7 @@ export function RegisterPage() {
 
         <form onSubmit={handleSubmit} className="auth-card" aria-busy={loading}>
           {error && <div role="alert" aria-live="polite" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-          {!completingGoogle && <GoogleSignInButton role={role} disabled={loading} onBusyChange={setGoogleBusy} onError={setError} />}
+          {!completingGoogle && <GoogleSignInButton role={role} disabled={loading || termsLoading} onBusyChange={setGoogleBusy} onError={setError} />}
           {completingGoogle && <p className="mb-4 text-sm leading-6 text-ink-600">Your profile is not published yet. No new password is needed. <button type="button" className="font-semibold underline" onClick={() => void signOut()}>Use a different account</button></p>}
           <p className="mb-4 text-xs text-ink-500"><span className="font-bold text-danger">*</span> Required information</p>
 
@@ -238,15 +240,15 @@ export function RegisterPage() {
             <div className="mt-5 rounded-xl border border-ink-200 p-4">
               <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm"><button type="button" onClick={() => setShowTerms(true)} className="min-h-11 font-semibold text-ink-800 underline">Read Terms of Service</button><Link to="/privacy" target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-ink-800 underline">Privacy Policy ↗</Link></div>
               <label className="mt-2 flex cursor-pointer items-start gap-3 text-sm leading-6 text-ink-800"><input id="accept-terms" type="checkbox" checked={acceptedTerms} onChange={e => setAcceptedTerms(e.target.checked)} required className="mt-1 h-5 w-5 shrink-0 accent-orange-600" /><span>I am at least 18, have read and accept the Terms of Service, including my responsibility to check the other member and the limits of the platform's role, and acknowledge the Privacy Policy. <span className="text-danger">*</span></span></label>
-              <p className="mt-2 text-xs text-ink-500">Required · Terms version {TERMS_VERSION}. This does not waive your statutory rights or consent to marketing. Opening the terms keeps your form entries intact.</p>
+              <p className="mt-2 text-xs text-ink-500">Required · Terms version {termsVersion}. This does not waive your statutory rights or consent to marketing. Opening the terms keeps your form entries intact.</p>
             </div>
           </div>
-          <button type="submit" disabled={loading || googleBusy || !acceptedTerms} className="btn-primary mt-6 min-h-12 w-full">
+          <button type="submit" disabled={loading || googleBusy || termsLoading || !acceptedTerms} className="btn-primary mt-6 min-h-12 w-full">
             {loading ? 'Saving account…' : completingGoogle ? 'Complete account setup' : 'Create account'} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
           </button>
           {!acceptedTerms && <p className="auth-hint text-center">Accept the terms above to create your account.</p>}
         </form>
-        {showTerms && <Modal title="Terms of Service" size="xl" onClose={() => setShowTerms(false)}><TermsContent /><button type="button" onClick={() => setShowTerms(false)} className="btn-secondary mt-5 w-full">Back to registration</button></Modal>}
+        {showTerms && <Modal title="Terms of Service" size="xl" onClose={() => setShowTerms(false)}><TermsContent document={termsDocument} /><button type="button" onClick={() => setShowTerms(false)} className="btn-secondary mt-5 w-full">Back to registration</button></Modal>}
 
         {!completingGoogle && <p className="mt-4 text-center text-sm text-ink-500">
           Already have an account?{' '}

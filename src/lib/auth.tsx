@@ -6,7 +6,6 @@ import type { Profile } from './types';
 import { AuthContext, type AuthContextValue } from './authContext';
 import { createDemoAdminProfile, DEMO_ADMIN_EMAIL, DEMO_ADMIN_ID, DEMO_ADMIN_SESSION_KEY, DEMO_MODE } from './demoMode';
 import { hasFirstAndSecondName, normalizePersonName } from './profileValidation';
-import { TERMS_VERSION } from './legal';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthContextValue['user']>(null);
@@ -142,7 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const signUp = useCallback<AuthContextValue['signUp']>(async (phone, pin, fullName, role, userEmail, userLocation, languages, acceptedTermsVersion) => {
-    if (acceptedTermsVersion !== TERMS_VERSION) return { error: 'Read and accept the current Terms of Service before creating an account.' };
+    if (!acceptedTermsVersion) return { error: 'Read and accept the current Terms of Service before creating an account.' };
     if (!isValidPhone(phone)) return { error: 'Enter a valid Kenyan phone number (e.g. 0712 345 678).' };
     if (!isValidPin(pin)) return { error: 'Password must be at least 10 characters and include uppercase, lowercase, and a number.' };
     if (!hasFirstAndSecondName(fullName)) return { error: 'Enter both your first name and second name.' };
