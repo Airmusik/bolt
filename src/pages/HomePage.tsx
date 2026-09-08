@@ -125,9 +125,9 @@ export function HomePage() {
       {settings.homepage_background_enabled === 'true' && settings.homepage_background_url && <>
         <div className="pointer-events-none fixed inset-0 -z-20 overflow-hidden bg-ink-900" aria-hidden="true">
           {settings.homepage_background_type === 'video' && allowBackgroundVideo
-            ? <video src={settings.homepage_background_url} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
+            ? <video src={settings.homepage_background_url} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" style={{ objectPosition: `${settings.homepage_background_position_x}% ${settings.homepage_background_position_y}%` }} />
             : settings.homepage_background_type === 'image'
-              ? <img src={settings.homepage_background_url} alt="" loading="eager" decoding="async" className="h-full w-full object-cover" />
+              ? <img src={settings.homepage_background_url} alt="" loading="eager" decoding="async" className="h-full w-full object-cover" style={{ objectPosition: `${settings.homepage_background_position_x}% ${settings.homepage_background_position_y}%` }} />
               : null}
         </div>
         <div className="pointer-events-none fixed inset-0 -z-10 bg-white dark:bg-[#0b0b0d]" style={{ opacity: Math.min(95, Math.max(20, Number(settings.homepage_background_overlay) || 78)) / 100 }} aria-hidden="true" />

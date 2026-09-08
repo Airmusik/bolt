@@ -1404,7 +1404,7 @@ function AdminSettings() {
             <label className="label">Full homepage background</label>
             <div className="rounded-2xl border border-ink-100 bg-ink-50/60 p-4 dark:bg-[#101012]">
               {settings.homepage_background_url && <div className="mb-4 aspect-[16/6] overflow-hidden rounded-xl bg-ink-900">
-                {settings.homepage_background_type === 'video' ? <video src={settings.homepage_background_url} muted loop autoPlay playsInline preload="metadata" className="h-full w-full object-cover" /> : <img src={settings.homepage_background_url} alt="Homepage background preview" className="h-full w-full object-cover" />}
+                {settings.homepage_background_type === 'video' ? <video src={settings.homepage_background_url} muted loop autoPlay playsInline preload="metadata" className="h-full w-full object-cover" style={{ objectPosition: `${settings.homepage_background_position_x}% ${settings.homepage_background_position_y}%` }} /> : <img src={settings.homepage_background_url} alt="Homepage background preview" className="h-full w-full object-cover" style={{ objectPosition: `${settings.homepage_background_position_x}% ${settings.homepage_background_position_y}%` }} />}
               </div>}
               <div className="flex flex-wrap items-center gap-3">
                 <label className="btn-secondary cursor-pointer text-sm"><input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" className="hidden" disabled={uploadingHomepageBackground} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadHomepageBackground(file); event.target.value = ''; }} />{uploadingHomepageBackground ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}{settings.homepage_background_url ? 'Replace background' : 'Upload image or video'}</label>
@@ -1412,6 +1412,10 @@ function AdminSettings() {
               </div>
               <p className="mt-2 text-xs text-ink-500">JPG, PNG, or WebP up to 3 MB; muted MP4 or WebM up to 8 MB. Video pauses for visitors using reduced-motion or data-saving mode.</p>
               {settings.homepage_background_url && <label className="label mt-4">Readability overlay: {settings.homepage_background_overlay}%<input type="range" min="20" max="95" step="1" value={settings.homepage_background_overlay} onChange={(event) => setSettings({ ...settings, homepage_background_overlay: event.target.value })} className="mt-2 w-full accent-orange-600" /></label>}
+              {settings.homepage_background_url && <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <label className="label">Horizontal focus: {settings.homepage_background_position_x}%<input type="range" min="0" max="100" step="1" value={settings.homepage_background_position_x} onChange={(event) => setSettings({ ...settings, homepage_background_position_x: event.target.value })} className="mt-2 w-full accent-orange-600" /><span className="mt-1 flex justify-between text-[10px] font-normal text-ink-400"><span>Left</span><span>Centre</span><span>Right</span></span></label>
+                <label className="label">Vertical focus: {settings.homepage_background_position_y}%<input type="range" min="0" max="100" step="1" value={settings.homepage_background_position_y} onChange={(event) => setSettings({ ...settings, homepage_background_position_y: event.target.value })} className="mt-2 w-full accent-orange-600" /><span className="mt-1 flex justify-between text-[10px] font-normal text-ink-400"><span>Top</span><span>Centre</span><span>Bottom</span></span></label>
+              </div>}
             </div>
           </div>
           <div>

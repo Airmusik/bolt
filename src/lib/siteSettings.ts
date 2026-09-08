@@ -42,6 +42,8 @@ export const DEFAULT_SITE_SETTINGS = {
   homepage_background_type: 'none',
   homepage_background_url: '',
   homepage_background_overlay: '78',
+  homepage_background_position_x: '50',
+  homepage_background_position_y: '50',
   maintenance_message: "We're making updates right now. Please check back soon.",
   registration_enabled: 'true',
   google_signin_enabled: 'true',
