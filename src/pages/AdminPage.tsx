@@ -1887,7 +1887,7 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
   if (messages.length === 0) return <div className="card p-8 text-center"><Mail className="mx-auto h-10 w-10 text-ink-300" /><p className="mt-3 text-sm text-ink-500">No messages yet.</p></div>;
 
   return (
-    <div className="grid min-h-[68vh] gap-4 lg:grid-cols-[320px_1fr]">
+    <div className="grid min-h-[68vh] gap-4 lg:h-[68vh] lg:min-h-0 lg:grid-cols-[320px_1fr] lg:overflow-hidden">
       {messages.map(thread => <SupportReceipt key={thread.id} thread={thread.id} entries={thread.entries || []} active={activeId === thread.id} />)}
       <div className={cn('card overflow-y-auto', active && 'hidden lg:block')}>
         <div className="border-b border-ink-100 p-4"><h2 className="font-semibold text-ink-900">Messages</h2><p className="mt-1 text-xs text-ink-500">Direct support requests, replies, and attachments</p></div>
@@ -1898,7 +1898,7 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
           </button>
         ))}
         </div>
-      <div className={cn('card flex flex-col overflow-hidden', !active && 'hidden lg:flex')}>
+      <div className={cn('card min-h-0 flex-col overflow-hidden', !active ? 'hidden lg:flex' : 'flex')}>
         {active ? <>
           <div className="flex flex-wrap items-center gap-3 border-b border-ink-100 p-4">
             <button type="button" onClick={() => setInboxParams({ tab: 'contact' })} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-100"><ArrowLeft className="h-4 w-4" /> Back</button>
@@ -1906,7 +1906,7 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
             <div className="min-w-0"><p className="font-semibold text-ink-900">{active.user?.full_name || active.name}</p><p className="truncate text-xs text-ink-500">{active.email} · {active.user ? active.user.role === 'owner' ? 'Car owner' : 'Driver' : 'Guest message'}</p></div>
             <div className="ml-auto flex flex-wrap gap-2">{active.user && <button type="button" onClick={() => onViewUser(active.user!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View user</button>}<a href={`mailto:${active.email}`} className="btn-secondary px-3 py-1.5 text-xs"><Mail className="h-3.5 w-3.5" /> Email</a>{active.status !== 'resolved' && <button type="button" onClick={() => void onResolve(active)} className="btn-secondary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Resolve</button>}<button type="button" onClick={() => onDelete(active)} className="btn-ghost px-3 py-1.5 text-xs text-danger"><Trash2 className="h-3.5 w-3.5" /></button></div>
           </div>
-          <div className="flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4">
+          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-ink-50/50 p-4">
             {entries.map((entry) => {
               const mine = entry.sender_role === 'admin';
               return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[80%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{mine ? `Official ${siteName} Support` : entry.sender?.full_name || active.name}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}{mine && !entry.unsent_at && <span> · {entry.read_at ? 'Read' : entry.delivered_at ? 'Delivered' : 'Sent'}</span>}</p>{mine && entry.sender_id === adminId && !entry.unsent_at && <button className="mt-1 text-xs underline" onClick={async () => { if (!window.confirm('Unsend this message? The recipient may already have seen it. Downloaded files cannot be recalled.')) return; const { error } = await supabase.rpc('admin_unsend_support_message', { p_entry: entry.id }); if (error) toast(error.message, 'error'); else await onRefresh(); }}>Unsend</button>}</div></div>;
@@ -2116,7 +2116,7 @@ function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; ema
   const canLeaveLiveChat = Boolean(active && active.driver && active.owner && !active.closed_at && !supportSessionActive && active.admin_id !== user?.id && joinedConversationIds.has(active.id));
 
   return (
-    <div className="grid h-[70vh] gap-4 lg:grid-cols-[300px_1fr]">
+    <div className="grid h-[70vh] min-h-0 gap-4 overflow-hidden lg:grid-cols-[300px_1fr]">
       <div className={cn('card overflow-y-auto', active && 'hidden lg:block')}>
         {conversations.map((c) => {
           const u = c.driver || c.owner;
@@ -2135,7 +2135,7 @@ function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; ema
         })}
       </div>
 
-      <div className={cn('card flex flex-col overflow-hidden', !active && 'hidden lg:flex')}>
+      <div className={cn('card min-h-0 flex-col overflow-hidden', !active ? 'hidden lg:flex' : 'flex')}>
         {active && other ? (
           <>
             <div className="flex items-center gap-3 border-b border-ink-100 p-4">
@@ -2147,7 +2147,7 @@ function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; ema
               </div>
               <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{active.driver && <button type="button" onClick={() => onViewUser(active.driver!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View driver</button>}{active.owner && <button type="button" onClick={() => onViewUser(active.owner!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View owner</button>}{active.closed_at ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><Headphones className="h-4 w-4" /> {joining ? 'Reopening…' : 'Reopen with support'}</button> : !activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}{canLeaveLiveChat && <button onClick={() => setConfirmLeaveChat(true)} disabled={leaving} className="btn-secondary text-xs"><UserMinus className="h-4 w-4" /> Leave chat</button>}{active.driver && active.owner && !active.closed_at && <button onClick={() => setConfirmCloseChat(true)} className="btn-secondary text-xs"><LockKeyhole className="h-4 w-4" /> {supportSessionActive ? 'End support chat' : 'Close chat'}</button>}</div>
             </div>
-            <div ref={scrollRef} className="flex-1 space-y-2 overflow-y-auto bg-ink-50/50 p-4">
+            <div ref={scrollRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-ink-50/50 p-4">
               {messages.map((m) => {
                 const mine = m.sender_id === user?.id;
                 const senderName = m.type === 'system' ? `${siteSettings.site_name} system` : (m.sender?.full_name || (mine ? 'Administrator' : 'Member'));

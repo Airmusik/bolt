@@ -15,7 +15,7 @@ test('installable site has manifest and safe navigation fallback',()=>{
   assert.ok(manifest.icons.some((icon:{src:string;sizes:string})=>icon.src==='/app-icon-192.png'&&icon.sizes==='192x192'));
   assert.ok(manifest.icons.some((icon:{src:string;sizes:string})=>icon.src==='/app-icon-512.png'&&icon.sizes==='512x512'));
   const worker=readFileSync('public/sw.js','utf8');assert.match(worker,/request\.mode==='navigate'/);
-  const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);
+  const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);assert.doesNotMatch(intro,/launch-caret/);
   assert.match(readFileSync('src/App.tsx','utf8'),/11drive-launch-intro-seen/);
   const installPrompt=readFileSync('src/components/InstallAppPrompt.tsx','utf8');
   assert.match(installPrompt,/2 \* 24 \* 60 \* 60 \* 1000/);
