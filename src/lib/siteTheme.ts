@@ -22,6 +22,8 @@ export const SITE_THEMES = [
   { id: 'burgundy', name: 'Burgundy Road', description: 'Deep charcoal with a mature wine-red accent.', swatches: ['#292527', '#8c3f50', '#f6f1f2'] },
   { id: 'aubergine', name: 'Aubergine Night', description: 'Near-black plum with a restrained purple accent.', swatches: ['#2d2830', '#76546f', '#f5f1f5'] },
   { id: 'sandstone', name: 'Sandstone', description: 'Warm grey with a subtle golden-brown accent.', swatches: ['#34312d', '#8a6a3f', '#f6f3ed'] },
+  { id: 'stone-mist', name: 'Stone & Mist', description: 'A calm grey, cream, and slate combination.', swatches: ['#4a4a4a', '#cbcbcb', '#ffffe3', '#6d8196'], kind: 'combination' },
+  { id: 'sunlit-sky', name: 'Sunlit Sky', description: 'Warm amber balanced with fresh cyan and blue.', swatches: ['#ffc067', '#66f4ff', '#66c4ff', '#7d99aa'], kind: 'combination' },
 ] as const;
 
 export type SiteThemeId = typeof SITE_THEMES[number]['id'];

@@ -118,6 +118,17 @@
   --accent-50: 248 246 241; --accent-100: 239 233 220; --accent-200: 219 205 178;
   --accent-300: 190 166 123; --accent-400: 153 121 74; --accent-500: 138 106 63; --accent-600: 110 83 48;
 }
+:root[data-site-theme="stone-mist"] {
+  --action: #6d8196; --action-hover: #586d82; --theme-active: #4a4a4a;
+  --accent-50: 255 255 227; --accent-100: 244 244 221; --accent-200: 203 203 203;
+  --accent-300: 174 181 188; --accent-400: 132 150 168; --accent-500: 109 129 150; --accent-600: 88 109 130;
+}
+:root[data-site-theme="sunlit-sky"] {
+  --action: #66c4ff; --action-hover: #42acee; --theme-active: #7d99aa;
+  --accent-50: 239 253 255; --accent-100: 204 249 255; --accent-200: 102 244 255;
+  --accent-300: 102 220 255; --accent-400: 102 196 255; --accent-500: 102 196 255; --accent-600: 72 166 224;
+}
+:root[data-site-theme="sunlit-sky"] .btn-primary { color: #25343d; }
 .btn-primary { background-color: var(--action); color: #fff; }
 .btn-primary:hover { background-color: var(--action-hover); }
 .member-nav-button,

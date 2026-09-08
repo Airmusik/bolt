@@ -65,6 +65,8 @@ test('admin theme choices expose their real colour codes',()=>{
   assert.match(themes,/#13d0ff/);
   for(const colour of ['#172554','#2563eb','#4f46e5','#064e3b','#10b981','#134e4a','#14b8a6','#431407','#f97316','#450a0a','#e11d48','#2e1065','#7c3aed','#164e63','#06b6d4']) assert.match(themes,new RegExp(colour));
   for(const theme of ['midnight-cyan','navy-gold','charcoal-coral','forest-amber','plum-rose','slate-teal']) assert.match(themes,new RegExp(theme));
+  for(const colour of ['#4a4a4a','#cbcbcb','#ffffe3','#6d8196','#ffc067','#66f4ff','#66c4ff','#7d99aa']) assert.match(themes,new RegExp(colour));
+  for(const theme of ['stone-mist','sunlit-sky']) assert.match(themes,new RegExp(theme));
 });
 test('admin controls the top header name animation',()=>{
   const header=readFileSync('src/components/Header.tsx','utf8');
