@@ -71,9 +71,14 @@ test('admin controls the top header name animation',()=>{
   const admin=readFileSync('src/pages/AdminPage.tsx','utf8');
   const styles=readFileSync('src/index.css','utf8');
   assert.match(header,/header_name_animation/);
+  assert.match(header,/header_name_colours/);
   assert.match(admin,/Top header name animation/);
+  assert.match(admin,/Top header name colours/);
+  assert.match(admin,/11 dark · Drive theme/);
   assert.match(admin,/value="off"/);
-  assert.match(styles,/site-wordmark--glow/);
+  assert.match(header,/site-wordmark-eleven/);
+  assert.match(header,/site-wordmark-drive/);
+  assert.doesNotMatch(admin,/Colour sweep/);
   assert.match(styles,/site-wordmark--pulse/);
   assert.match(styles,/site-wordmark--float/);
 });

@@ -247,13 +247,17 @@
 .site-wordmark {
   display: inline-block;
   color: rgb(var(--ink-900));
-  background-image: linear-gradient(100deg, rgb(var(--ink-950)) 10%, rgb(var(--accent-500)) 42%, rgb(var(--accent-400)) 52%, rgb(var(--ink-950)) 86%);
-  background-size: 240% 100%;
-  background-position: 100% 50%;
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
 }
+.site-wordmark-eleven { color: rgb(var(--ink-950)); }
+.site-wordmark-drive { color: var(--action); }
+.dark .site-wordmark-eleven { color: #f5f5f5; }
+.site-wordmark-colours--reverse .site-wordmark-eleven { color: var(--action); }
+.site-wordmark-colours--reverse .site-wordmark-drive { color: rgb(var(--ink-950)); }
+.site-wordmark-colours--base .site-wordmark-drive { color: rgb(var(--ink-950)); }
+.site-wordmark-colours--action .site-wordmark-eleven,
+.site-wordmark-colours--action .site-wordmark-drive { color: var(--action); }
+.dark .site-wordmark-colours--reverse .site-wordmark-drive,
+.dark .site-wordmark-colours--base .site-wordmark-drive { color: #f5f5f5; }
 .dashboard-hero::after {
   content: '';
   position: absolute;
@@ -351,7 +355,6 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .site-wordmark--glow { animation: wordmark-glow 6s ease-in-out infinite; }
   .site-wordmark--pulse { animation: wordmark-pulse 4.8s ease-in-out infinite; }
   .site-wordmark--float { animation: wordmark-float 5.5s ease-in-out infinite; }
   .card { animation: card-enter 0.45s cubic-bezier(0.16,1,0.3,1) both; }
@@ -359,12 +362,6 @@
   .card:nth-child(3) { animation-delay: 90ms; }
   .card:nth-child(4) { animation-delay: 135ms; }
   .metric-value { animation: metric-rise 0.5s cubic-bezier(0.16,1,0.3,1) both; }
-}
-
-@keyframes wordmark-glow {
-  0%, 18% { background-position: 100% 50%; filter: drop-shadow(0 0 0 transparent); }
-  48%, 62% { background-position: 0% 50%; filter: drop-shadow(0 2px 7px rgb(var(--accent-500) / 0.18)); }
-  100% { background-position: -100% 50%; filter: drop-shadow(0 0 0 transparent); }
 }
 
 @keyframes wordmark-pulse {

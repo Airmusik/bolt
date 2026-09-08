@@ -1404,13 +1404,30 @@ function AdminSettings() {
             <div className="grid gap-3 rounded-2xl border border-ink-100 bg-ink-50/60 p-4 dark:bg-[#101012] sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div><select id="admin-header-name-animation" value={settings.header_name_animation} onChange={(event) => setSettings({ ...settings, header_name_animation: event.target.value })} className="input">
                 <option value="off">Off — no movement</option>
-                <option value="glow">Colour sweep &amp; glow</option>
                 <option value="pulse">Soft pulse</option>
                 <option value="float">Gentle float</option>
               </select><p className="mt-1 text-xs text-ink-500">Controls only the site name in the top navigation. Reduced-motion preferences are always respected.</p></div>
-              <span className={`site-wordmark site-wordmark--${settings.header_name_animation} inline-block truncate px-2 font-display text-2xl font-extrabold tracking-tight`}>{settings.site_name === '11Drive' ? <>11<span className="text-[0.85em]">Drive</span></> : settings.site_name}</span>
+              <span className={`site-wordmark site-wordmark--${settings.header_name_animation === 'glow' ? 'off' : settings.header_name_animation} site-wordmark-colours--${settings.header_name_colours || 'split'} inline-block truncate px-2 font-display text-2xl font-extrabold tracking-tight`}>{settings.site_name === '11Drive' ? <><span className="site-wordmark-eleven">11</span><span className="site-wordmark-drive text-[0.85em]">Drive</span></> : settings.site_name}</span>
             </div>
           </div>
+          <fieldset>
+            <legend className="label">Top header name colours</legend>
+            <p className="mb-3 text-xs text-ink-500">Choose a static, professional colour arrangement for 11Drive.</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {([
+                ['split', '11 dark · Drive theme'],
+                ['reverse', '11 theme · Drive dark'],
+                ['base', 'Both dark'],
+                ['action', 'Both theme colour'],
+              ] as const).map(([value, label]) => {
+                const selected = (settings.header_name_colours || 'split') === value;
+                return <button key={value} type="button" aria-pressed={selected} onClick={() => setSettings({ ...settings, header_name_colours: value })} className={`rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 ${selected ? 'border-accent-500 bg-accent-50 ring-1 ring-accent-200' : 'border-ink-200 bg-white hover:border-ink-400 dark:bg-[#141416]'}`}>
+                  <span className={`site-wordmark site-wordmark-colours--${value} block font-display text-xl font-extrabold tracking-tight`}><span className="site-wordmark-eleven">11</span><span className="site-wordmark-drive text-[0.85em]">Drive</span></span>
+                  <span className="mt-1 block text-[11px] font-medium text-ink-500">{label}</span>
+                </button>;
+              })}
+            </div>
+          </fieldset>
           <div>
             <label htmlFor="admin-site-tagline" className="label">Site tagline</label>
             <input id="admin-site-tagline" maxLength={100} value={settings.site_tagline} onChange={(e) => setSettings({ ...settings, site_tagline: e.target.value })} className="input" placeholder="A short promise to your members" />
