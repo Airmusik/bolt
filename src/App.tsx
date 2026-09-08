@@ -1,6 +1,6 @@
 import { Link, Routes, Route } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
-import { LockKeyhole, Wrench } from 'lucide-react';
+import { Wrench } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useAuth } from '@/lib/useAuth';
@@ -65,10 +65,6 @@ export default function App() {
           </span>
           <h1 className="font-display text-3xl font-bold text-ink-900">{settings.site_name} is under maintenance</h1>
           <p className="mt-3 max-w-md text-ink-600">{settings.maintenance_message}</p>
-          <Link to="/admin/login" className="btn-secondary mt-8">
-            <LockKeyhole className="h-4 w-4" /> Admin sign in
-          </Link>
-          <p className="mt-2 text-xs text-ink-400">Platform administrators can continue managing the site during maintenance.</p>
         </div>
       </Layout>
     );
