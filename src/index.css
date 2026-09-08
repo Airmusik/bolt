@@ -436,6 +436,18 @@ button[aria-expanded][class~="bg-ink-950"][class~="shadow-xl"] > :first-child sv
 .dark .fixed[class*="bottom-"] section[aria-label] textarea::placeholder {
   color: #a3a3a3 !important;
 }
+.dark .fixed[class*="bottom-"] section[aria-label] div[class*="overflow-y-auto"] button {
+  background: #29292d !important;
+  color: #fdba74 !important;
+  border-color: #c2410c !important;
+  box-shadow: none !important;
+}
+.dark .fixed[class*="bottom-"] section[aria-label] div[class*="overflow-y-auto"] button:hover,
+.dark .fixed[class*="bottom-"] section[aria-label] div[class*="overflow-y-auto"] button:focus-visible {
+  background: #3a2a22 !important;
+  color: #ffedd5 !important;
+  border-color: #f97316 !important;
+}
 @keyframes assistant-eye-blink {
   0%, 44%, 48%, 100% { transform: scaleY(1); }
   46% { transform: scaleY(0.12); }
