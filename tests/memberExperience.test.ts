@@ -41,9 +41,12 @@ test('member tools include profile, report, connection, and calendar states',()=
   assert.match(checklist,/Complete your profile/);
   assert.match(checklist,/profile-health#about-you/);
   assert.match(checklist,/profile-health#platform-history/);
+  assert.match(checklist,/Next: add \{nextStep\}/);
   const onboarding=readFileSync('src/pages/DriverOnboardingPage.tsx','utf8');
   assert.match(onboarding,/Save profile details/);
   assert.match(onboarding,/update your profile health immediately/);
+  assert.match(onboarding,/fromProfileHealth.*navigate\('\/dashboard'/s);
+  assert.match(readFileSync('src/pages/SettingsPage.tsx','utf8'),/fromProfileHealth.*navigate\('\/dashboard'/s);
   assert.match(readFileSync('src/components/ReportFollowUpTracker.tsx','utf8'),/Under review/);
   assert.match(readFileSync('src/components/ConnectionProgress.tsx','utf8'),/Awaiting reply/);
   assert.match(readFileSync('src/components/AvailabilityCalendar.tsx','utf8'),/Weekly availability/);

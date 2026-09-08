@@ -48,6 +48,7 @@ export function DriverOnboardingPage() {
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const fromProfileHealth = new URLSearchParams(window.location.search).get('from') === 'profile-health';
   const [saving, setSaving] = useState(false);
   const [uploadingType, setUploadingType] = useState<string | null>(null);
   const [profileForm, setProfileForm] = useState<DriverAboutForm>({
@@ -313,6 +314,7 @@ export function DriverOnboardingPage() {
     if (error) { toast('Could not publish your profile: ' + error.message, 'error'); return; }
     await refreshProfile();
     toast('About You completed. Your profile is now public, and you can continue building trust evidence.');
+    if (fromProfileHealth) navigate('/dashboard', { replace: true });
   };
 
   if (profile && !profile.onboarding_completed) {

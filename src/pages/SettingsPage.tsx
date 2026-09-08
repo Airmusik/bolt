@@ -26,6 +26,7 @@ export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const fromProfileHealth = new URLSearchParams(window.location.search).get('from') === 'profile-health';
   const [nameFields, setNameFields] = useState(() => splitPersonName(profile?.full_name || ''));
   const [bio, setBio] = useState(profile?.bio || '');
   const [location, setLocation] = useState(profile?.location || '');
@@ -92,6 +93,7 @@ export function SettingsPage() {
     setSaving(false);
     setJustSaved(true);
     toast('Settings saved.');
+    if (fromProfileHealth) { navigate('/dashboard', { replace: true }); return; }
     setTimeout(() => setJustSaved(false), 2500);
   };
 
@@ -113,6 +115,7 @@ export function SettingsPage() {
       if (profileError) throw new Error('Could not update your profile photo: ' + profileError.message);
       await refreshProfile();
       toast('Profile photo updated.');
+      if (fromProfileHealth) navigate('/dashboard', { replace: true });
     } catch (error) {
       toast(error instanceof Error ? error.message : 'The profile photo could not be uploaded. Check your connection and try again.', 'error');
     } finally {
