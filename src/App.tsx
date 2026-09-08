@@ -105,9 +105,9 @@ export default function App() {
 
   return (
       <Layout>
-      {showLaunchIntro && <LaunchIntro
+      {showLaunchIntro && settings.launch_intro_enabled === 'true' && <LaunchIntro
         siteName={settings.site_name}
-        backgroundEnabled={settings.homepage_background_enabled === 'true'}
+        backgroundEnabled={settings.launch_intro_background_enabled === 'true'}
         backgroundType={settings.homepage_background_type}
         backgroundUrl={settings.homepage_background_url}
         backgroundPosition={`${settings.homepage_background_position_x}% ${settings.homepage_background_position_y}%`}

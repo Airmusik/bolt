@@ -44,6 +44,8 @@ export const DEFAULT_SITE_SETTINGS = {
   homepage_background_overlay: '78',
   homepage_background_position_x: '50',
   homepage_background_position_y: '50',
+  launch_intro_enabled: 'true',
+  launch_intro_background_enabled: 'true',
   chatbot_enabled: 'true',
   chatbot_title: '11Drive Assistant',
   chatbot_welcome: 'Hi! Ask me how 11Drive works, about connections, listings, documents, safety, or your account.',
