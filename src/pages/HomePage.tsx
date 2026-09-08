@@ -35,8 +35,15 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [featuredPaused, setFeaturedPaused] = useState(false);
   const [featuredInteracting, setFeaturedInteracting] = useState(false);
+  const [allowBackgroundVideo, setAllowBackgroundVideo] = useState(false);
   const featuredTrackRef = useRef<HTMLDivElement>(null);
   const featuredManualUntil = useRef(0);
+
+  useEffect(() => {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    setAllowBackgroundVideo(!reducedMotion && !connection?.saveData);
+  }, []);
 
   const featuredPeriod = useCallback(() => {
     const cards = featuredTrackRef.current?.querySelectorAll<HTMLElement>('[data-featured-card]');
@@ -114,10 +121,20 @@ export function HomePage() {
   };
 
   return (
-    <div>
+    <div className={settings.homepage_background_enabled === 'true' && settings.homepage_background_url ? 'relative isolate' : ''}>
+      {settings.homepage_background_enabled === 'true' && settings.homepage_background_url && <>
+        <div className="pointer-events-none fixed inset-0 -z-20 overflow-hidden bg-ink-900" aria-hidden="true">
+          {settings.homepage_background_type === 'video' && allowBackgroundVideo
+            ? <video src={settings.homepage_background_url} autoPlay muted loop playsInline preload="metadata" className="h-full w-full object-cover" />
+            : settings.homepage_background_type === 'image'
+              ? <img src={settings.homepage_background_url} alt="" loading="eager" decoding="async" className="h-full w-full object-cover" />
+              : null}
+        </div>
+        <div className="pointer-events-none fixed inset-0 -z-10 bg-white dark:bg-[#0b0b0d]" style={{ opacity: Math.min(95, Math.max(20, Number(settings.homepage_background_overlay) || 78)) / 100 }} aria-hidden="true" />
+      </>}
       {/* HERO */}
       {!user && (
-      <section className="relative z-10 bg-gradient-to-b from-accent-50/60 to-white dark:from-brand-50/40 dark:to-[#0b0b0d]">
+      <section className="relative z-10 bg-gradient-to-b from-accent-50/60 to-white/80 dark:from-brand-50/40 dark:to-[#0b0b0d]/80">
         <div className="container-content relative pt-9 pb-2 sm:pt-14 lg:pt-16">
           <div className="mx-auto max-w-3xl text-center animate-slide-up">
             <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-ink-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-ink-700 dark:bg-[#141416]">
@@ -232,7 +249,7 @@ export function HomePage() {
 
       {/* STATS */}
       <AdSlot placement="inline" className="mx-4 sm:mx-6 lg:mx-auto lg:max-w-5xl" />
-      <section className="bg-[#141416] text-white">
+      <section className="bg-[#141416]/95 text-white backdrop-blur-sm">
         <div className="container-content py-8 sm:py-10">
           <div className="grid grid-cols-2 gap-x-5 gap-y-7 lg:grid-cols-4">
             {[

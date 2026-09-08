@@ -1222,6 +1222,7 @@ function AdminSettings() {
   const [settings, setSettings] = useState<SiteSettings>(liveSettings);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingHomepageBackground, setUploadingHomepageBackground] = useState(false);
 
   useEffect(() => {
     setSettings(liveSettings);
@@ -1313,6 +1314,41 @@ function AdminSettings() {
     toast('Site image removed. The default car icon is active.');
   };
 
+  const uploadHomepageBackground = async (file: File) => {
+    const imageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const videoTypes = ['video/mp4', 'video/webm'];
+    const mediaType = imageTypes.includes(file.type) ? 'image' : videoTypes.includes(file.type) ? 'video' : null;
+    if (!mediaType) { toast('Choose a JPG, PNG, WebP, MP4, or WebM file.', 'error'); return; }
+    const limit = mediaType === 'video' ? 8 * 1024 * 1024 : 3 * 1024 * 1024;
+    if (file.size > limit) { toast(`${mediaType === 'video' ? 'Video' : 'Image'} must be smaller than ${limit / 1024 / 1024} MB.`, 'error'); return; }
+    setUploadingHomepageBackground(true);
+    const extension = file.name.split('.').pop()?.toLowerCase() || (mediaType === 'video' ? 'mp4' : 'webp');
+    const path = `branding/homepage-background-${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from(SITE_ASSETS_BUCKET).upload(path, file, { cacheControl: '86400', upsert: false, contentType: file.type });
+    if (uploadError) { setUploadingHomepageBackground(false); toast('Could not upload background: ' + uploadError.message, 'error'); return; }
+    const url = supabase.storage.from(SITE_ASSETS_BUCKET).getPublicUrl(path).data.publicUrl;
+    const updated_at = new Date().toISOString();
+    const updates = { homepage_background_url: url, homepage_background_type: mediaType, homepage_background_enabled: 'true' };
+    const { error } = await supabase.from('site_settings').upsert(Object.entries(updates).map(([key, value]) => ({ key, value, updated_at })), { onConflict: 'key' });
+    setUploadingHomepageBackground(false);
+    if (error) { toast('Background uploaded, but could not be activated: ' + error.message, 'error'); return; }
+    setSettings((current) => ({ ...current, ...updates }));
+    await refreshSettings();
+    toast(`Homepage background ${mediaType} uploaded and activated.`);
+  };
+
+  const removeHomepageBackground = async () => {
+    setUploadingHomepageBackground(true);
+    const updated_at = new Date().toISOString();
+    const updates = { homepage_background_url: '', homepage_background_type: 'none', homepage_background_enabled: 'false' };
+    const { error } = await supabase.from('site_settings').upsert(Object.entries(updates).map(([key, value]) => ({ key, value, updated_at })), { onConflict: 'key' });
+    setUploadingHomepageBackground(false);
+    if (error) { toast('Could not remove the homepage background: ' + error.message, 'error'); return; }
+    setSettings((current) => ({ ...current, ...updates }));
+    await refreshSettings();
+    toast('Homepage background removed.');
+  };
+
   if (loading) return <div className="card h-40 animate-pulse" />;
 
   return (
@@ -1362,6 +1398,20 @@ function AdminSettings() {
                   {settings.site_logo_url && <button type="button" onClick={removeSiteLogo} disabled={uploadingLogo} className="btn-ghost text-sm text-danger">Remove image</button>}
                 </div>
               </div>
+            </div>
+          </div>
+          <div>
+            <label className="label">Full homepage background</label>
+            <div className="rounded-2xl border border-ink-100 bg-ink-50/60 p-4 dark:bg-[#101012]">
+              {settings.homepage_background_url && <div className="mb-4 aspect-[16/6] overflow-hidden rounded-xl bg-ink-900">
+                {settings.homepage_background_type === 'video' ? <video src={settings.homepage_background_url} muted loop autoPlay playsInline preload="metadata" className="h-full w-full object-cover" /> : <img src={settings.homepage_background_url} alt="Homepage background preview" className="h-full w-full object-cover" />}
+              </div>}
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="btn-secondary cursor-pointer text-sm"><input type="file" accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" className="hidden" disabled={uploadingHomepageBackground} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadHomepageBackground(file); event.target.value = ''; }} />{uploadingHomepageBackground ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}{settings.homepage_background_url ? 'Replace background' : 'Upload image or video'}</label>
+                {settings.homepage_background_url && <><label className="inline-flex items-center gap-2 text-sm font-medium text-ink-700"><input type="checkbox" className="h-5 w-5 accent-orange-600" checked={settings.homepage_background_enabled === 'true'} onChange={(event) => setSettings({ ...settings, homepage_background_enabled: String(event.target.checked) })} />Show background</label><button type="button" className="btn-ghost text-sm text-danger" disabled={uploadingHomepageBackground} onClick={() => void removeHomepageBackground()}>Remove</button></>}
+              </div>
+              <p className="mt-2 text-xs text-ink-500">JPG, PNG, or WebP up to 3 MB; muted MP4 or WebM up to 8 MB. Video pauses for visitors using reduced-motion or data-saving mode.</p>
+              {settings.homepage_background_url && <label className="label mt-4">Readability overlay: {settings.homepage_background_overlay}%<input type="range" min="20" max="95" step="1" value={settings.homepage_background_overlay} onChange={(event) => setSettings({ ...settings, homepage_background_overlay: event.target.value })} className="mt-2 w-full accent-orange-600" /></label>}
             </div>
           </div>
           <div>
