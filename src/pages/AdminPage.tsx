@@ -5,7 +5,8 @@ import { useSearchParams } from 'react-router-dom';
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { AdminAdvertisements } from '@/components/AdminAdvertisements';
 import { AdminSiteAnalytics } from '@/components/AdminSiteAnalytics';
-import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette } from 'lucide-react';
+import { AdminMemberUpdates } from '@/components/AdminMemberUpdates';
+import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
@@ -74,9 +75,9 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'advertisements' | 'analytics' | 'overview' | 'members' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
+type Tab = 'advertisements' | 'analytics' | 'overview' | 'members' | 'updates' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
 
-const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
+const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members', 'updates', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -427,6 +428,7 @@ export function AdminPage() {
   const tabs: { key: Tab; label: string; icon: LucideIcon; badge?: number }[] = [
     { key: 'overview', label: 'Overview', icon: TrendingUp },
     { key: 'members', label: 'Members', icon: Users, badge: users.length },
+    { key: 'updates', label: 'Member updates', icon: Megaphone },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'contact', label: 'Messages', icon: Mail, badge: newContactMessages.length },
     { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
@@ -509,6 +511,7 @@ export function AdminPage() {
         {composeTarget && <Modal title={`Message ${composeTarget.full_name}`} onClose={() => { if (!startingSupport) setComposeTarget(null); }}><p className="text-sm text-ink-500">Write your first message. Nothing is sent until you press Send.</p><textarea aria-label="First support message" className="input mt-3 min-h-28" maxLength={5000} value={firstMessage} onChange={e => setFirstMessage(e.target.value)} /><button className="btn-primary mt-3" disabled={startingSupport || firstMessage.trim().length < 5} onClick={async () => { setStartingSupport(true); const { data, error } = await supabase.rpc('admin_start_support_thread', { p_user_id: composeTarget.id, p_message: firstMessage.trim() }); setStartingSupport(false); if (error) { toast(error.message, 'error'); return; } await load(); setComposeTarget(null); setSearchParams({ tab: 'contact', message: String(data) }); }}> {startingSupport ? 'Sending…' : 'Send message'}</button></Modal>}
         {tab === 'analytics' && <AdminSiteAnalytics />}
         {tab === 'advertisements' && <AdminAdvertisements />}
+        {tab === 'updates' && !loading && <AdminMemberUpdates users={users} />}
         {tab === 'overview' && !loading && (
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="card p-5 lg:col-span-2">
