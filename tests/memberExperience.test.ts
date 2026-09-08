@@ -17,6 +17,8 @@ test('installable site has manifest and safe navigation fallback',()=>{
   const worker=readFileSync('public/sw.js','utf8');assert.match(worker,/request\.mode==='navigate'/);
   const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);assert.doesNotMatch(intro,/launch-caret/);
   assert.match(intro,/setTimeout\(onComplete, 4500\)/);
+  assert.match(intro,/backgroundType === 'video' && allowVideo/);
+  assert.match(intro,/objectPosition: backgroundPosition/);
   assert.match(readFileSync('src/App.tsx','utf8'),/11drive-launch-intro-seen/);
   assert.match(readFileSync('src/App.tsx','utf8'),/!showLaunchIntro && <span aria-hidden="true"/);
   const installPrompt=readFileSync('src/components/InstallAppPrompt.tsx','utf8');

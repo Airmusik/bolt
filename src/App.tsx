@@ -105,7 +105,16 @@ export default function App() {
 
   return (
       <Layout>
-      {showLaunchIntro && <LaunchIntro siteName={settings.site_name} onComplete={() => setShowLaunchIntro(false)} />}
+      {showLaunchIntro && <LaunchIntro
+        siteName={settings.site_name}
+        backgroundEnabled={settings.homepage_background_enabled === 'true'}
+        backgroundType={settings.homepage_background_type}
+        backgroundUrl={settings.homepage_background_url}
+        backgroundPosition={`${settings.homepage_background_position_x}% ${settings.homepage_background_position_y}%`}
+        overlayOpacity={Math.min(95, Math.max(20, Number(settings.homepage_background_overlay) || 78)) / 100}
+        allowVideo={allowBackgroundVideo}
+        onComplete={() => setShowLaunchIntro(false)}
+      />}
       <SecurityDeviceTracker />
       <SiteAssistant />
       <Suspense fallback={<div role="status" className="min-h-48"><span className="sr-only">Loading page…</span></div>}>
