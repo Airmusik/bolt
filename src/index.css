@@ -107,8 +107,8 @@
     0%, 72% { opacity: 1; visibility: visible; }
     100% { opacity: 0; visibility: hidden; }
   }
-  .launch-intro { animation: launch-fade 3s ease-in-out forwards; }
-  .launch-wordmark { animation: launch-type 1.35s steps(7, end) 0.25s both; }
+  .launch-intro { animation: launch-fade 4.5s ease-in-out forwards; }
+  .launch-wordmark { animation: launch-type 2.2s steps(7, end) 0.4s both; }
 }
 
 @media (prefers-reduced-motion: no-preference) {

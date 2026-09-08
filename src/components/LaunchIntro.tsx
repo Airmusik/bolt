@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 export function LaunchIntro({ siteName, onComplete }: { siteName: string; onComplete: () => void }) {
   useEffect(() => {
-    const timer = window.setTimeout(onComplete, 3000);
+    const timer = window.setTimeout(onComplete, 4500);
     return () => window.clearTimeout(timer);
   }, [onComplete]);
 
