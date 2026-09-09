@@ -263,10 +263,16 @@ export interface Report {
   reason: string;
   description: string | null;
   status: 'open' | 'reviewing' | 'resolved' | 'dismissed';
+  dismissed_at?: string | null;
+  dismissed_by?: string | null;
+  dismissal_reason?: string | null;
   created_at: string;
 }
 
 export interface UserWarning {
+  revoked_at?: string | null;
+  revoked_by?: string | null;
+  revocation_reason?: string | null;
   id: string;
   user_id: string;
   report_id: string;

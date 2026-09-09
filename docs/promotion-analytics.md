@@ -11,3 +11,9 @@ Open pages schedule badge/ranking updates at expiry and refresh discovery. Serve
 Verification: `npm run typecheck`, `npm test`, `npm run build`. Database regression tests include exact-deadline expiry, no post-expiry events, duplicate events, owner/admin exclusion, aggregate access, private-event access denial, paused/moderated placements, and listing preservation.
 
 Before production release, verify a short-lived campaign in a test browser: account action says Promoted, an independent browser increments reach/clicks once, admin can search member/car/status, and deadline removes badge and ranking without removing the listing. No production migration or deployment was performed in this implementation task.
+
+## User promotion flow
+
+The member page shows a three-step explanation, a role-specific car/profile choice, the total price and duration, and a no-charge Continue to payment instructions button. New and ongoing requests are always expanded under Your current promotions; only completed/rejected/cancelled history is collapsed. Creating a request scrolls and focuses its payment instructions. An existing request is reused instead of asking for another payment.
+
+Payment details and terms on each request are its saved quote, not the latest price settings. Members pay outside the site and submit a receipt reference for admin verification. Pending requests explicitly say not to pay again. Active but ineligible/paused promotions are distinguished from currently visible campaigns. Results remain accessible under See views & clicks. Existing approval, ranking, payment, cancellation and analytics RPCs are unchanged.

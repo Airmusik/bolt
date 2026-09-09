@@ -3,23 +3,35 @@ import { Link } from 'react-router-dom';
 import { LockKeyhole, Star, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatDateTime, titleCase } from '@/lib/utils';
+import { useAuth } from '@/lib/useAuth';
 
 interface Standing {
   rating: number; review_average: number; review_count: number;
   reports: { id: string; reason: string; description: string | null; status: string; created_at: string }[];
   warnings: { id: string; message: string; report_reason: string; report_description: string | null; created_at: string }[];
+  removed_reports?: { id: string; reason: string; dismissal_reason: string; dismissed_at: string }[];
 }
 
 export function AccountStanding() {
+  const { user } = useAuth();
   const [data, setData] = useState<Standing | null>(null);
   const [error, setError] = useState('');
   const load = useCallback(async () => {
     setError('');
-    const result = await supabase.rpc('my_account_standing');
-    if (result.error) setError('Your private account details could not be loaded.');
-    else setData(result.data as Standing);
+    try {
+      const result = await supabase.rpc('my_account_standing');
+      if (result.error) throw result.error;
+      setData(result.data as Standing);
+    } catch { setError('Your private account details could not be loaded.'); }
   }, []);
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!user?.id) return;
+    const refresh = () => { void load(); };
+    const channel = supabase.channel(`standing-${user.id}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, refresh).subscribe();
+    window.addEventListener('focus', refresh);
+    return () => { window.removeEventListener('focus', refresh); void supabase.removeChannel(channel); };
+  }, [user?.id, load]);
   return <section className="card mt-6 p-4 sm:p-6">
     <p className="flex items-center gap-1.5 text-xs font-medium text-ink-500"><LockKeyhole className="h-3.5 w-3.5" /> Only you can see these details</p>
     <h2 className="mt-1 font-display text-lg font-bold text-ink-900">My rating & warnings</h2>
@@ -46,6 +58,7 @@ export function AccountStanding() {
           <p className="mt-2 whitespace-pre-wrap break-words">{warning.message}</p><p className="mt-2 text-xs">{formatDateTime(warning.created_at)}</p>
         </div>)}</div>
       </>}
+      {!!data.removed_reports?.length && <details className="mt-5 rounded-xl border border-emerald-200 p-3"><summary className="cursor-pointer text-sm font-semibold">Removed reports ({data.removed_reports.length}) · no rating deduction</summary>{data.removed_reports.map(report => <div key={report.id} className="mt-3 text-sm"><p className="font-semibold">{report.reason}</p><p className="mt-1 whitespace-pre-wrap break-words text-ink-600">{report.dismissal_reason}</p><p className="mt-1 text-xs text-ink-500">Removed {formatDateTime(report.dismissed_at)}. Any warning from this report no longer counts.</p></div>)}</details>}
       <Link to="/contact?topic=account-standing" className="btn-secondary mt-4">Ask support about my account</Link>
     </>}
   </section>;

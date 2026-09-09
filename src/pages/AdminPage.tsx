@@ -16,6 +16,7 @@ import { AdminSecurityCentre } from '@/components/AdminSecurityCentre';
 import { AdminMfaSetup } from '@/components/AdminMfaSetup';
 import { AdminChatbot } from '@/components/AdminChatbot';
 import { AdminFeedback } from '@/components/AdminFeedback';
+import { ReportRemovalAction } from '@/components/ReportRemovalAction';
 import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone, ChevronUp, ChevronDown, SlidersHorizontal, RotateCcw, Bot } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
@@ -233,11 +234,22 @@ export function AdminPage() {
     load();
   };
   const openReinstate = (p: Profile) => { setReinstatingUser(p); setReinstatementMessage(''); };
-  const resolveReport = async (r: Report, status: 'resolved' | 'dismissed') => {
+  const resolveReport = async (r: Report, status: 'resolved') => {
     const { error } = await supabase.from('reports').update({ status }).eq('id', r.id);
-    if (error) { toast('Could not update report: ' + error.message, 'error'); return; }
-    toast(status === 'resolved' ? 'Report marked solved.' : 'Report dismissed.');
-    load();
+    if (error) { toast('Could not update report: ' + error.message, 'error'); return false; }
+    toast('Report marked solved.');
+    await load();
+    return true;
+  };
+  const overturnReport = async (r: Report, reason: string) => {
+    try {
+      const { data, error } = await supabase.rpc('admin_overturn_report', { p_report_id: r.id, p_reason: reason });
+      if (error) throw error;
+      toast(data?.rating_after == null ? 'Report removed. Audit history preserved.' : `Report removed. Rating: ${Number(data.rating_before).toFixed(1)} → ${Number(data.rating_after).toFixed(1)}. Its warning no longer counts.`);
+      setViewingReport(null);
+      await load();
+      return true;
+    } catch (error) { toast('Could not remove report: ' + ((error as { message?: string })?.message || 'Please try again.'), 'error'); return false; }
   };
 
   const verifyDoc = async (d: DocumentRow) => {
@@ -866,7 +878,7 @@ export function AdminPage() {
                 </div>
                 {r.description && <p className="mt-2 line-clamp-2 text-sm text-ink-600">{r.description}</p>}
                 <p className="mt-1 text-xs text-ink-400">{timeAgo(r.created_at)}</p>
-                <div className="mt-3 flex flex-wrap items-center gap-2"><button onClick={() => setViewingReport(r)} className="btn-primary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View report and actions</button>{(r.warnings || []).length > 0 && <span className="badge-warning">Warning sent</span>}</div>
+                <div className="mt-3 flex flex-wrap items-center gap-2"><button onClick={() => setViewingReport(r)} className="btn-primary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View report and actions</button>{(r.warnings || []).some(w => !w.revoked_at) && <span className="badge-warning">Warning sent</span>}{r.dismissed_at && <span className="badge-success">Removed · no rating deduction</span>}</div>
               </div>
             ))}
             {reports.length === 0 && <p className="text-sm text-ink-500">No reports.</p>}
@@ -1136,7 +1148,8 @@ export function AdminPage() {
             }
             setViewingReport(null);
           }}
-          onStatus={async (status) => { await resolveReport(viewingReport, status); setViewingReport(null); }}
+          onStatus={async (status) => { if (await resolveReport(viewingReport, status)) setViewingReport(null); }}
+          onRemove={(reason) => overturnReport(viewingReport, reason)}
         />
       )}
 
@@ -1160,7 +1173,7 @@ export function AdminPage() {
   );
 }
 
-function ReportReviewModal({ report, onClose, onWarn, onContact, onOpenConversation, onViewProfile, onSuspend, onStatus }: {
+function ReportReviewModal({ report, onClose, onWarn, onContact, onOpenConversation, onViewProfile, onSuspend, onStatus, onRemove }: {
   report: AdminReport;
   onClose: () => void;
   onWarn: (message: string) => Promise<boolean>;
@@ -1168,11 +1181,12 @@ function ReportReviewModal({ report, onClose, onWarn, onContact, onOpenConversat
   onOpenConversation?: () => void;
   onViewProfile: () => void;
   onSuspend: () => void;
-  onStatus: (status: 'resolved' | 'dismissed') => void | Promise<void>;
+  onStatus: (status: 'resolved') => void | Promise<void>;
+  onRemove: (reason: string) => Promise<boolean>;
 }) {
   const [warningMessage, setWarningMessage] = useState('Please review our community rules and correct this behaviour immediately.');
   const [sending, setSending] = useState(false);
-  const warningSent = (report.warnings || []).length > 0;
+  const warningSent = (report.warnings || []).some(w => !w.revoked_at);
   const sendWarning = async () => {
     setSending(true);
     await onWarn(warningMessage);
@@ -1192,17 +1206,18 @@ function ReportReviewModal({ report, onClose, onWarn, onContact, onOpenConversat
           <div className="rounded-xl border border-ink-100 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-ink-400">Reported by</p><p className="mt-1 font-semibold text-ink-900">{report.reporter?.full_name || 'Unknown reporter'}</p><p className="text-sm text-ink-500">{report.reporter?.email || 'No email'} · {report.reporter?.phone || 'No phone'}</p></div>
         </div>
         <div><p className="label">What was reported</p><div className="rounded-xl border border-amber-200 bg-amber-50 p-4"><p className="font-semibold text-amber-900">{report.reason}</p><p className="mt-1 whitespace-pre-wrap text-sm text-amber-800">{report.description || 'No additional description was supplied.'}</p></div></div>
+        {report.dismissed_at ? <div className="rounded-xl border border-emerald-200 p-4"><p className="font-semibold text-emerald-700 dark:text-emerald-300">Removed from account standing</p><p className="mt-1 whitespace-pre-wrap break-words text-sm text-ink-600">{report.dismissal_reason}</p><p className="mt-2 text-xs text-ink-500">{formatDateTime(report.dismissed_at)} · Rating recalculated; this report and its warning no longer count. Audit history retained.</p>{report.warnings?.map(w => <p key={w.id} className="mt-2 text-xs text-ink-500">Revoked warning: {w.message}</p>)}</div> : null}
         {warningSent ? (
           <div className="rounded-xl border border-amber-200 p-4"><p className="font-semibold text-amber-800">Warning already sent for this report</p>{report.warnings!.map((warning) => <div key={warning.id} className="mt-2 text-sm text-ink-600"><p>{warning.message}</p><p className="text-xs text-ink-400">{formatDateTime(warning.created_at)}</p></div>)}</div>
-        ) : report.reported ? (
+        ) : report.reported && report.status !== 'dismissed' ? (
           <div><label className="label">Warning message</label><textarea value={warningMessage} onChange={(event) => setWarningMessage(event.target.value)} rows={3} className="input" /><p className="mt-1 text-xs text-ink-500">The member will also receive the report reason, report details, their warning count, and: “Three warnings may lead to account suspension.”</p><button onClick={sendWarning} disabled={sending || warningMessage.trim().length < 3} className="btn-secondary mt-3 text-amber-800"><Flag className="h-4 w-4" /> {sending ? 'Sending…' : 'Send warning'}</button></div>
         ) : null}
+        {!report.dismissed_at && <ReportRemovalAction onRemove={onRemove} />}
         <div className="grid gap-2 border-t border-ink-100 pt-4 sm:flex sm:flex-wrap">
           {onOpenConversation && <button onClick={onOpenConversation} className="btn-primary w-full sm:w-auto"><Headphones className="h-4 w-4" /> Open connection chat</button>}
-          {report.reported && <><button onClick={onViewProfile} className="btn-secondary w-full sm:w-auto"><Eye className="h-4 w-4" /> User profile</button><button onClick={onContact} className="btn-secondary w-full sm:w-auto"><MessageSquare className="h-4 w-4" /> Contact user</button><button onClick={onSuspend} className="btn-secondary w-full text-danger sm:w-auto"><Ban className="h-4 w-4" /> Suspend user</button></>}
+          {report.reported && <><button onClick={onViewProfile} className="btn-secondary w-full sm:w-auto"><Eye className="h-4 w-4" /> User profile</button><button onClick={onContact} className="btn-secondary w-full sm:w-auto"><MessageSquare className="h-4 w-4" /> Contact user</button>{report.status !== 'dismissed' && <button onClick={onSuspend} className="btn-secondary w-full text-danger sm:w-auto"><Ban className="h-4 w-4" /> Suspend user</button>}</>}
           <div className="hidden flex-1 sm:block" />
-          <button onClick={() => onStatus('dismissed')} className="btn-ghost w-full sm:w-auto">Dismiss report</button>
-          <button onClick={() => onStatus('resolved')} className="btn-primary w-full sm:w-auto"><Check className="h-4 w-4" /> Mark resolved</button>
+          {report.status !== 'dismissed' && report.status !== 'resolved' && <button disabled={sending} onClick={async () => { setSending(true); try { await onStatus('resolved'); } finally { setSending(false); } }} className="btn-primary w-full sm:w-auto"><Check className="h-4 w-4" /> Mark resolved</button>}
         </div>
       </div>
     </Modal>
@@ -1798,7 +1813,7 @@ function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onCha
       ]);
       setDocs((docsResult.data as DocumentRow[]) || []);
       setProfileReports((reportsResult.data as AdminReport[]) || []);
-      setProfileWarnings((warningsResult.data as UserWarning[]) || []);
+      setProfileWarnings(((warningsResult.data as UserWarning[]) || []).filter(warning => !warning.revoked_at));
       setLoadingDocs(false);
     })();
   }, [user.id, user.role]);
@@ -1879,7 +1894,7 @@ function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onCha
               {(['open', 'reviewing', 'resolved', 'dismissed'] as const).map((status) => {
                 const grouped = profileReports.filter((report) => report.status === status);
                 if (grouped.length === 0) return null;
-                return <section key={status}><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">{status === 'resolved' ? 'Solved' : status} ({grouped.length})</p><div className="space-y-2">{grouped.map((report) => <div key={report.id} className="rounded-xl border border-ink-100 p-3"><div className="flex items-start justify-between gap-2"><p className="text-sm font-semibold text-ink-800">{report.reason}</p>{(report.warnings || []).length > 0 && <span className="badge-warning">Warned</span>}</div><p className="mt-1 text-xs text-ink-600">{report.description || 'No additional details.'}</p><p className="mt-1 text-[11px] capitalize text-ink-400">{report.target_type} · {formatDateTime(report.created_at)}</p></div>)}</div></section>;
+                return <section key={status}><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-400">{status === 'resolved' ? 'Solved' : status} ({grouped.length})</p><div className="space-y-2">{grouped.map((report) => <div key={report.id} className="rounded-xl border border-ink-100 p-3"><div className="flex items-start justify-between gap-2"><p className="text-sm font-semibold text-ink-800">{report.reason}</p>{(report.warnings || []).some(warning => !warning.revoked_at) && <span className="badge-warning">Warned</span>}</div><p className="mt-1 text-xs text-ink-600">{report.description || 'No additional details.'}</p>{report.dismissed_at && <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">Removed: {report.dismissal_reason}</p>}<p className="mt-1 text-[11px] capitalize text-ink-400">{report.target_type} · {formatDateTime(report.created_at)}</p></div>)}</div></section>;
               })}
             </div>
           )}
