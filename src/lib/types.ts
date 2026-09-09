@@ -233,7 +233,8 @@ export interface Message {
 
 export interface Review {
   id: string;
-  application_id: string;
+  application_id: string | null;
+  connection_id?: string | null;
   reviewer_id: string;
   reviewee_id: string;
   rating: number;

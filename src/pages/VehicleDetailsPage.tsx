@@ -35,6 +35,7 @@ export function VehicleDetailsPage() {
   const [favId, setFavId] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsError, setReviewsError] = useState(false);
 
   const loadVehicle = useCallback(async () => {
     if (!id) {
@@ -57,12 +58,13 @@ export function VehicleDetailsPage() {
     setVehicle(data as VehicleWithRelations | null);
     setActivePhoto(0);
     if (data) {
-      const { data: revs } = await supabase
+      const { data: revs, error: reviewError } = await supabase
         .from('reviews')
-        .select(`*, reviewer:profiles(${BROWSE_PROFILE_FIELDS})`)
+        .select(`*, reviewer:profiles!reviews_reviewer_id_fkey(${BROWSE_PROFILE_FIELDS})`)
         .eq('reviewee_id', (data as VehicleWithRelations).owner_id)
         .order('created_at', { ascending: false });
       setReviews((revs as Review[]) || []);
+      setReviewsError(!!reviewError);
     }
     setLoading(false);
   }, [id]);
@@ -258,7 +260,7 @@ export function VehicleDetailsPage() {
 
           {/* Owner reviews */}
           <Section title={vehicle.owner?.full_name ? `Reviews of ${vehicle.owner.full_name}` : 'Owner reviews'}>
-            {reviews.length > 0 ? (
+            {reviewsError ? <p className="text-sm text-ink-600">Reviews could not load. <button type="button" onClick={() => void loadVehicle()} className="underline">Try again</button></p> : reviews.length > 0 ? (
               <div className="space-y-4">
                 {reviews.map((r) => (
                   <div key={r.id} className="border-b border-ink-100 pb-4 last:border-0">
@@ -275,7 +277,7 @@ export function VehicleDetailsPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-ink-500">No reviews yet. Reviews appear after a completed match.</p>
+              <p className="text-sm text-ink-500">No reviews yet. Connected members can share positive experiences or constructive feedback from their chat.</p>
             )}
           </Section>
         </div>

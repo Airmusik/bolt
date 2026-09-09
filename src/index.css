@@ -499,6 +499,23 @@ button[aria-expanded][class~="bg-ink-950"][class~="shadow-xl"] > :first-child sv
   .fixed[class*="bottom-"] .lucide-bot path:nth-last-of-type(-n+2) { animation: none; }
 }
 
+/* Keep notification bells in sync with the admin-selected wordmark accent. */
+.notification-bell-link, .notification-bell-badge { color: var(--action); }
+.notification-bell-badge { background: color-mix(in srgb, var(--action) 12%, transparent); }
+.notification-bell-icon { transform-origin: 50% 15%; }
+@keyframes notification-bell-ring {
+  0%, 12%, 100% { transform: rotate(0); }
+  2%, 6% { transform: rotate(17deg); }
+  4%, 8% { transform: rotate(-14deg); }
+  10% { transform: rotate(6deg); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .notification-bell-icon { animation: notification-bell-ring 8s ease-in-out 1; }
+  .notification-bell-unread .notification-bell-icon { animation-iteration-count: infinite; }
+  .notification-bell-link:hover .notification-bell-icon,
+  .notification-bell-link:focus-visible .notification-bell-icon { animation: notification-bell-ring 6s ease-in-out infinite; }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }

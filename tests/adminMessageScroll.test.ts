@@ -7,9 +7,13 @@ const header = readFileSync('src/components/Header.tsx', 'utf8');
 const wordmark = readFileSync('src/components/ElevenDriveWordmark.tsx', 'utf8');
 const intro = readFileSync('src/components/LaunchIntro.tsx', 'utf8');
 
-test('desktop admin message panes keep scrolling inside the active chat', () => {
-  assert.match(admin, /lg:h-\[68vh\] lg:min-h-0/);
-  assert.ok((admin.match(/overflow-y-auto overscroll-contain/g) || []).length >= 2);
+test('admin message panes keep scrolling on mobile and desktop', () => {
+  const styles = readFileSync('src/styles/admin.css', 'utf8');
+  assert.match(admin, /admin-message-inbox grid min-h-0 grid-rows-\[minmax\(0,1fr\)\]/);
+  assert.match(admin, /aria-label="Message history" tabIndex=\{0\}/);
+  assert.match(admin, /admin-message-history min-h-0 flex-1 space-y-3 overflow-y-auto/);
+  assert.match(styles, /height: clamp\(28rem, 70dvh, 52rem\)/);
+  assert.match(styles, /-webkit-overflow-scrolling: touch/);
 });
 
 test('member updates control uses compact header sizing', () => {

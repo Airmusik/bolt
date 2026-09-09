@@ -115,7 +115,7 @@ export function NotificationsPage() {
         ) : (
           notifications.map((n) => (
             <div key={n.id} className={cn('card flex items-start gap-3 overflow-hidden p-2 transition hover:-translate-y-0.5 hover:shadow-card-hover', !n.read && 'ring-brand-200')}>
-              <div className={cn('mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full', n.read ? 'bg-ink-100 text-ink-400' : 'bg-brand-100 text-brand-700')}>
+              <div className="notification-bell-badge mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
                 <Bell className="h-4 w-4" />
               </div>
               <button type="button" onClick={() => openNotification(n)} className="min-w-0 flex-1 px-1 py-1 text-left" aria-label={`Open notification: ${n.title}`}>

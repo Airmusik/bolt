@@ -12,6 +12,7 @@ import { AdminControlCentre } from '@/components/AdminControlCentre';
 import { AdminSecurityCentre } from '@/components/AdminSecurityCentre';
 import { AdminMfaSetup } from '@/components/AdminMfaSetup';
 import { AdminChatbot } from '@/components/AdminChatbot';
+import { AdminFeedback } from '@/components/AdminFeedback';
 import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone, ChevronUp, ChevronDown, SlidersHorizontal, RotateCcw, Bot } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
@@ -83,9 +84,9 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'advertisements' | 'analytics' | 'overview' | 'members' | 'updates' | 'content' | 'controls' | 'security' | 'assistant' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired';
+type Tab = 'advertisements' | 'analytics' | 'overview' | 'members' | 'updates' | 'content' | 'controls' | 'security' | 'assistant' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired' | 'feedback';
 
-const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members', 'updates', 'content', 'controls', 'security', 'assistant', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired'];
+const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members', 'updates', 'content', 'controls', 'security', 'assistant', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired', 'feedback'];
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -453,6 +454,7 @@ export function AdminPage() {
     { key: 'security', label: 'Security', icon: ShieldCheck },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'contact', label: 'Messages', icon: Mail, badge: newContactMessages.length },
+    { key: 'feedback', label: 'Feedback', icon: MessageSquare },
     { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
     { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: unsolvedReports.length },
@@ -834,6 +836,8 @@ export function AdminPage() {
             </section>
           </div>
         )}
+
+        {tab === 'feedback' && <AdminFeedback />}
 
         {/* ---------- Reports ---------- */}
         {tab === 'contact' && !loading && <AdminMessageInbox messages={contactMessages} adminId={user?.id || null} siteName={siteSettings.site_name} onRefresh={load} onResolve={resolveContactMessage} onDelete={(message) => setConfirmAction({ message: `Permanently delete the message history from ${message.name}?`, label: 'Delete', onConfirm: () => deleteContactMessage(message) })} onViewUser={setViewingUser} />}

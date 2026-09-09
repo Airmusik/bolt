@@ -24,6 +24,7 @@ export function DriverProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [history, setHistory] = useState<PlatformHistory[]>([]);
   const [reviews, setReviews] = useState<Review[]>([]);
+  const [reviewsError, setReviewsError] = useState(false);
   const [trustPassport, setTrustPassport] = useState<TrustPassport | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -42,7 +43,7 @@ export function DriverProfilePage() {
     const [profileResult, historyResult, reviewsResult, trustResult] = await Promise.all([
       profileRequest,
       supabase.rpc('public_platform_history', { p_driver_id: id }),
-      supabase.from('reviews').select(`*, reviewer:profiles(${BROWSE_PROFILE_FIELDS})`).eq('reviewee_id', id).order('created_at', { ascending: false }),
+      supabase.from('reviews').select(`*, reviewer:profiles!reviews_reviewer_id_fkey(${BROWSE_PROFILE_FIELDS})`).eq('reviewee_id', id).order('created_at', { ascending: false }),
       supabase.rpc('get_trust_passport', { p_user_id: id }).maybeSingle(),
     ]);
     if (profileResult.error) {
@@ -54,6 +55,7 @@ export function DriverProfilePage() {
     setProfile(profileResult.data as Profile | null);
     setHistory((historyResult.data as PlatformHistory[]) || []);
     setReviews((reviewsResult.data as Review[]) || []);
+    setReviewsError(!!reviewsResult.error);
     setTrustPassport(trustResult.data as TrustPassport | null);
     setLoading(false);
   }, [id, user?.id]);
@@ -157,7 +159,7 @@ export function DriverProfilePage() {
           <MemberSafetyNotice />
           {/* Reviews */}
           <Section title={`Reviews (${reviews.length})`} icon={<Star className="h-5 w-5" />}>
-            {reviews.length > 0 ? (
+            {reviewsError ? <p className="text-sm text-ink-600">Reviews could not load. <button type="button" onClick={() => void loadProfile()} className="underline">Try again</button></p> : reviews.length > 0 ? (
               <div className="space-y-4">
                 {reviews.map((r) => (
                   <div key={r.id} className="border-b border-ink-100 pb-4 last:border-0">

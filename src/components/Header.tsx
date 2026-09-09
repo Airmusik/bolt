@@ -209,8 +209,8 @@ export function Header() {
                     <span className="hidden text-xs font-bold lg:inline">Updates</span>
                     {unreadUpdates > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-ink-900 px-1 text-[10px] font-bold text-white">{unreadUpdates > 9 ? '9+' : unreadUpdates}</span>}
                   </Link>
-                  <Link to="/notifications" className="relative rounded-full p-2 text-ink-600 hover:bg-ink-100" aria-label="Notifications">
-                    <Bell className="h-5 w-5" />
+                  <Link to="/notifications" className={cn('notification-bell-link relative rounded-full p-2 hover:bg-ink-100', unread > 0 && 'notification-bell-unread')} aria-label={unread > 0 ? `Notifications (${unread} unread)` : 'Notifications'}>
+                    <Bell className="notification-bell-icon h-5 w-5" />
                     {unread > 0 && <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">{unread > 9 ? '9+' : unread}</span>}
                   </Link>
                 </>

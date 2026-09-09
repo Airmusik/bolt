@@ -4,6 +4,8 @@ import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sp
 import { CHAT_MEDIA_BUCKET, supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
+import { MemberReviewButton } from '@/components/MemberReviewButton';
+import { ExperienceFeedbackButton } from '@/components/ExperienceFeedback';
 import type { Conversation, Message, Profile, VehicleWithRelations } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
@@ -559,6 +561,11 @@ export function ChatPage() {
                   ))}
                 </div>
               </div>
+
+              {profile?.role !== 'admin' && <div className="flex shrink-0 flex-wrap gap-1 border-b border-ink-100 px-3 py-1">
+                {memberConnectionChat && !isDirectSupportConversation && <MemberReviewButton key={active.id} conversation={active} memberName={other.full_name || 'this member'} />}
+                <ExperienceFeedbackButton key={`experience:${active.id}`} kind="chat" conversationId={active.id} />
+              </div>}
 
               {supportSessionActive && (
                 <div className="flex items-start gap-2 border-b border-violet-200 bg-violet-100/80 px-4 py-3 text-violet-950 dark:bg-violet-950/35 dark:text-violet-100">

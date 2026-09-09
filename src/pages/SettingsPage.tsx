@@ -21,6 +21,7 @@ import { AvailabilityBadge } from '@/components/AvailabilityBadge';
 import { driverNeedsApproval, driverApprovalMessage } from '@/lib/driverEligibility';
 import { AvailabilityCalendar } from '@/components/AvailabilityCalendar';
 import { InstallAppButton } from '@/components/InstallAppButton';
+import { ExperienceFeedbackButton } from '@/components/ExperienceFeedback';
 
 export function SettingsPage() {
   const { user, profile, signOut, refreshProfile } = useAuth();
@@ -249,6 +250,12 @@ export function SettingsPage() {
         {user && profile?.role !== 'admin' && <AvailabilityCalendar userId={user.id} />}
 
         <InstallAppButton />
+
+        {profile?.role !== 'admin' && <div className="card p-5">
+          <h2 className="font-semibold text-ink-900">Share your experience</h2>
+          <p className="mb-2 mt-1 text-sm text-ink-600">Tell us what works well and what we can improve. Your rating and written feedback go privately to the admin team.</p>
+          <ExperienceFeedbackButton />
+        </div>}
 
         <div className="card flex items-center justify-between gap-4 p-5">
           <div>
