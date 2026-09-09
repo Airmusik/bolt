@@ -9,6 +9,9 @@ import { AdminMemberUpdates } from '@/components/AdminMemberUpdates';
 import { AdminLegalContent } from '@/components/AdminLegalContent';
 import { AdminAddMember } from '@/components/AdminAddMember';
 import { AdminControlCentre } from '@/components/AdminControlCentre';
+import { ADMIN_CONTROL_SETTING_KEYS } from '@/lib/adminControlFields';
+import { adminView, canonicalAdminParams, adminDestination, adminNavOrder, type AdminTab, type LegacyAdminTab, type SettingsSection } from '@/lib/adminNavigation';
+import { changedSettings, mergeSettingsDraft } from '@/lib/adminSettingsDraft';
 import { AdminSecurityCentre } from '@/components/AdminSecurityCentre';
 import { AdminMfaSetup } from '@/components/AdminMfaSetup';
 import { AdminChatbot } from '@/components/AdminChatbot';
@@ -84,9 +87,7 @@ async function publishApprovedImage(privateUrl: string, ownerId: string, prefix:
   return supabase.storage.from(VEHICLE_BUCKET).getPublicUrl(publicPath).data.publicUrl;
 }
 
-type Tab = 'advertisements' | 'analytics' | 'overview' | 'members' | 'updates' | 'content' | 'controls' | 'security' | 'assistant' | 'drivers' | 'owners' | 'cars' | 'documents' | 'reports' | 'contact' | 'chat' | 'history' | 'settings' | 'promotions' | 'expired' | 'feedback';
-
-const ADMIN_TABS: Tab[] = ['advertisements', 'analytics', 'overview', 'members', 'updates', 'content', 'controls', 'security', 'assistant', 'drivers', 'owners', 'cars', 'documents', 'reports', 'contact', 'chat', 'history', 'settings', 'promotions', 'expired', 'feedback'];
+type Tab = AdminTab;
 
 export function AdminPage() {
   const { user } = useAuth();
@@ -96,16 +97,19 @@ export function AdminPage() {
   const [firstMessage, setFirstMessage] = useState('');
   const [startingSupport, setStartingSupport] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
-  const requestedTab = searchParams.get('tab') as Tab | null;
-  const tab: Tab = requestedTab && ADMIN_TABS.includes(requestedTab) ? requestedTab : 'overview';
-  const setTab = useCallback((next: Tab) => {
+  const view = adminView(searchParams);
+  const { tab } = view;
+  useEffect(() => {
+    const canonical = canonicalAdminParams(searchParams);
+    if (canonical.toString() !== searchParams.toString()) setSearchParams(canonical, { replace: true });
+  }, [searchParams, setSearchParams]);
+  const setTab = useCallback((next: Tab | LegacyAdminTab) => {
     if (next === tab) return;
-    setSearchParams(current => {
-      const params = new URLSearchParams(current);
-      params.set('tab', next);
-      return params;
-    });
+    setSearchParams(current => adminDestination(current, next));
   }, [tab, setSearchParams]);
+  const setReviewSection = (review: typeof view.review) => setSearchParams(current => {
+    const next = canonicalAdminParams(current); next.set('tab', 'reviews'); next.set('review', review); return next;
+  });
   const [users, setUsers] = useState<Profile[]>([]);
   const [uploadUser, setUploadUser] = useState<Profile | null>(null);
   const [vehicles, setVehicles] = useState<AdminVehicle[]>([]);
@@ -450,16 +454,13 @@ export function AdminPage() {
     { key: 'members', label: 'Members', icon: Users, badge: users.length },
     { key: 'updates', label: 'Member updates', icon: Megaphone },
     { key: 'content', label: 'Page content', icon: FileText },
-    { key: 'controls', label: 'Control centre', icon: SettingsIcon },
     { key: 'security', label: 'Security', icon: ShieldCheck },
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'contact', label: 'Messages', icon: Mail, badge: newContactMessages.length },
     { key: 'feedback', label: 'Feedback', icon: MessageSquare },
     { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
-    { key: 'documents', label: 'Uploads & trust', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length },
+    { key: 'reviews', label: 'Uploads & reviews', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length + history.filter(h => historyState(h) === 'pending').length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: unsolvedReports.length },
-    { key: 'expired', label: 'Expired documents', icon: CalendarDays },
-    { key: 'history', label: 'History', icon: TrendingUp, badge: history.filter((h) => historyState(h) === 'pending').length },
     { key: 'analytics', label: 'Site analytics', icon: TrendingUp },
     { key: 'promotions', label: 'Promotions', icon: TrendingUp },
     { key: 'advertisements', label: 'Advertisements', icon: Eye },
@@ -467,8 +468,7 @@ export function AdminPage() {
     { key: 'settings', label: 'Settings', icon: SettingsIcon },
   ];
 
-  const savedNavOrder = siteSettings.admin_nav_order.split(',').filter((key): key is Tab => ADMIN_TABS.includes(key as Tab));
-  const completeNavOrder = [...new Set([...savedNavOrder, ...tabs.map((item) => item.key)])];
+  const completeNavOrder = adminNavOrder(siteSettings.admin_nav_order, tabs.map(item => item.key));
   const orderedTabs = completeNavOrder.map((key) => tabs.find((item) => item.key === key)).filter((item): item is (typeof tabs)[number] => Boolean(item));
   const openTabOrganizer = () => { setNavOrderDraft(orderedTabs.map((item) => item.key)); setOrganizingTabs(true); };
   const moveNavItem = (index: number, direction: -1 | 1) => setNavOrderDraft((current) => {
@@ -509,7 +509,6 @@ export function AdminPage() {
           <ShieldCheck className="h-7 w-7 text-brand-600" />
           <h1 className="font-display text-2xl font-bold text-ink-900">Admin Portal</h1>
         </div>
-        <button type="button" onClick={() => setTab('overview')} className="btn-secondary px-3 py-2 text-xs"><TrendingUp className="h-4 w-4" /> Dashboard</button>
       </div>
       <p className="mt-1 text-sm text-ink-500">Manage driver platform-history reviews, upload approvals, listings, reports and member support.</p>
 
@@ -584,7 +583,6 @@ export function AdminPage() {
         {tab === 'advertisements' && <AdminAdvertisements />}
         {tab === 'updates' && !loading && <AdminMemberUpdates users={users} />}
         {tab === 'content' && !loading && <AdminLegalContent />}
-        {tab === 'controls' && !loading && <AdminControlCentre />}
         {tab === 'security' && !loading && <><AdminMfaSetup /><div className="h-5"/><AdminSecurityCentre /></>}
         {tab === 'assistant' && !loading && <AdminChatbot />}
         {tab === 'overview' && !loading && (
@@ -786,10 +784,25 @@ export function AdminPage() {
           </div>
         )}
 
-        {/* ---------- Uploads and trust evidence ---------- */}
-        {tab === 'documents' && !loading && (
-          <div className="space-y-6">
+        {tab === 'reviews' && !loading && <section className="mb-5 space-y-4" aria-labelledby="admin-reviews-heading">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div><h2 id="admin-reviews-heading" className="text-xl font-bold text-ink-900">Uploads &amp; reviews</h2><p className="mt-1 text-sm text-ink-500">Review platform history, photos and evidence, or follow up on expiry—all in one place.</p></div>
             <AdminMemberUpload users={users} onSaved={load} />
+          </div>
+          <nav aria-label="Upload review sections" className="grid grid-cols-1 gap-2 rounded-xl border border-ink-200 bg-ink-50 p-2 sm:grid-cols-3">
+            {([
+              ['history', 'Platform history', history.filter(h => historyState(h) === 'pending').length],
+              ['files', 'Photos & evidence', pendingDocs.length + pendingVehiclePhotos.length],
+              ['expired', 'Expiry & reminders', 0],
+            ] as const).map(([key, label, count]) => <button key={key} type="button" aria-pressed={view.review === key} onClick={() => setReviewSection(key)} className="admin-nav-button min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900">
+              {label}{count > 0 && <span className="admin-nav-count ml-2 rounded-full px-2 py-0.5 text-xs">{count}</span>}
+            </button>)}
+          </nav>
+        </section>}
+
+        {/* ---------- Uploads and trust evidence ---------- */}
+        {tab === 'reviews' && view.review === 'files' && !loading && (
+          <div className="space-y-6">
             <section>
               <h3 className="mb-2 font-semibold text-ink-900">Vehicle photos</h3>
               <div className="space-y-2">
@@ -861,9 +874,8 @@ export function AdminPage() {
         )}
 
         {/* ---------- Platform History ---------- */}
-        {tab === 'history' && !loading && (
+        {tab === 'reviews' && view.review === 'history' && !loading && (
           <div className="space-y-2">
-            <AdminMemberUpload users={users} onSaved={load} />
             {history.length === 0 && <p className="text-sm text-ink-500">No platform history entries yet.</p>}
             {history.filter(h => historyState(h) !== 'draft').map((h) => (
               <div key={h.id} className="card flex flex-wrap items-center gap-3 p-4">
@@ -885,9 +897,11 @@ export function AdminPage() {
         {tab === 'chat' && !loading && <AdminChat user={user} onDataChange={load} onViewUser={setViewingUser} />}
 
         {/* ---------- Settings ---------- */}
-        {tab === 'settings' && !loading && <AdminSettings />}
+        {tab === 'settings' && !loading && <AdminSettings section={view.settings} onSectionChange={(section) => setSearchParams(current => {
+          const next = canonicalAdminParams(current); next.set('settings', section); return next;
+        })} />}
         {tab === 'promotions' && !loading && <AdminPromotions />}
-        {tab === 'expired' && !loading && <AdminExpiredDocuments onContact={(id) => { const member = users.find(item => item.id === id); if (member) void adminStartChat(member); }} onChanged={load} />}
+        {tab === 'reviews' && view.review === 'expired' && !loading && <AdminExpiredDocuments onContact={(id) => { const member = users.find(item => item.id === id); if (member) void adminStartChat(member); }} onChanged={load} />}
       </div>
 
       {/* Document viewer modal */}
@@ -1266,16 +1280,54 @@ function AdminChangePinModal({ user, onClose, onConfirm }: { user: Profile; onCl
 }
 
 // ---------- Admin Settings ----------
-function AdminSettings() {
+const ADMIN_SETTINGS_KEYS = [
+  ...ADMIN_CONTROL_SETTING_KEYS,
+  'admin_contact_email',
+  'admin_contact_phone',
+  'facebook_url',
+  'footer_company_about_label',
+  'footer_company_contact_label',
+  'footer_company_faq_label',
+  'footer_company_how_label',
+  'footer_company_title',
+  'footer_contact_title',
+  'footer_copyright_note',
+  'footer_description',
+  'footer_legal_contact_label',
+  'footer_legal_privacy_label',
+  'footer_legal_terms_label',
+  'footer_legal_title',
+  'footer_location',
+  'header_name_animation',
+  'header_name_colours',
+  'homepage_background_enabled',
+  'homepage_background_overlay',
+  'homepage_background_position_x',
+  'homepage_background_position_y',
+  'homepage_background_type',
+  'homepage_background_url',
+  'instagram_url',
+  'launch_intro_background_enabled',
+  'launch_intro_enabled',
+  'linkedin_url',
+  'site_logo_url',
+  'site_name',
+  'site_tagline',
+  'site_theme',
+];
+function AdminSettings({ section, onSectionChange }: { section: SettingsSection; onSectionChange: (section: SettingsSection) => void }) {
   const { toast } = useToast();
   const { settings: liveSettings, loading, refreshSettings } = useSiteSettings();
   const [settings, setSettings] = useState<SiteSettings>(liveSettings);
+  const baseline = useRef(liveSettings);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingHomepageBackground, setUploadingHomepageBackground] = useState(false);
 
   useEffect(() => {
-    setSettings(liveSettings);
+    const previous = baseline.current;
+    setSettings(draft => mergeSettingsDraft(draft, previous, liveSettings));
+    baseline.current = liveSettings;
   }, [liveSettings]);
 
   useEffect(() => {
@@ -1303,7 +1355,6 @@ function AdminSettings() {
     const nextSettings = {
       ...settings,
       site_theme: isSiteTheme(settings.site_theme) ? settings.site_theme : DEFAULT_SITE_THEME,
-      max_vehicles_per_owner: settings.max_vehicles_per_owner,
       site_name: siteName,
       site_tagline: siteTagline,
       admin_contact_email: settings.admin_contact_email.trim().toLowerCase(),
@@ -1325,11 +1376,16 @@ function AdminSettings() {
       footer_location: settings.footer_location.trim(),
       footer_copyright_note: settings.footer_copyright_note.trim(),
     };
+    const changes = changedSettings(nextSettings, baseline.current, ADMIN_SETTINGS_KEYS);
+    if (!changes.length) { setSaving(false); toast('No unsaved changes.'); return; }
     const { error } = await supabase.from('site_settings').upsert(
-      Object.entries(nextSettings).filter(([key]) => !key.startsWith('ads_') && !key.startsWith('adsense_')).map(([key, value]) => ({ key, value, updated_at })),
+      changes.map(([key, value]) => ({ key, value, updated_at })),
       { onConflict: 'key' },
     );
     if (error) { setSaving(false); toast('Could not save settings: ' + error.message, 'error'); return; }
+    // Acknowledge only this editor's settings; navigation, ads and other editors are untouched.
+    for (const [key, value] of changes) baseline.current = { ...baseline.current, [key]: value };
+    setSettings(current => ({ ...current, ...Object.fromEntries(changes) }));
     await refreshSettings();
     setSaving(false);
     toast('Settings saved and applied across the site.');
@@ -1403,9 +1459,16 @@ function AdminSettings() {
 
   return (
     <div className="space-y-4">
-      <div className="card p-5">
-        <h2 className="font-display text-lg font-bold text-ink-900">Site Settings</h2>
-        <p className="mt-1 text-sm text-ink-500">Configure platform-wide settings.</p>
+      <div className="card flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5">
+        <div><h2 className="font-display text-xl font-bold text-ink-900">Settings</h2><p className="mt-1 text-sm text-ink-500">Branding, contact details and platform controls. Save applies your edits from both sections.</p></div>
+        <button type="button" onClick={() => void save()} disabled={saving || uploadingLogo || uploadingHomepageBackground} className="btn-primary min-h-11"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save changes'}</button>
+      </div>
+      <nav aria-label="Settings sections" className="grid grid-cols-1 gap-2 rounded-xl border border-ink-200 bg-ink-50 p-2 sm:grid-cols-2">
+        {([['branding', 'Branding & contact'], ['controls', 'Platform controls']] as const).map(([key, label]) => <button key={key} type="button" aria-pressed={section === key} onClick={() => onSectionChange(key)} className="admin-nav-button min-h-11 rounded-lg border px-3 py-2 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900">{label}</button>)}
+      </nav>
+      <div hidden={section !== 'branding'} className="card p-5">
+        <h3 className="font-display text-lg font-bold text-ink-900">Branding &amp; contact</h3>
+        <p className="mt-1 text-sm text-ink-500">Site name, appearance, background, footer and public contact details.</p>
         <div className="mt-4 space-y-4">
           <fieldset>
             <legend className="label flex items-center gap-2"><Palette className="h-4 w-4" /> Theme &amp; colours</legend>
@@ -1508,24 +1571,6 @@ function AdminSettings() {
             </div>
           </div>
           <div>
-            <label htmlFor="admin-maintenance" className="label">Maintenance mode</label>
-            <select id="admin-maintenance" value={settings['maintenance_mode'] || 'false'} onChange={(e) => setSettings({ ...settings, maintenance_mode: e.target.value })} className="input">
-              <option value="false">Off</option>
-              <option value="true">On (blocks all access)</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="admin-require-email" className="label">Require email at registration</label>
-            <select id="admin-require-email" value={settings['require_email'] || 'true'} onChange={(e) => setSettings({ ...settings, require_email: e.target.value })} className="input">
-              <option value="true">Yes (required)</option>
-              <option value="false">No (optional)</option>
-            </select>
-          </div>
-          <div>
-            <label htmlFor="admin-max-vehicles" className="label">Max vehicles per owner</label>
-            <input id="admin-max-vehicles" value="3 cars by default" readOnly className="input" /><p className="mt-1 text-xs text-ink-500">Open Members → View user → Car listing allowance to approve extra cars for a specific owner.</p>
-          </div>
-          <div>
             <label htmlFor="admin-contact-email" className="label">Admin contact email</label>
             <input id="admin-contact-email" type="email" value={settings['admin_contact_email'] || ''} onChange={(e) => setSettings({ ...settings, admin_contact_email: e.target.value })} className="input" />
           </div>
@@ -1567,8 +1612,8 @@ function AdminSettings() {
             </div>
           </fieldset>
         </div>
-        <button onClick={save} disabled={saving} className="btn-primary mt-4"><Save className="h-4 w-4" /> {saving ? 'Saving…' : 'Save settings'}</button>
       </div>
+      <div hidden={section !== 'controls'}><AdminControlCentre settings={settings} onChange={setSettings} /></div>
     </div>
   );
 }
