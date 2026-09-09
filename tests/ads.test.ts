@@ -22,7 +22,7 @@ test('footer video has an independent creative and obeys the master switch', () 
   assert.equal(videoAdIsVisible({ ...videoSettings, ads_enabled: 'false' }), false);
   assert.equal(videoAdIsVisible({ ...videoSettings, ads_video_enabled: 'false' }), false);
   assert.equal(videoAdIsVisible({ ...videoSettings, ads_video_destination: 'javascript:alert(1)' }), false);
-  assert.equal(videoAdIsVisible({ ...videoSettings, ads_video_url: 'https://youtube.com/watch?v=test' }), false);
+  assert.equal(videoAdIsVisible({ ...videoSettings, ads_video_url: 'https://youtube.com/watch?v=test' }), true, 'unrecognised video IDs become safe source-link cards');
   assert.ok(adSettingsError({ ...videoSettings, ads_video_title: '' }));
   assert.ok(adSettingsError({ ...videoSettings, ads_inline_enabled: 'true' }), 'banner placement still needs banner creative');
   assert.equal(videoAdIsVisible({ ...videoSettings, ads_provider: 'adsense' }), true, 'direct footer video is independent of the banner provider');

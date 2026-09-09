@@ -37,8 +37,8 @@ export function AdminAdMediaField({ label, kind, value, onChange, onBusy }: {
   };
   return <div className="space-y-2 rounded-xl border border-ink-100 p-3">
     <label htmlFor={`${id}-url`} className="label">{label}</label>
-    <input id={`${id}-url`} type="url" className="input" disabled={busy} value={value} placeholder={kind === 'video' ? 'https://example.com/advert.mp4' : 'https://example.com/image.jpg'} onChange={event => onChange(event.target.value)} aria-describedby={`${id}-help`} />
-    <p id={`${id}-help`} className="text-xs leading-5 text-ink-500">{kind === 'video' ? 'Upload MP4 or WebM up to 8 MB, or paste a direct file URL—not a YouTube/watch-page link. Short, compressed landscape videos work best.' : 'Optional. Upload JPG, PNG or WebP up to 3 MB, or paste a direct image URL.'} Uploaded ad media is public; never use private member documents.</p>
+    <input id={`${id}-url`} type="url" className="input" disabled={busy} value={value} placeholder={kind === 'video' ? 'https://www.youtube.com/watch?v=…' : 'https://example.com/image.jpg'} onChange={event => onChange(event.target.value)} aria-describedby={`${id}-help`} />
+    <p id={`${id}-help`} className="text-xs leading-5 text-ink-500">{kind === 'video' ? 'Paste a YouTube, Shorts, Vimeo or direct video URL, or upload MP4/WebM up to 8 MB. Other HTTPS links appear as a source-link card. Short, compressed landscape uploads work best.' : 'Optional. Upload JPG, PNG or WebP up to 3 MB, or paste a direct image URL.'} Uploaded ad media is public; never use private member documents.</p>
     <label className={`btn-secondary inline-flex cursor-pointer text-xs ${busy ? 'pointer-events-none opacity-50' : ''}`}><Upload className="h-4 w-4" />Choose {kind}
       <input type="file" className="sr-only" accept={kind === 'video' ? 'video/mp4,video/webm,.mp4,.webm' : 'image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp'} disabled={busy} onChange={event => {
         const selected = event.currentTarget.files?.[0]; event.currentTarget.value = '';

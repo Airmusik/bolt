@@ -21,6 +21,7 @@ export const AD_DEFAULTS = {
   ads_cta: 'Visit sponsor',
   ads_video_enabled: 'false',
   ads_video_url: '',
+  ads_video_source_type: 'auto',
   ads_video_poster: '',
   ads_video_sponsor: '',
   ads_video_title: '',
@@ -49,11 +50,12 @@ export function adSettingsError(settings: AdSettings): string | null {
   if (!['adsense', 'direct'].includes(settings.ads_provider)) return 'Choose a supported ad provider.';
   for (const [value, label, kind] of [
     [settings.ads_image_url, 'Sponsor image', 'image'],
-    [settings.ads_video_url, 'Video', 'video'],
     [settings.ads_video_poster, 'Video cover', 'image'],
   ] as const) {
-    if (value && !safeAdMediaUrl(value, kind)) return `${label} must be a direct HTTPS ${kind === 'video' ? 'MP4 or WebM' : 'JPG, PNG or WebP'} file URL.`;
+    if (value && !safeAdMediaUrl(value, kind)) return `${label} must be a direct HTTPS JPG, PNG or WebP file URL.`;
   }
+  if (!['auto', 'file'].includes(settings.ads_video_source_type)) return 'Choose automatic video detection or a direct video file.';
+  if (settings.ads_video_url && !resolveAdVideo(settings.ads_video_url, settings.ads_video_source_type)) return 'Enter a valid HTTPS video or source link without embedded credentials.';
   if (settings.ads_video_destination && !safeAdUrl(settings.ads_video_destination)) return 'Video destination must be a valid HTTPS URL without credentials.';
   if (settings.ads_video_sponsor.length > 60 || settings.ads_video_title.length > 80 || settings.ads_video_cta.length > 30 || settings.ads_cta.length > 30) return 'Ad text exceeds the allowed length.';
   if (settings.ads_enabled === 'true' && settings.ads_video_enabled === 'true' && videoAdError(settings)) return videoAdError(settings);
@@ -85,8 +87,51 @@ export function safeAdMediaUrl(value: string, kind: 'image' | 'video'): string |
 }
 export function videoAdError(settings: AdSettings): string | null {
   return settings.ads_video_sponsor.trim() && settings.ads_video_title.trim()
-    && safeAdMediaUrl(settings.ads_video_url, 'video') && safeAdUrl(settings.ads_video_destination)
-    ? null : 'For the footer video, add a sponsor, headline, MP4/WebM file and HTTPS destination.';
+    && resolveAdVideo(settings.ads_video_url, settings.ads_video_source_type) && videoAdDestination(settings)
+    ? null : 'For the footer ad, add a sponsor, headline and valid HTTPS video/source link.';
+}
+export type AdVideoSource = { kind: 'youtube' | 'vimeo' | 'file' | 'link'; url: string; id?: string; hash?: string };
+
+/** Never put an arbitrary page URL inside an iframe. Only known video IDs become embeds. */
+export function resolveAdVideo(value: string, mode = 'auto'): AdVideoSource | null {
+  const safe = safeAdUrl(value);
+  if (!safe) return null;
+  const url = new URL(safe);
+  const host = url.hostname.toLowerCase();
+  const path = url.pathname.split('/').filter(Boolean);
+  if (!url.port && ['youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com', 'youtu.be', 'www.youtu.be', 'youtube-nocookie.com', 'www.youtube-nocookie.com'].includes(host)) {
+    const candidate = host.endsWith('youtu.be') ? path[0] : path[0] === 'watch' ? url.searchParams.get('v') : ['shorts', 'embed', 'live'].includes(path[0]) ? path[1] : null;
+    if (candidate && /^[A-Za-z0-9_-]{11}$/.test(candidate)) return { kind: 'youtube', id: candidate, url: `https://www.youtube.com/watch?v=${candidate}` };
+    return { kind: 'link', url: safe };
+  }
+  if (!url.port && ['vimeo.com', 'www.vimeo.com', 'player.vimeo.com'].includes(host)) {
+    const match = url.pathname.match(host === 'player.vimeo.com' ? /^\/video\/(\d{1,12})\/?$/ : /^\/(\d{1,12})(?:\/([a-fA-F0-9]{6,64}))?\/?$/);
+    const hash = url.searchParams.get('h') || match?.[2] || '';
+    if (match && (!hash || /^[a-fA-F0-9]{6,64}$/.test(hash))) return { kind: 'vimeo', id: match[1], hash: hash || undefined, url: `https://vimeo.com/${match[1]}${hash ? `/${hash}` : ''}` };
+    return { kind: 'link', url: safe };
+  }
+  if (safeAdMediaUrl(safe, 'video') || mode === 'file') return { kind: 'file', url: safe };
+  return { kind: 'link', url: safe };
+}
+
+export function videoAdDestination(settings: AdSettings): string | null {
+  // An optional custom campaign destination takes precedence; otherwise go to the source.
+  if (settings.ads_video_destination.trim()) return safeAdUrl(settings.ads_video_destination);
+  return resolveAdVideo(settings.ads_video_url, settings.ads_video_source_type)?.url || null;
+}
+
+export function adVideoEmbedUrl(source: AdVideoSource, origin: string): string | null {
+  if (source.kind === 'youtube' && /^[A-Za-z0-9_-]{11}$/.test(source.id || '')) {
+    const url = new URL(`https://www.youtube-nocookie.com/embed/${source.id}`);
+    url.search = new URLSearchParams({ enablejsapi: '1', origin, autoplay: '0', playsinline: '1', controls: '1', rel: '0' }).toString();
+    return url.href;
+  }
+  if (source.kind === 'vimeo' && /^\d{1,12}$/.test(source.id || '') && (!source.hash || /^[a-fA-F0-9]{6,64}$/.test(source.hash))) {
+    const url = new URL(`https://player.vimeo.com/video/${source.id}`);
+    url.search = new URLSearchParams({ autoplay: '0', muted: '1', playsinline: '1', dnt: '1', ...(source.hash ? { h: source.hash } : {}) }).toString();
+    return url.href;
+  }
+  return null;
 }
 export function videoAdIsVisible(settings: AdSettings): boolean {
   return settings.ads_enabled === 'true' && settings.ads_video_enabled === 'true' && !videoAdError(settings);

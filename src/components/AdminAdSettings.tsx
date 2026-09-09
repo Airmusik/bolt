@@ -1,7 +1,7 @@
 import { useState, type ReactNode, type Dispatch, type SetStateAction } from 'react';
 import { LayoutGrid, Megaphone, MonitorPlay, Eye } from 'lucide-react';
 import type { SiteSettings } from '@/lib/siteSettings';
-import { AD_PLACEMENTS, type AdSettings } from '@/lib/ads';
+import { AD_PLACEMENTS, resolveAdVideo, type AdSettings } from '@/lib/ads';
 import { AdminAdMediaField } from './AdminAdMediaField';
 import { SponsorCreative } from './SponsorCreative';
 import { VideoAdCreative } from './FooterVideoAd';
@@ -12,6 +12,7 @@ export function AdminAdSettings({ settings, onChange, onBusy }: { settings: Site
   const direct = settings.ads_provider === 'direct';
   const update = (key: keyof AdSettings, value: string) => onChange(current => ({ ...current, [key]: value }));
   const enabled = AD_PLACEMENTS.filter(item => (direct || item.network) && settings[`ads_${item.id}_enabled`] === 'true').length;
+  const videoSource = resolveAdVideo(settings.ads_video_url, settings.ads_video_source_type);
   return <div className="space-y-4">
     <section className="card p-4 sm:p-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -53,15 +54,17 @@ export function AdminAdSettings({ settings, onChange, onBusy }: { settings: Site
     </Panel></div>
     <div hidden={section !== 'video'}><Panel title="Muted footer video" description="A separate sponsor video, aligned to the right near the footer on desktop and stacked on mobile. It stays in the page—not over chats or navigation.">
       <label className="flex min-h-11 items-center gap-3 text-sm font-semibold"><input type="checkbox" checked={settings.ads_video_enabled === 'true'} onChange={event => update('ads_video_enabled', String(event.target.checked))} className="h-5 w-5" />Show footer video advertisement</label>
-      <p className="text-xs leading-5 text-ink-500">Works with either banner provider. Plays muted when visible; pauses off-screen. Reduced-motion/data-saving users can press Play. Visitors can pause or close it. If autoplay is blocked, the Play button remains available.</p>
+      <p className="text-xs leading-5 text-ink-500">Works with either banner provider. Supported videos start muted when visible and pause off-screen. YouTube/Vimeo retain their own controls; visitors can close the ad or open its source. Reduced-motion/data-saving users can choose to load/play. Provider privacy or embedding restrictions may prevent playback; the source link remains available.</p>
       <div className="grid gap-4 sm:grid-cols-2"><TextField label="Video sponsor name" value={settings.ads_video_sponsor} max={60} onChange={value => update('ads_video_sponsor', value)} /><TextField label="Video headline" value={settings.ads_video_title} max={80} onChange={value => update('ads_video_title', value)} /></div>
-      <AdminAdMediaField label="Video file" kind="video" value={settings.ads_video_url} onChange={value => update('ads_video_url', value)} onBusy={onBusy} />
+      <AdminAdMediaField label="Video link or file" kind="video" value={settings.ads_video_url} onChange={value => update('ads_video_url', value)} onBusy={onBusy} />
+      <label className="block text-sm font-medium">Video link handling<select className="input mt-1" value={settings.ads_video_source_type} onChange={event => update('ads_video_source_type', event.target.value)}><option value="auto">Automatic · YouTube, Vimeo, video files or source link</option><option value="file">Direct video file · including URLs without a file extension</option></select><span className="mt-1 block text-xs font-normal leading-5 text-ink-500">Use Direct video file only for a URL that returns video—not a social-media webpage. The browser must support its format.</span></label>
+      {videoSource && <p role="status" className="rounded-xl bg-ink-50 p-3 text-sm">{videoSource.kind === 'youtube' ? 'YouTube player detected (including Shorts).' : videoSource.kind === 'vimeo' ? 'Vimeo player detected.' : videoSource.kind === 'file' ? 'Direct video player selected.' : 'Source-link card: this website is not supported for embedded playback.'} Check the Preview section before saving.</p>}
       <AdminAdMediaField label="Video cover image" kind="image" value={settings.ads_video_poster} onChange={value => update('ads_video_poster', value)} onBusy={onBusy} />
-      <div className="grid gap-4 sm:grid-cols-2"><TextField label="Video destination" value={settings.ads_video_destination} type="url" onChange={value => update('ads_video_destination', value)} help="The source or sponsor webpage, separate from the MP4/WebM file URL." /><TextField label="Video link button label" value={settings.ads_video_cta} max={30} onChange={value => update('ads_video_cta', value)} /></div>
+      <div className="grid gap-4 sm:grid-cols-2"><TextField label="Video destination (optional)" value={settings.ads_video_destination} type="url" onChange={value => update('ads_video_destination', value)} help="Leave blank to open the original video/source. Enter another HTTPS page only if the ad should go there instead. The title and link button use this destination." /><TextField label="Video link button label" value={settings.ads_video_cta} max={30} onChange={value => update('ads_video_cta', value)} /></div>
     </Panel></div>
     {section === 'preview' && <Panel title="Preview before publishing" description="This is your unsaved draft. Admin pages never display live ads. Sponsor links open the destination in a new tab; previews do not load Google ads.">
       {direct ? <SponsorCreative settings={settings} /> : <div className="rounded-xl border border-dashed border-ink-300 p-8 text-center text-sm text-ink-500">Google display unit · sizing and content are provided by Google on eligible public pages.</div>}
-      <h4 className="text-sm font-semibold">Footer video · press Play to test</h4><VideoAdCreative key={settings.ads_video_url} settings={settings} preview />
+      <h4 className="text-sm font-semibold">Footer video · press Play or Load video to test</h4><VideoAdCreative key={`${settings.ads_video_source_type}:${settings.ads_video_url}`} settings={settings} preview />
     </Panel>}
   </div>;
 }
