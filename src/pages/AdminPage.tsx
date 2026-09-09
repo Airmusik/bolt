@@ -1949,9 +1949,9 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
   if (messages.length === 0) return <div className="card p-8 text-center"><Mail className="mx-auto h-10 w-10 text-ink-300" /><p className="mt-3 text-sm text-ink-500">No messages yet.</p></div>;
 
   return (
-    <div className="grid min-h-[68vh] gap-4 lg:h-[68vh] lg:min-h-0 lg:grid-cols-[320px_1fr] lg:overflow-hidden">
+    <div className="admin-message-inbox grid min-h-0 grid-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
       {messages.map(thread => <SupportReceipt key={thread.id} thread={thread.id} entries={thread.entries || []} active={activeId === thread.id} />)}
-      <div className={cn('card overflow-y-auto', active && 'hidden lg:block')}>
+      <div className={cn('card min-h-0 min-w-0 overflow-y-auto', active && 'hidden lg:block')}>
         <div className="border-b border-ink-100 p-4"><h2 className="font-semibold text-ink-900">Messages</h2><p className="mt-1 text-xs text-ink-500">Direct support requests, replies, and attachments</p></div>
         {messages.map((message) => (
           <button key={message.id} type="button" onClick={() => setInboxParams({ tab: 'contact', message: message.id })} className={cn('flex w-full items-start gap-3 border-b border-ink-50 p-4 text-left hover:bg-ink-50', activeId === message.id && 'bg-brand-50')}>
@@ -1960,21 +1960,21 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
           </button>
         ))}
         </div>
-      <div className={cn('card min-h-0 flex-col overflow-hidden', !active ? 'hidden lg:flex' : 'flex')}>
+      <div className={cn('card min-h-0 min-w-0 flex-col overflow-hidden', !active ? 'hidden lg:flex' : 'flex')}>
         {active ? <>
-          <div className="flex flex-wrap items-center gap-3 border-b border-ink-100 p-4">
+          <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-ink-100 p-4">
             <button type="button" onClick={() => setInboxParams({ tab: 'contact' })} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-100"><ArrowLeft className="h-4 w-4" /> Back</button>
             <Avatar name={active.user?.full_name || active.name} src={active.user?.avatar_url} size={42} verified={active.user?.role === 'driver' && active.user?.is_verified} />
-            <div className="min-w-0"><p className="font-semibold text-ink-900">{active.user?.full_name || active.name}</p><p className="truncate text-xs text-ink-500">{active.email} · {active.user ? active.user.role === 'owner' ? 'Car owner' : 'Driver' : 'Guest message'}</p></div>
+            <div className="min-w-0 flex-1"><p className="break-words font-semibold text-ink-900">{active.user?.full_name || active.name}</p><p className="break-words text-xs text-ink-500">{active.email} · {active.user ? active.user.role === 'owner' ? 'Car owner' : 'Driver' : 'Guest message'}</p></div>
             <div className="ml-auto flex flex-wrap gap-2">{active.user && <button type="button" onClick={() => onViewUser(active.user!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View user</button>}<a href={`mailto:${active.email}`} className="btn-secondary px-3 py-1.5 text-xs"><Mail className="h-3.5 w-3.5" /> Email</a>{active.status !== 'resolved' && <button type="button" onClick={() => void onResolve(active)} className="btn-secondary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Resolve</button>}<button type="button" onClick={() => onDelete(active)} className="btn-ghost px-3 py-1.5 text-xs text-danger"><Trash2 className="h-3.5 w-3.5" /></button></div>
           </div>
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-ink-50/50 p-4">
+          <div role="region" aria-label="Message history" tabIndex={0} className="admin-message-history min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink-500">
             {entries.map((entry) => {
               const mine = entry.sender_role === 'admin';
               return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[80%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{mine ? `Official ${siteName} Support` : entry.sender?.full_name || active.name}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}{mine && !entry.unsent_at && <span> · {entry.read_at ? 'Read' : entry.delivered_at ? 'Delivered' : 'Sent'}</span>}</p>{mine && entry.sender_id === adminId && !entry.unsent_at && <button className="mt-1 text-xs underline" onClick={async () => { if (!window.confirm('Unsend this message? The recipient may already have seen it. Downloaded files cannot be recalled.')) return; const { error } = await supabase.rpc('admin_unsend_support_message', { p_entry: entry.id }); if (error) toast(error.message, 'error'); else await onRefresh(); }}>Unsend</button>}</div></div>;
             })}
           </div>
-          <div className="border-t border-ink-100 p-3">
+          <div className="shrink-0 border-t border-ink-100 p-3">
             {!active.user_id && <div className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">This guest is not signed in. Replies are stored here, but use the Email button to deliver the response.</div>}
             {attachment && <div className="mb-2 flex items-center justify-between rounded-lg bg-brand-50 px-3 py-2 text-xs text-brand-800"><span className="truncate">{attachment.name}</span><button type="button" onClick={() => { setAttachment(null); if (fileRef.current) fileRef.current.value = ''; }} className="font-bold">Remove</button></div>}
             <div className="flex items-end gap-2"><input ref={fileRef} type="file" accept="image/*,.heic,.heif,.pdf,.txt,.doc,.docx" className="hidden" onChange={(event) => setAttachment(event.target.files?.[0] || null)} /><button type="button" onClick={() => fileRef.current?.click()} className="mb-0.5 rounded-full p-2 text-ink-500 hover:bg-ink-100" aria-label="Attach file"><Upload className="h-5 w-5" /></button><AutoGrowTextarea value={reply} onChange={(event) => setReply(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void sendReply(); } }} className="input min-h-10 flex-1 py-2.5" placeholder="Reply to this message…" maxLength={5000} /><button type="button" onClick={() => void sendReply()} disabled={sending || (!reply.trim() && !attachment)} className="btn-primary mb-0.5 px-3">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button></div>

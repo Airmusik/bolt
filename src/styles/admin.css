@@ -77,3 +77,16 @@
 @media (min-width: 1280px) {
   .admin-member-actions .btn-secondary { flex: initial; }
 }
+
+/* Bound the grid on every screen size, not just desktop. Otherwise a phone's
+   history expands to fit all messages and never becomes an inner scroller. */
+.admin-message-inbox {
+  height: clamp(28rem, 70vh, 52rem);
+  height: clamp(28rem, 70dvh, 52rem);
+}
+.admin-message-history {
+  overflow-y: auto;
+  overscroll-behavior-y: auto;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
