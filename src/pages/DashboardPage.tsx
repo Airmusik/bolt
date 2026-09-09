@@ -1,4 +1,5 @@
 import { ProfileName } from '@/components/ProfileName';
+import { AdSlot } from '@/components/AdSlot';
 import { PromotionLink as Link, PromotionBadge, PromoteListingLink } from '@/components/PromotionLink';
 import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useEffect, useState, useCallback } from 'react';
@@ -234,7 +235,7 @@ export function DashboardPage() {
           </div>}
           <p className="mt-2 text-xs text-ink-500">Filter the dashboard recommendations. Use More search options to search the full directory.</p>
         </div>}
-        {tab === 'overview' && user && <OverviewTab conversations={conversations} pendingConnections={pendingConnections} profile={profile} userId={user.id} />}
+        {tab === 'overview' && user && <><OverviewTab conversations={conversations} pendingConnections={pendingConnections} profile={profile} userId={user.id} /><AdSlot placement="dashboard" /></>}
         {tab === 'drivers' && isOwner && <DriversTab users={drivers.filter(d => `${d.full_name} ${(d.platforms_worked || []).join(' ')}`.toLowerCase().includes(search.trim().toLowerCase()) && (d.location || '').toLowerCase().includes(locationFilter.trim().toLowerCase()))} loading={loading} siteName={settings.site_name} />}
         {tab === 'cars' && !isOwner && <AvailableCarsTab vehicles={availableCars.filter(v => `${v.make} ${v.model}`.toLowerCase().includes(search.trim().toLowerCase()) && (v.location || '').toLowerCase().includes(locationFilter.trim().toLowerCase()))} loading={loading} />}
         {tab === 'vehicles' && isOwner && <VehiclesTab vehicles={vehicles} loading={loading} onDeleted={load} />}

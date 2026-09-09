@@ -4,6 +4,7 @@ import { Facebook, Instagram, Linkedin, Mail, MapPin, Phone, ChevronDown } from 
 import { useSiteSettings } from '@/lib/siteSettings';
 import { SiteLogo } from './SiteLogo';
 import { AdSlot } from './AdSlot';
+import { FooterVideoAd } from './FooterVideoAd';
 
 export function Footer() {
   const [expanded, setExpanded] = useState(false);
@@ -13,6 +14,7 @@ export function Footer() {
     <footer className="relative z-10 border-t border-ink-100 bg-white/95 backdrop-blur-sm dark:bg-[#0b0b0d]/95">
       <div className="container-content py-6">
         <AdSlot placement="footer" />
+        <FooterVideoAd />
         {/* Mobile: collapsed behind a button */}
         <div className="flex w-full items-center justify-between md:hidden">
           <Link to="/" className="flex items-center gap-2">

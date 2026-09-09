@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapPin, Languages, Briefcase, ShieldCheck, Star, Flag, CalendarDays, Award, Mail } from 'lucide-react';
 import { BackButton } from '@/components/BackButton';
+import { AdSlot } from '@/components/AdSlot';
 import { supabase } from '@/lib/supabase';
 import { BROWSE_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { useAuth } from '@/lib/useAuth';
@@ -194,6 +195,7 @@ export function DriverProfilePage() {
         </aside>
       </div>
 
+      <AdSlot placement="detail" />
       {showReport && (
         <ReportModal targetType="user" targetId={profile.id} reportedId={profile.id} onClose={() => setShowReport(false)} onDone={() => { setShowReport(false); }} />
       )}

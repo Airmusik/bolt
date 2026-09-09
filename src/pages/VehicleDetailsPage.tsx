@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BackButton } from '@/components/BackButton';
+import { AdSlot } from '@/components/AdSlot';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   MapPin, Fuel, Settings2, Wallet, Calendar, ShieldCheck, AlertTriangle,
@@ -342,6 +343,7 @@ export function VehicleDetailsPage() {
       </div>
 
       {/* Report modal */}
+      <AdSlot placement="detail" />
       {showReport && (
         <ReportModal
           targetType="listing"

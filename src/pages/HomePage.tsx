@@ -197,6 +197,7 @@ export function HomePage() {
       )}
 
       {/* FEATURED LISTINGS */}
+      <div className="container-content"><AdSlot placement="home" /></div>
       <section className="container-content pt-4 pb-10 sm:pb-16">
         <div className="flex items-end justify-between gap-4">
           <div>

@@ -1,6 +1,6 @@
 # Google AdSense: connection-ready, disabled
 
-Admin → Settings → Advertisements → Google AdSense.
+Admin → Advertisements → Banner provider: Google AdSense → Google setup.
 
 The integration supports manual responsive horizontal display units on the public home and browse pages, in separated in-page/footer areas. It loads Google's script once when an enabled unit is visible. No requests are made while disabled or incomplete. IDs are validated; Google is not loaded in admin, chat, dashboard or account workflows. Direct-sponsor options remain separate.
 
