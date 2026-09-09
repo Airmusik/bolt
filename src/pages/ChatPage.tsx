@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole, Headphones, ImagePlus, Loader2, Search, ShieldCheck, Power } from 'lucide-react';
 import { CHAT_MEDIA_BUCKET, supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -24,6 +24,8 @@ import { isSupportPartner } from '@/lib/supportIdentity';
 import { SiteLogo } from '@/components/SiteLogo';
 import { ChatPartnerIdentity } from '@/components/ChatPartnerIdentity';
 import { AutoGrowTextarea } from '@/components/AutoGrowTextarea';
+import { SupportMessagesPage } from './ContactPage';
+import { SupportInboxEntry } from '@/components/SupportInboxEntry';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
@@ -75,6 +77,16 @@ function conversationPartnerId(conversation: Conversation, userId: string) {
 }
 
 export function ChatPage() {
+  const [params] = useSearchParams();
+  const { profile } = useAuth();
+  if (params.get('view') === 'support') {
+    if (profile?.role === 'admin') return <Navigate replace to="/admin?tab=contact" />;
+    return <SupportMessagesPage />;
+  }
+  return <MemberChatPage />;
+}
+
+function MemberChatPage() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
   const { user, profile, refreshProfile } = useAuth();
@@ -516,6 +528,7 @@ export function ChatPage() {
             </div>
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={conversationSearch} onChange={(event) => setConversationSearch(event.target.value)} aria-label="Search conversations" placeholder="Search people or cars" className="input h-10 rounded-xl bg-ink-50 py-2 pl-9 pr-3 text-xs focus:bg-ink-100" /></div>
           </div>
+          {profile?.role !== 'admin' && <SupportInboxEntry search={conversationSearch} />}
           {filteredConversationGroups.map((group) => {
             const c = group.latest;
             const otherUser = user?.id === c.driver_id ? (c.owner || c.admin) : user?.id === c.owner_id ? (c.driver || c.admin) : (c.driver || c.owner);

@@ -10,10 +10,12 @@ import { useToast } from '@/components/useToast';
 import { Modal } from '@/components/Modal';
 import { notifyUnreadCountChanged } from '@/lib/notificationEvents';
 import { useNavigate } from 'react-router-dom';
+import { supportInboxPath } from '@/lib/supportInbox';
 
 function notificationDestination(notification: Notification): string | null {
   const data = notification.data || {};
   const explicitPath = typeof data.path === 'string' ? data.path : typeof data.url === 'string' ? data.url : null;
+  if (explicitPath === '/contact' || explicitPath?.startsWith('/contact?')) return supportInboxPath(explicitPath.split('?')[1] || '');
   if (explicitPath?.startsWith('/') && !explicitPath.startsWith('//')) return explicitPath;
 
   const conversationId = typeof data.conversation_id === 'string' ? data.conversation_id : null;
@@ -115,7 +117,7 @@ export function NotificationsPage() {
         ) : (
           notifications.map((n) => (
             <div key={n.id} className={cn('card flex items-start gap-3 overflow-hidden p-2 transition hover:-translate-y-0.5 hover:shadow-card-hover', !n.read && 'ring-brand-200')}>
-              <div className="notification-bell-badge mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
+              <div className="notification-bell-badge mt-1 flex h-9 w-7 shrink-0 items-center justify-center">
                 <Bell className="h-4 w-4" />
               </div>
               <button type="button" onClick={() => openNotification(n)} className="min-w-0 flex-1 px-1 py-1 text-left" aria-label={`Open notification: ${n.title}`}>

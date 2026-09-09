@@ -12,7 +12,9 @@ test('signed-in support submissions continue the existing message thread', () =>
 });
 
 test('contact messages open in history and fit narrow screens', () => {
-  assert.match(page, /navigate\(`\/contact\?message=\$\{threadId\}`/);
+  assert.match(page, /navigate\(supportInboxPath/);
+  assert.match(page, /to="\/chat"/);
+  assert.match(page, /submissionInFlight\.current = true/);
   assert.match(page, /overflow-x-hidden/);
   assert.match(page, /break-all text-sm/);
   assert.match(page, /active && user && 'hidden lg:block'/);

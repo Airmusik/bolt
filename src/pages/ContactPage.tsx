@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FileText, Loader2, Mail, MapPin, MessageSquare, Paperclip, Phone, Send } from 'lucide-react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '@/components/useToast';
 import { BackButton } from '@/components/BackButton';
 import { SiteLogo } from '@/components/SiteLogo';
@@ -13,10 +13,19 @@ import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
 import { cn, formatDateTime, timeAgo } from '@/lib/utils';
 import { openContactAttachment, uploadContactAttachment } from '@/lib/contactAttachments';
 import { AutoGrowTextarea } from '@/components/AutoGrowTextarea';
+import { supportInboxPath } from '@/lib/supportInbox';
 
 const CONTACT_FILE_ACCEPT = 'image/*,.heic,.heif,.pdf,.txt,.doc,.docx,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
 export function ContactPage() {
+  const { user, profile, loading } = useAuth();
+  const [searchParams] = useSearchParams();
+  if (loading || (user && !profile)) return <div className="container-content py-6" role="status">Loading messages…</div>;
+  if (user) return <Navigate replace to={profile?.role === 'admin' ? `/admin?tab=contact${searchParams.get('message') ? `&message=${encodeURIComponent(searchParams.get('message')!)}` : ''}` : supportInboxPath(searchParams)} />;
+  return <SupportMessagesPage />;
+}
+
+export function SupportMessagesPage() {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -29,6 +38,7 @@ export function ContactPage() {
   const [reply, setReply] = useState('');
   const [replyFile, setReplyFile] = useState<File | null>(null);
   const [replying, setReplying] = useState(false);
+  const submissionInFlight = useRef(false);
   const newFileRef = useRef<HTMLInputElement>(null);
   const replyFileRef = useRef<HTMLInputElement>(null);
   const { settings } = useSiteSettings();
@@ -67,7 +77,7 @@ export function ContactPage() {
 
   useEffect(() => {
     if (user && !loadingThreads && !activeId && !searchParams.get('topic') && threads[0]) {
-      setSearchParams({ message: threads[0].id }, { replace: true });
+      setSearchParams({ view: 'support', message: threads[0].id }, { replace: true });
     }
   }, [activeId, loadingThreads, searchParams, setSearchParams, threads, user]);
 
@@ -98,7 +108,10 @@ export function ContactPage() {
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault();
+    if (submissionInFlight.current) return;
+    submissionInFlight.current = true;
     setLoading(true);
+    try {
     const payload = {
       user_id: user?.id || null,
       name: user ? profile?.full_name || form.name.trim() : form.name.trim(),
@@ -134,8 +147,10 @@ export function ContactPage() {
     toast(user ? 'Message sent. Replies and history will stay here.' : 'Message sent. Support will reply using your email address.');
     if (user && threadId) {
       await loadThreads();
-      navigate(`/contact?message=${threadId}`, { replace: true });
+      navigate(supportInboxPath(new URLSearchParams({ message: threadId })), { replace: true });
     }
+    } catch (error) { toast(error instanceof Error ? error.message : 'Could not send your message. Please try again.', 'error'); }
+    finally { submissionInFlight.current = false; setLoading(false); }
   };
 
   const sendReply = async () => {
@@ -172,9 +187,15 @@ export function ContactPage() {
   return (
     <div className="container-content overflow-x-hidden py-6 sm:py-10">
       {threads.map(thread => <SupportReceipt key={thread.id} thread={thread.id} entries={thread.entries || []} active={activeId === thread.id} />)}
-      <BackButton to={user ? '/dashboard' : '/'} />
+      {user ? <Link to="/chat" className="inline-flex min-h-11 items-center text-sm font-semibold text-ink-700">← All messages</Link> : <BackButton to="/" />}
       <h1 className="mt-4 font-display text-3xl font-bold text-ink-900">Messages</h1>
-      <p className="mt-2 text-ink-600">Contact support and keep every reply and attachment together.</p>
+      <p className="mt-2 text-ink-600">Your support conversation. Every reply and attachment stays in Messages.</p>
+      {user && threads.length > 1 && <label className="mt-4 block max-w-lg text-sm font-medium text-ink-700">Support history
+        <select className="input mt-1" value={activeId || ''} onChange={event => setSearchParams({ view: 'support', message: event.target.value })}>
+          <option value="" disabled>Choose previous messages</option>
+          {threads.map(thread => <option key={thread.id} value={thread.id}>{formatDateTime(thread.created_at)} · {thread.status}</option>)}
+        </select>
+      </label>}
 
       <div className="mt-6 grid min-w-0 gap-5 sm:mt-8 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.9fr)]">
         <div className={cn('min-w-0 space-y-5', active && user && 'hidden lg:block')}>
@@ -188,7 +209,7 @@ export function ContactPage() {
             <div className="card overflow-hidden">
               <div className="border-b border-ink-100 p-4"><h2 className="font-semibold text-ink-900">Your message history</h2><p className="mt-1 text-xs text-ink-500">Support replies appear here and on your notification icon.</p></div>
               {loadingThreads ? <div className="h-28 animate-pulse bg-ink-50" /> : threads.length === 0 ? <p className="p-5 text-sm text-ink-500">You have not contacted support yet.</p> : threads.map((thread) => (
-                <button key={thread.id} type="button" onClick={() => setSearchParams({ message: thread.id })} className={cn('flex w-full items-center gap-3 border-b border-ink-50 p-4 text-left transition hover:bg-ink-50', activeId === thread.id && 'bg-brand-50')}>
+                <button key={thread.id} type="button" onClick={() => setSearchParams({ view: 'support', message: thread.id })} className={cn('flex w-full items-center gap-3 border-b border-ink-50 p-4 text-left transition hover:bg-ink-50', activeId === thread.id && 'bg-brand-50')}>
                   <MessageSquare className="h-5 w-5 shrink-0 text-brand-600" />
                   <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink-900">{thread.message}</p><p className="mt-0.5 text-xs text-ink-500">{thread.entries?.length || 0} item(s) · {timeAgo(thread.updated_at || thread.created_at)}</p></div>
                   <span className={cn('badge capitalize', thread.status === 'new' ? 'badge-warning' : thread.status === 'resolved' ? 'badge-success' : 'badge-brand')}>{thread.status === 'new' ? 'Awaiting support' : thread.status}</span>
@@ -199,9 +220,9 @@ export function ContactPage() {
         </div>
 
         {active && user ? (
-          <div className="card flex min-h-[65dvh] min-w-0 flex-col overflow-hidden sm:min-h-[560px]">
+          <div className="card flex h-[70dvh] min-h-[380px] min-w-0 flex-col overflow-hidden">
             <div className="flex items-start gap-3 border-b border-ink-100 p-4"><SiteLogo size={40} /><div className="min-w-0"><h2 className="text-sm font-semibold text-ink-900">Official {settings.site_name} Support</h2><p className="mt-1 text-xs text-ink-500">Started {formatDateTime(active.created_at)} · history is saved</p></div></div>
-            <div className="flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4">
+            <div role="region" aria-label="Support message history" tabIndex={0} className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4">
               {(active.entries || []).map((entry) => {
                 const mine = entry.sender_role === 'user';
                 return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[85%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{mine ? 'You' : entry.sender_role === 'admin' ? `Official ${settings.site_name} Support` : entry.sender?.full_name || 'Guest'}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}{mine && !entry.unsent_at && <span> · {entry.read_at ? 'Read' : entry.delivered_at ? 'Delivered' : 'Sent'}</span>}</p></div></div>;

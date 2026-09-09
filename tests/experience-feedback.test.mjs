@@ -119,5 +119,18 @@ test('member reviews, private feedback, permissions and recurring prompt cooldow
     await assert.rejects(feedback(),/permission denied/);
     await assert.rejects(review(chat,5),/permission denied/);
     await assert.rejects(db.query('SELECT * FROM experience_feedback'),/permission denied/);
+    await db.exec('RESET ROLE');
+    await db.exec(await readFile(new URL('../supabase/migrations/20260909140000_feedback_popup_and_support_continuity.sql', import.meta.url),'utf8'));
+    await asUser(newbie);
+    assert.equal(await claim(),true,'new members can see the real site popup after browsing');
+    assert.equal(await claim(),false,'refresh does not immediately repeat a popup');
+    await asUser(owner);
+    assert.equal(await claim('chat',chat),true);
+    assert.equal(await claim(),true,'first site popup is not starved by a chat rating invitation');
+    await feedback('site',5);
+    await asUser(owner,'postgres');
+    await db.query("UPDATE experience_prompt_state SET prompted_at=now()-interval '2 days' WHERE user_id=$1",[owner]);
+    await asUser(owner);
+    assert.equal(await claim(),false,'a completed site rating keeps its monthly cooldown');
   } finally { await db.close(); }
 });

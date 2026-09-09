@@ -27,7 +27,12 @@ test('bell animation respects reduced motion and uses the live admin accent', ()
   const css = readFileSync('src/index.css', 'utf8');
   const header = readFileSync('src/components/Header.tsx', 'utf8');
   const notifications = readFileSync('src/pages/NotificationsPage.tsx', 'utf8');
-  assert.match(css, /\.notification-bell-link, \.notification-bell-badge \{ color: var\(--action\); \}/);
+  assert.match(css, /\.notification-bell-badge \{ color: var\(--action\); \}/);
+  assert.match(header, /notification-bell-link[^']*text-ink-900/);
+  assert.doesNotMatch(css, /\.notification-bell-badge \{ background:/);
+  assert.doesNotMatch(notifications, /notification-bell-badge[^"\n]*rounded-full/);
+  assert.match(css, /updates-icon-react/);
+  assert.match(header, /updates-header-icon/);
   assert.match(css, /@media \(prefers-reduced-motion: no-preference\) \{\s*\.notification-bell-icon/);
   assert.match(header, /notification-bell-icon/);
   assert.match(notifications, /notification-bell-badge/);
