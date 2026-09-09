@@ -1,0 +1,79 @@
+/* Admin surfaces use the theme's neutral tokens so text and controls stay
+   readable in both colour modes, including the bright cyan site palette. */
+.admin-portal .admin-navigation,
+.admin-portal .admin-member-toolbar {
+  background: rgb(var(--ink-50));
+  border-color: rgb(var(--ink-200) / .65);
+}
+.admin-portal .admin-section-scroll {
+  background: transparent;
+  padding-bottom: 5px;
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--ink-300)) transparent;
+}
+.admin-portal .admin-nav-button {
+  background: transparent;
+  border-color: transparent;
+  color: rgb(var(--ink-600));
+  animation: none;
+}
+.admin-portal .admin-nav-button > svg { animation: none; }
+.admin-portal .admin-nav-button:hover { background: rgb(var(--ink-100)); }
+.admin-portal .admin-nav-button[aria-pressed="true"] {
+  background: var(--theme-active);
+  border-color: var(--theme-active);
+  color: #fff;
+  box-shadow: inset 0 -2px 0 var(--action);
+}
+.admin-portal .admin-nav-count { background: rgb(var(--ink-200) / .45); color: inherit; }
+.admin-portal .admin-nav-button[aria-pressed="true"] .admin-nav-count { background: rgb(255 255 255 / .15); }
+.admin-member-filter {
+  background: transparent;
+  border-color: rgb(var(--ink-200));
+  color: rgb(var(--ink-700));
+  transition: background-color .15s, border-color .15s;
+}
+.admin-member-filter:hover { background: rgb(var(--ink-100)); }
+.admin-member-filter[aria-pressed="true"] {
+  background: var(--theme-active);
+  border-color: var(--theme-active);
+  color: #fff;
+}
+.admin-member-filter:focus-visible { outline: 2px solid rgb(var(--ink-900)); outline-offset: 2px; }
+.admin-member-card .admin-member-avatar > div {
+  background: rgb(var(--ink-100));
+  color: rgb(var(--ink-700));
+  --tw-ring-color: rgb(var(--ink-200));
+}
+.admin-member-actions .btn-secondary {
+  min-height: 44px;
+  flex: 1 1 auto;
+  border: 1px solid rgb(var(--ink-200));
+  background: rgb(var(--ink-50));
+  color: rgb(var(--ink-800));
+}
+.admin-member-actions .btn-secondary:hover { background: rgb(var(--ink-100)); }
+.admin-member-actions .admin-member-manage { font-weight: 600; }
+.dark .admin-portal .admin-nav-button[aria-pressed="true"],
+.dark .admin-member-filter[aria-pressed="true"] {
+  background: #3a424e;
+  border-color: #647080;
+  color: #fff;
+  box-shadow: inset 0 -2px 0 var(--action);
+}
+.dark .admin-portal .admin-member-card {
+  background: #252930;
+  box-shadow: 0 0 0 1px #39404a;
+}
+.dark .admin-portal .admin-add-member {
+  background: #f1f5f9;
+  color: #17202c;
+}
+.dark .admin-portal .admin-add-member:hover { background: #dce5ed; }
+.dark .admin-members .badge-success { background: #183c31; color: #9fe7c8; --tw-ring-color: #346452; }
+.dark .admin-members .badge-warning { background: #40331c; color: #f8d994; --tw-ring-color: #75603a; }
+.dark .admin-members .badge-danger { background: #44262e; color: #ffc0cb; --tw-ring-color: #79404e; }
+.admin-members :is(.badge-success, .badge-warning, .badge-danger) { padding: 5px 9px; }
+@media (min-width: 1280px) {
+  .admin-member-actions .btn-secondary { flex: initial; }
+}

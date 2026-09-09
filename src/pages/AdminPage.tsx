@@ -24,6 +24,7 @@ import { historyState } from '@/lib/documentLifecycle';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
 import { cn, timeAgo, formatDate, formatDateTime } from '@/lib/utils';
+import '@/styles/admin.css';
 
 const SUSPEND_REASONS = [
   'Fake or misleading profile',
@@ -500,7 +501,7 @@ export function AdminPage() {
   });
 
   return (
-    <div className="container-content py-8">
+    <div className="admin-portal container-content py-5 sm:py-8">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <ShieldCheck className="h-7 w-7 text-brand-600" />
@@ -510,22 +511,22 @@ export function AdminPage() {
       </div>
       <p className="mt-1 text-sm text-ink-500">Manage driver platform-history reviews, upload approvals, listings, reports and member support.</p>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s) => (
           <div key={s.label} className="card p-4">
-            <s.icon className="h-5 w-5 text-brand-600" />
+            <s.icon className="h-5 w-5 text-ink-500" />
             <p className="mt-2 font-display text-xl font-bold text-ink-900">{loading ? '—' : s.value}</p>
             <p className="text-xs text-ink-500">{s.label}</p>
           </div>
         ))}
       </div>
 
-      <div className="mt-8 flex items-center gap-2 rounded-2xl border border-sky-100 bg-sky-50/50 p-2 dark:border-sky-900 dark:bg-sky-950/20">
-        <div className="flex min-w-0 flex-1 gap-2 overflow-x-auto" aria-label="Admin sections">
-        {orderedTabs.map((t, index) => (
-          <button type="button" key={t.key} aria-pressed={tab === t.key} style={{ animationDelay: `${index * .3}s` }} onClick={() => { if (t.key === 'cars') setCarStatusFilter('all'); setTab(t.key); }} className={cn('admin-nav-button flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl border px-4 py-2.5 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500', tab === t.key ? 'border-transparent bg-gradient-to-r from-sky-700 to-teal-700 text-white shadow-sm' : 'border-sky-100 bg-white text-sky-800 hover:border-teal-300 hover:bg-teal-50 dark:border-sky-800 dark:bg-sky-950/50 dark:text-sky-100 dark:hover:bg-teal-950')}>
+      <div className="admin-navigation mt-6 flex items-center gap-2 rounded-2xl border border-ink-200 p-2">
+        <div className="admin-section-scroll flex min-w-0 flex-1 gap-1.5 overflow-x-auto" aria-label="Admin sections">
+        {orderedTabs.map((t) => (
+          <button type="button" key={t.key} aria-pressed={tab === t.key} onClick={() => { if (t.key === 'cars') setCarStatusFilter('all'); setTab(t.key); }} className="admin-nav-button flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border px-3 py-2.5 text-sm font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900">
             <t.icon className="h-4 w-4" /> {t.label}
-            {t.badge !== undefined && t.badge > 0 && <span className="ml-0.5 rounded-full bg-brand-100 px-1.5 py-0.5 text-[10px] font-bold text-brand-700">{t.badge}</span>}
+            {t.badge !== undefined && t.badge > 0 && <span className="admin-nav-count ml-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold">{t.badge}</span>}
           </button>
         ))}
         </div>
@@ -538,7 +539,7 @@ export function AdminPage() {
           {navOrderDraft.map((key, index) => {
             const item = tabs.find((entry) => entry.key === key);
             if (!item) return null;
-            return <div key={key} className="flex items-center gap-3 rounded-xl border border-ink-200 bg-white p-3 dark:bg-ink-900">
+            return <div key={key} className="flex items-center gap-3 rounded-xl border border-ink-200 bg-ink-50 p-3">
               <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-50 text-xs font-bold text-sky-800">{index + 1}</span>
               <item.icon className="h-4 w-4 text-teal-700" />
               <span className="min-w-0 flex-1 text-sm font-semibold text-ink-900">{item.label}</span>
@@ -554,7 +555,7 @@ export function AdminPage() {
       </Modal>}
 
       <div className="mt-6">
-        {(tab === 'members' || tab === 'cars') && (
+        {tab === 'cars' && (
           <div className="mb-4 flex items-center gap-2">
             <Search className="h-4 w-4 text-ink-400" />
             <input
@@ -566,7 +567,8 @@ export function AdminPage() {
               data-lpignore="true"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder={tab === 'cars' ? 'Search cars…' : 'Search name, email, or phone…'}
+              placeholder="Search cars…"
+              aria-label="Search cars"
               className="input max-w-xs"
             />
           </div>
@@ -637,29 +639,50 @@ export function AdminPage() {
 
         {/* ---------- All members ---------- */}
         {tab === 'members' && !loading && (
-          <div className="space-y-2">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
+          <section className="admin-members space-y-3" aria-labelledby="admin-members-heading">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div><h2 id="admin-members-heading" className="text-xl font-semibold text-ink-900">Members</h2><p className="mt-1 text-sm text-ink-500">Find an account and manage its profile.</p></div>
+              <button type="button" onClick={() => setAddingMember(true)} className="admin-add-member btn-primary min-h-11 px-4"><UserPlus className="h-4 w-4" /> Add member</button>
+            </div>
+            <div className="admin-member-toolbar flex flex-col gap-3 rounded-xl border border-ink-200 p-3 xl:flex-row xl:items-center xl:justify-between">
+              <div className="relative w-full xl:max-w-sm">
+                <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-ink-500" />
+                <input type="search" name="member-filter-query" autoComplete="one-time-code" data-form-type="other" data-1p-ignore="true" data-lpignore="true" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, email, or phone…" aria-label="Search members by name, email, or phone" className="input min-h-11 pl-10" />
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 xl:flex" role="group" aria-label="Filter members by role">
               {(['all', 'driver', 'owner'] as const).map((role) => (
-                <button key={role} onClick={() => setMemberRoleFilter(role)} className={cn('rounded-full px-3 py-1.5 text-xs font-medium capitalize ring-1', memberRoleFilter === role ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-600 ring-ink-200')}>
-                  {role === 'all' ? `All members (${users.length})` : `${role === 'driver' ? 'Drivers' : 'Owners'} (${role === 'driver' ? drivers.length : owners.length})`}
+                <button type="button" key={role} aria-pressed={memberRoleFilter === role} onClick={() => setMemberRoleFilter(role)} className="admin-member-filter min-h-11 rounded-lg border px-2 py-2 text-xs font-semibold sm:px-3">
+                  {role === 'all' ? 'All members' : role === 'driver' ? 'Drivers' : 'Owners'} <span className="ml-1 opacity-80">({role === 'all' ? users.length : role === 'driver' ? drivers.length : owners.length})</span>
                 </button>
               ))}
-              <button type="button" onClick={() => setAddingMember(true)} className="btn-primary ml-auto px-3 py-2 text-sm"><UserPlus className="h-4 w-4" /> Add member</button>
+              </div>
             </div>
             {addingMember && <AdminAddMember onClose={() => setAddingMember(false)} onCreated={load} />}
             {filteredUsers.map((member) => (
-              <div key={member.id} className="card flex flex-wrap items-center gap-3 p-4">
-                <Avatar name={member.full_name} src={member.avatar_url} size={42} verified={member.role === 'driver' && member.is_verified} />
-                <div className="min-w-0 flex-1"><p className="font-medium text-ink-900"><ProfileName id={member.id} name={member.full_name} /></p><p className="truncate text-xs text-ink-500">{member.email || 'No email'} · {member.phone || 'No phone'} · <span className="capitalize">{member.role}</span></p><p className="mt-1 flex items-center gap-1 text-xs font-medium text-brand-700"><CalendarDays className="h-3.5 w-3.5" /> Joined {formatDate(member.created_at)}</p></div>
-                <span className={member.email_confirmed ? 'badge-success' : 'badge-warning'}>{member.email_confirmed ? 'Email confirmed' : 'Email not confirmed'}</span>
+              <article key={member.id} className="admin-member-card card grid min-w-0 gap-4 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center">
+                <div className="flex min-w-0 items-start gap-3">
+                  <Avatar className="admin-member-avatar" name={member.full_name} src={member.avatar_url} size={44} verified={member.role === 'driver' && member.is_verified} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1"><p className="break-words font-semibold text-ink-900"><ProfileName id={member.id} name={member.full_name} /></p><span className="admin-member-role rounded-md bg-ink-50 px-2 py-1 text-[11px] font-medium text-ink-600">{member.role === 'owner' ? 'Car owner' : member.role === 'driver' ? 'Driver' : 'Admin'}</span></div>
+                    <div className="mt-1 flex flex-col gap-x-3 gap-y-1 text-xs leading-5 text-ink-600 sm:flex-row sm:flex-wrap"><span className="min-w-0 break-all">{member.email || 'No email'}</span><span>{member.phone || 'No phone'}</span></div>
+                    <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-500"><CalendarDays className="h-3.5 w-3.5 shrink-0" /> Joined {formatDate(member.created_at)}</p>
+                  </div>
+                </div>
+                <div className="admin-member-controls flex min-w-0 flex-col gap-3 border-t border-ink-100 pt-3 xl:items-end xl:border-0 xl:pt-0">
+                  <div className="flex flex-wrap gap-2">
+                    <span className={member.email_confirmed ? 'badge-success' : 'badge-warning'}>{member.email_confirmed ? <CheckCircle2 className="h-3.5 w-3.5" /> : <Mail className="h-3.5 w-3.5" />}{member.email_confirmed ? 'Email confirmed' : 'Email not confirmed'}</span>
+                    {member.is_suspended && <span className="badge-danger"><Ban className="h-3 w-3" /> Suspended</span>}
+                  </div>
+                  <div className="admin-member-actions flex flex-wrap gap-2">
                 {member.email_confirmed === false && member.role !== 'admin' && <button className="btn-secondary px-3 py-2 text-sm" onClick={() => setConfirmAction({ message: `Manually confirm ${member.email}? This bypasses the email-link check. Continue only if you have independently verified that this member owns the address. This action is recorded.`, label: 'Confirm email', onConfirm: async () => { const { error } = await supabase.rpc('admin_confirm_member_email', { p_user: member.id }); if (error) { toast(error.message, 'error'); return; } toast('Email confirmed.'); await load(); } })}>Confirm email</button>}
-                {member.is_suspended && <span className="badge-danger"><Ban className="h-3 w-3" /> Suspended</span>}
                 {member.is_suspended && <button onClick={() => openReinstate(member)} className="btn-secondary px-3 py-2 text-sm text-success"><ShieldCheck className="h-4 w-4" /> Reinstate</button>}
-                <button onClick={() => setViewingUser(member)} className="btn-primary px-3 py-2 text-sm"><Eye className="h-4 w-4" /> Manage profile</button>
-              </div>
+                <button type="button" onClick={() => setViewingUser(member)} className="admin-member-manage btn-secondary px-3 py-2 text-sm"><Eye className="h-4 w-4" /> Manage profile</button>
+                  </div>
+                </div>
+              </article>
             ))}
-            {filteredUsers.length === 0 && <p className="text-sm text-ink-500">No users found.</p>}
-          </div>
+            {filteredUsers.length === 0 && <p className="rounded-xl border border-ink-200 p-6 text-center text-sm text-ink-500">No members match this search or filter.</p>}
+          </section>
         )}
 
         {/* ---------- Drivers ---------- */}
