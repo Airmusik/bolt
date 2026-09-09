@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Link2, MessageSquare, Check, X, Clock, Send } from 'lucide-react';
+import { Link2, MessageSquare, Check, X, Clock } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { useToast } from '@/components/useToast';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +14,8 @@ import { DriverApprovalNotice } from './DriverApprovalNotice';
 import { driverNeedsApproval } from '@/lib/driverEligibility';
 import { notifyAdAction } from '@/lib/ads';
 import { canRequestConnection, CONNECTION_ROLE_MESSAGE } from '@/lib/connectionEligibility';
+import { ACCEPT_CAR_CONNECTION_MESSAGE } from '@/lib/vehicleAvailability';
+import { ConnectionRequestDialog } from './ConnectionRequestDialog';
 
 interface Props {
   otherUserId: string;
@@ -31,7 +33,6 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   const [otherProfile, setOtherProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [showAcceptWarning, setShowAcceptWarning] = useState(false);
@@ -41,7 +42,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
     if (!user) { setLoading(false); return; }
     (async () => {
       const [conn, { data: other }] = await Promise.all([
-        getConnectionBetween(user.id, otherUserId),
+        getConnectionBetween(user.id, otherUserId, vehicleId),
         supabase.from('profiles').select(PUBLIC_PROFILE_FIELDS).eq('id', otherUserId).maybeSingle(),
       ]);
       setConnection(conn);
@@ -56,23 +57,22 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
       }
       setLoading(false);
     })();
-  }, [user, otherUserId]);
+  }, [user, otherUserId, vehicleId]);
 
-  const handleSend = async () => {
+  const handleSend = async (message: string, selectedVehicleId: string) => {
     if (!user) { navigate('/login'); return; }
     if (!canRequestConnection(profile?.role, otherProfile?.role)) {
       toast(CONNECTION_ROLE_MESSAGE, 'error');
       return;
     }
     setSending(true);
-    const { connection, error } = await sendConnectionRequest(user.id, otherUserId, message, vehicleId);
+    const { connection, error } = await sendConnectionRequest(user.id, otherUserId, message, selectedVehicleId);
     setSending(false);
     if (error) { toast(error, 'error'); return; }
     if (connection) setConnection(connection);
     toast('Connection request sent.');
     notifyAdAction('connection');
     setShowModal(false);
-    setMessage('');
   };
 
   const handleAccept = async () => {
@@ -81,7 +81,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
     if (error) { toast(error, 'error'); return; }
     setConnection({ ...connection, status: 'accepted' });
     if (conversationId) setConversationId(conversationId);
-    toast('Connection accepted. Both profiles are now shown as currently on a connection.');
+    toast('Connection accepted. The driver and this car are now on a connection. Other cars remain available.');
   };
 
   const handleReject = async () => {
@@ -114,7 +114,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
       </div>
       {showCancelWarning && <ConfirmDialog title="Cancel this request?" message="The recipient will be notified in the app." confirmLabel="Cancel request" danger onClose={() => setShowCancelWarning(false)} onConfirm={async () => {
         const { error } = await updateConnectionStatus(connection.id, 'withdrawn');
-        if (error) { toast(error, 'error'); setConnection(await getConnectionBetween(user.id, otherUserId)); return; }
+        if (error) { toast(error, 'error'); setConnection(await getConnectionBetween(user.id, otherUserId, vehicleId)); return; }
         setConnection({ ...connection, status: 'withdrawn' });
         toast('Connection request cancelled.');
       }} />}
@@ -133,11 +133,12 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
   </>;
   if (driverNeedsApproval(otherProfile) && connection?.status !== 'accepted') return <span className={cn('rounded-lg bg-amber-50 p-3 text-xs text-amber-800', className)}>This driver needs approved platform history before connecting.</span>;
 
-  // If the other user is unavailable, don't show the connect button
-  if (otherProfile && otherProfile.availability !== 'available' && (!connection || connection.status === 'rejected' || connection.status === 'withdrawn' || connection.status === 'ended')) {
+  // Reserve the driver, not the owner's whole fleet. The backend checks the selected car.
+  const driver = profile?.role === 'driver' ? profile : otherProfile?.role === 'driver' ? otherProfile : null;
+  if (driver && driver.availability !== 'available' && connection?.status !== 'accepted' && connection?.status !== 'pending') {
     return (
       <span className={cn('inline-flex items-center gap-1.5 rounded-lg bg-ink-100 px-3 py-1.5 text-xs font-medium text-ink-500', btnSize, className)}>
-        <Clock className="h-3.5 w-3.5" /> {otherProfile.availability === 'busy' ? 'Currently on a connection' : 'Unavailable'}
+        <Clock className="h-3.5 w-3.5" /> {driver.availability === 'busy' ? 'Driver currently on a connection' : 'Driver unavailable'}
       </span>
     );
   }
@@ -150,18 +151,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
           <Link2 className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> Connect
         </button>
         {showModal && (
-          <Modal title="Send connection request" onClose={() => setShowModal(false)}>
-            <textarea
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={3}
-              placeholder="Introduce yourself…"
-              className="input"
-            />
-            <button onClick={handleSend} disabled={sending} className="btn-primary mt-4 w-full">
-              {sending ? 'Sending…' : 'Send request'} <Send className="h-4 w-4" />
-            </button>
-          </Modal>
+          <ConnectionRequestDialog ownerId={profile?.role === 'owner' ? user.id : otherUserId} vehicleId={vehicleId} sending={sending} onSend={handleSend} onClose={() => setShowModal(false)} />
         )}
       </>
     );
@@ -177,7 +167,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
         </div>
         {showAcceptWarning && <ConfirmDialog
           title="Accept this connection?"
-          message="After you accept, both profiles will show “Currently on a connection.” Neither member can accept another connection until this one is ended."
+          message={ACCEPT_CAR_CONNECTION_MESSAGE}
           confirmLabel="Accept connection"
           onConfirm={handleAccept}
           onClose={() => setShowAcceptWarning(false)}
@@ -205,10 +195,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
         <Link2 className={size === 'sm' ? 'h-3.5 w-3.5' : 'h-4 w-4'} /> Connect
       </button>
       {showModal && (
-        <Modal title="Send connection request" onClose={() => setShowModal(false)}>
-          <textarea value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder="Introduce yourself…" className="input" />
-          <button onClick={handleSend} disabled={sending} className="btn-primary mt-4 w-full">{sending ? 'Sending…' : 'Send request'} <Send className="h-4 w-4" /></button>
-        </Modal>
+        <ConnectionRequestDialog ownerId={profile?.role === 'owner' ? user.id : otherUserId} vehicleId={vehicleId} sending={sending} onSend={handleSend} onClose={() => setShowModal(false)} />
       )}
     </>
   );

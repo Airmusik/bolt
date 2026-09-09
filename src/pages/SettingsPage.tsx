@@ -233,8 +233,8 @@ export function SettingsPage() {
         {/* Availability */}
         <div className="card p-5">
           <h2 className="flex items-center gap-2 font-semibold text-ink-900"><Bell className="h-5 w-5" /> Availability</h2>
-          <p className="mt-2 text-sm text-ink-600">Control whether other users can see you as available for connections.</p>
-          {profile && driverNeedsApproval(profile) ? <div className="mt-4"><DriverApprovalNotice profile={profile} /><button type="button" disabled className="btn-secondary mt-3 w-full opacity-60">Availability locked until approval</button></div> : <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="mt-2 text-sm text-ink-600">{profile?.role === 'owner' ? 'Set each car live or not live in My vehicles. A connection on one car does not stop other drivers connecting to your other live cars.' : 'Control whether other users can see you as available for connections.'}</p>
+          {profile?.role === 'owner' ? <button type="button" onClick={() => navigate('/dashboard?tab=vehicles')} className="btn-secondary mt-4">Manage my vehicles</button> : profile && driverNeedsApproval(profile) ? <div className="mt-4"><DriverApprovalNotice profile={profile} /><button type="button" disabled className="btn-secondary mt-3 w-full opacity-60">Availability locked until approval</button></div> : <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <AvailabilityBadge availability={availability} profile={profile || undefined} />
             </div>

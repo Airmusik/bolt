@@ -18,6 +18,8 @@ import { ConnectionButton } from '@/components/ConnectionButton';
 import { formatKES, formatDate, timeAgo, expiryStatus, titleCase, cn } from '@/lib/utils';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { DeleteListingButton } from '@/components/DeleteListingButton';
+import { VehicleLiveButton } from '@/components/VehicleLiveButton';
+import { isVehicleLive } from '@/lib/vehicleAvailability';
 import { MemberSafetyNotice } from '@/components/MemberSafetyNotice';
 
 export function VehicleDetailsPage() {
@@ -301,9 +303,9 @@ export function VehicleDetailsPage() {
             )}
 
             <div className="mt-4 flex items-center gap-2 rounded-lg bg-ink-50 px-3 py-2 text-sm">
-              {vehicle.availability === 'available'
+              {isVehicleLive(vehicle)
                 ? <><CheckCircle2 className="h-4 w-4 text-brand-600" /><span className="text-brand-700 font-medium">Available now</span></>
-                : <><span className="h-2 w-2 rounded-full bg-amber-500" /><span className="text-amber-700 font-medium">Currently taken</span></>}
+                : <><span className="h-2 w-2 rounded-full bg-amber-500" /><span className="text-ink-600 font-medium">Not live · No new requests</span></>}
             </div>
 
             {/* Owner card */}
@@ -326,9 +328,11 @@ export function VehicleDetailsPage() {
             {/* Actions */}
             <div className="mt-5 space-y-2">
               {isOwner ? (
-                <><Link to={`/vehicles/${vehicle.id}/edit`} className="btn-secondary w-full">Edit listing</Link><DeleteListingButton id={vehicle.id} onDeleted={() => navigate('/dashboard?tab=vehicles')} /></>
+                <><VehicleLiveButton vehicle={vehicle} onChanged={() => void loadVehicle()} /><Link to={`/vehicles/${vehicle.id}/edit`} className="btn-secondary w-full">Edit listing</Link><DeleteListingButton id={vehicle.id} onDeleted={() => navigate('/dashboard?tab=vehicles')} /></>
               ) : !vehicle.owner ? (
                 <p className="rounded-lg bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-700">The owner profile is currently unavailable.</p>
+              ) : !isVehicleLive(vehicle) ? (
+                <p className="rounded-lg bg-ink-50 px-3 py-2 text-center text-sm text-ink-600">This listing is not accepting new requests. Existing conversations remain in <Link to="/chat" className="font-semibold underline">Messages</Link>.</p>
               ) : (
                 <ConnectionButton otherUserId={vehicle.owner_id} vehicleId={vehicle.id} className="w-full" />
               )}

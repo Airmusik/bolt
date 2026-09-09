@@ -6,6 +6,7 @@ import { Avatar } from './Avatar';
 import { ProfileName } from './ProfileName';
 import { Rating } from './Rating';
 import { ModeratedImage } from './ModeratedImage';
+import { isVehicleLive } from '@/lib/vehicleAvailability';
 
 interface Props {
   vehicle: VehicleWithRelations;
@@ -47,8 +48,8 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
           {showApprovalStatus && vehicle.approval_status === 'approved' && <span className="badge-success">Approved</span>}
           {showApprovalStatus && vehicle.approval_status === 'rejected' && <span className="badge-danger">Changes required</span>}
           <PromotionBadge kind="listing" id={vehicle.id} ownerId={vehicle.owner_id} featured={vehicle.featured} />
-          {vehicle.availability === 'available' && <span className="badge-brand">Available</span>}
-          {vehicle.availability !== 'available' && <span className="badge-neutral">Taken</span>}
+          {isVehicleLive(vehicle) ? <span className="badge-brand">Live · Available</span> : <span className="badge-neutral">Not live</span>}
+
         </div>
         {issuesCount > 0 && (
           <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-amber-50/95 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200">

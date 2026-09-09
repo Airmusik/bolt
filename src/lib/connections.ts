@@ -1,11 +1,13 @@
 import { supabase } from './supabase';
 import type { Connection } from './types';
 
-export async function getConnectionBetween(userId: string, otherId: string): Promise<Connection | null> {
-  const { data } = await supabase
+export async function getConnectionBetween(userId: string, otherId: string, vehicleId?: string): Promise<Connection | null> {
+  let query = supabase
     .from('connections')
     .select('*')
-    .or(`and(requester_id.eq.${userId},recipient_id.eq.${otherId}),and(requester_id.eq.${otherId},recipient_id.eq.${userId})`)
+    .or(`and(requester_id.eq.${userId},recipient_id.eq.${otherId}),and(requester_id.eq.${otherId},recipient_id.eq.${userId})`);
+  if (vehicleId) query = query.eq('vehicle_id', vehicleId);
+  const { data } = await query
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();

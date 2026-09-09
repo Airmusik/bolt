@@ -167,7 +167,8 @@ export function VehicleFormPage() {
       minimum_driver_experience_years: Number(form.minimum_driver_experience_years),
       requirements: form.requirements || null,
       registered_platforms: form.registered_platforms,
-      availability: form.availability,
+      // Text edits must not overwrite a live status changed by a connection.
+      ...(!isEdit ? { availability: form.availability, status: form.availability === 'available' ? 'active' : 'closed' } : {}),
       insurance_type: form.insurance_type,
       insurance_expiry: form.insurance_expiry || null,
       available_from: form.available_from || null,
@@ -314,12 +315,12 @@ export function VehicleFormPage() {
             <Field label="Monthly target (KES)" hint="Optional alternative monthly amount."><input type="number" value={form.monthly_target} onChange={(e) => setForm({ ...form, monthly_target: e.target.value })} className="input" placeholder="optional" /></Field>
             <Field label="Deposit (KES)" hint="Enter 0 when no deposit is required."><input type="number" value={form.deposit} onChange={(e) => setForm({ ...form, deposit: e.target.value })} className="input" placeholder="0 if none" /></Field>
           </div>
-          <Field label="Availability" hint="Choose whether drivers can currently apply for this vehicle.">
+          {!isEdit ? <Field label="Listing visibility" hint="Only admin-approved listings can go live. You can change this later in My vehicles.">
             <select value={form.availability} onChange={(e) => setForm({ ...form, availability: e.target.value })} className="input">
-              <option value="available">Available now</option>
-              <option value="taken">Currently taken</option>
+              <option value="available">Live after admin approval</option>
+              <option value="taken">Not live — keep off browsing</option>
             </select>
-          </Field>
+          </Field> : <p className="mt-4 text-sm text-ink-500">Editing details does not change whether your car is live. Use “Set live” or “Set not live” in My vehicles to control requests.</p>}
         </Card>
 
         {/* Insurance */}

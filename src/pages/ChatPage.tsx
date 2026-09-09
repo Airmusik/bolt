@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { END_CAR_CONNECTION_MESSAGE } from '@/lib/vehicleAvailability';
 import { useParams, Link, useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole, Headphones, ImagePlus, Loader2, Search, ShieldCheck, Power } from 'lucide-react';
 import { CHAT_MEDIA_BUCKET, supabase } from '@/lib/supabase';
@@ -489,7 +490,7 @@ function MemberChatPage() {
       return;
     }
     await Promise.all([loadConversations(), refreshProfile()]);
-    toast('Connection ended. Both members are available again and this chat remains saved as read-only history.');
+    toast('Connection ended. Chat history is saved. The owner can set this car live again when ready.');
   };
 
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
@@ -725,7 +726,7 @@ function MemberChatPage() {
       {showEndConnection && canEndConnection && (
         <ConfirmDialog
           title="End this connection?"
-          message="Both members will become available for new connections. This chat will become read-only, but its complete history will remain saved for reference and dispute support."
+          message={END_CAR_CONNECTION_MESSAGE}
           confirmLabel="End connection"
           danger
           onConfirm={endActiveConnection}

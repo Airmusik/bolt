@@ -23,6 +23,8 @@ import { useSiteSettings } from '@/lib/siteSettings';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { ConnectionProgress } from '@/components/ConnectionProgress';
 import { DeleteListingButton } from '@/components/DeleteListingButton';
+import { VehicleLiveButton } from '@/components/VehicleLiveButton';
+import { ACCEPT_CAR_CONNECTION_MESSAGE, END_CAR_CONNECTION_MESSAGE } from '@/lib/vehicleAvailability';
 import { driverNeedsApproval, driverApprovalMessage } from '@/lib/driverEligibility';
 import { ProfileCompletionChecklist } from '@/components/ProfileCompletionChecklist';
 import { ReportFollowUpTracker } from '@/components/ReportFollowUpTracker';
@@ -315,7 +317,21 @@ function AvailableCarsTab({ vehicles, loading }: { vehicles: VehicleWithRelation
 function VehiclesTab({ vehicles, loading, onDeleted }: { vehicles: VehicleWithRelations[]; loading: boolean; onDeleted: () => void }) {
   if (loading) return <div className="card h-48 animate-pulse" />;
   if (vehicles.length === 0) return <EmptyState title="No vehicles yet" description="Add your first vehicle to start receiving applications." action={<Link to="/vehicles/new" className="btn-primary">Add vehicle</Link>} />;
-return <div><div className="mb-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">New listings require admin approval. Published listings can be edited at any time; rejected listings must be corrected and resubmitted.</div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <div key={v.id} className="space-y-2"><VehicleCard vehicle={v} showOwner={false} showApprovalStatus /><Link to={`/vehicles/${v.id}/edit`} className="btn-secondary px-3 py-1.5 text-xs"><Pencil className="h-4 w-4" /> {v.approval_status === 'rejected' ? 'Edit & resubmit listing' : v.approval_status === 'approved' ? 'Edit published listing' : 'Edit submission'}</Link>{v.approval_status === 'approved' && v.status === 'active' && <PromoteListingLink id={v.id} ownerId={v.owner_id} />}<DeleteListingButton id={v.id} onDeleted={onDeleted} /></div>)}</div></div>;
+  return <div>
+    <div className="mb-4 rounded-xl bg-ink-50 px-4 py-3 text-sm text-ink-700 ring-1 ring-ink-200">
+      <p className="font-semibold">Control each car separately</p>
+      <p className="mt-1">New listings need admin approval. Set an approved car live to receive requests, or not live to pause it. Connecting one car does not block your other live cars. After a connection ends, set that car live again when it is ready.</p>
+    </div>
+    <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{vehicles.map((v) => <div key={v.id} className="space-y-2">
+      <VehicleCard vehicle={v} showOwner={false} showApprovalStatus />
+      <div className="flex flex-wrap gap-2">
+        <VehicleLiveButton vehicle={v} onChanged={onDeleted} />
+        <Link to={`/vehicles/${v.id}/edit`} className="btn-secondary px-3 py-1.5 text-xs"><Pencil className="h-4 w-4" /> {v.approval_status === 'rejected' ? 'Edit & resubmit' : 'Edit listing'}</Link>
+        {v.approval_status === 'approved' && v.status === 'active' && <PromoteListingLink id={v.id} ownerId={v.owner_id} />}
+        <DeleteListingButton id={v.id} onDeleted={onDeleted} />
+      </div>
+    </div>)}</div>
+  </div>;
 }
 
 function OwnerApplicationsTab({ applications, onAction, toast }: { applications: OwnerApplication[]; onAction: () => void; toast: ToastFn }) {
@@ -330,14 +346,14 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
       p_status: status,
     });
     if (error) { toast(error.message, 'error'); return; }
-    toast(status === 'accepted' ? 'Application accepted. Both profiles are now shown as currently on a connection.' : `Application ${status}.`);
+    toast(status === 'accepted' ? 'Application accepted. This car is reserved; other live cars remain open.' : `Application ${status}.`);
     onAction();
   };
 
   if (applications.length === 0) return <EmptyState title="No applications yet" description="When drivers connect with you, they'll appear here." />;
   return (
     <div className="space-y-3">
-      {applications.some((application) => application.status === 'pending') && <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:text-amber-100">Accepting an application sets both members to <strong>Currently on a connection</strong>. Neither member can accept another connection until the active one is ended.</div>}
+      {applications.some((application) => application.status === 'pending') && <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:text-amber-100">{ACCEPT_CAR_CONNECTION_MESSAGE}</div>}
       {applications.map((a) => (
         <div key={a.id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <Link to={`/drivers/${a.driver_id}`} className="flex items-center gap-3">
@@ -374,7 +390,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
       )}
       {accepting && <ConfirmDialog
         title="Accept this application?"
-        message="Both profiles will show “Currently on a connection,” and neither member can accept another connection until this arrangement is ended."
+        message={ACCEPT_CAR_CONNECTION_MESSAGE}
         confirmLabel="Accept application"
         onConfirm={() => act(accepting, 'accepted')}
         onClose={() => setAccepting(null)}
@@ -419,7 +435,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
   const handleAccept = async (c: Connection) => {
     const { error } = await updateConnectionStatus(c.id, 'accepted');
     if (error) { toast(error, 'error'); return; }
-    toast('Connection accepted. Both profiles are now shown as currently on a connection.');
+    toast('Connection accepted. This car is reserved; other live cars remain open.');
     onAction();
   };
   const handleReject = async (c: Connection) => {
@@ -448,7 +464,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
       {pendingIn.length > 0 && (
         <div>
           <h3 className="font-display text-lg font-bold text-ink-900">Pending requests ({pendingIn.length})</h3>
-          <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:text-amber-100">Accepting a request sets both members to <strong>Currently on a connection</strong>. Neither member can accept another connection until this one is ended.</div>
+          <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:text-amber-100">{ACCEPT_CAR_CONNECTION_MESSAGE}</div>
           <div className="mt-3 space-y-3">
             {pendingIn.map((c) => (
               <div key={c.id} className="card flex flex-wrap items-center gap-3 p-4">
@@ -537,7 +553,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
       )}
       {accepting && <ConfirmDialog
         title="Accept this connection?"
-        message="Both profiles will show “Currently on a connection,” and neither member can accept another connection until this one is ended."
+        message={ACCEPT_CAR_CONNECTION_MESSAGE}
         confirmLabel="Accept connection"
         onConfirm={() => handleAccept(accepting)}
         onClose={() => setAccepting(null)}
@@ -545,7 +561,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
       {confirmingAction && <ConfirmDialog
         title={confirmingAction.action === 'end' ? 'End this connection?' : confirmingAction.action === 'cancel' ? 'Cancel this request?' : 'Reject this request?'}
         message={confirmingAction.action === 'end'
-          ? 'Both members will become available again and this conversation will become read-only. The chat history will remain saved.'
+          ? END_CAR_CONNECTION_MESSAGE
           : confirmingAction.action === 'cancel'
             ? 'The recipient will no longer be able to accept this request. You can send a new request later.'
             : 'The sender will be notified and would need to send a new request if they want to connect later.'}
