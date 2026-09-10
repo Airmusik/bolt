@@ -17,6 +17,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const { settings } = useSiteSettings();
   const navigate = useNavigate();
   const location = useLocation();
+  const community = location.pathname === '/community';
   useEffect(() => {
     // Page changes must not inherit the footer's scroll position. Query-only
     // navigation and authentication refreshes leave the current page alone.
@@ -35,15 +36,15 @@ export function Layout({ children }: { children: ReactNode }) {
   }, [profile?.is_suspended, location.pathname, navigate]);
 
   return (
-    <div className={`flex min-h-screen flex-col ${showMemberNavigation ? '[--member-nav-height:10.25rem] sm:[--member-nav-height:6.25rem]' : '[--member-nav-height:0px]'}`}>
-      <Header />
+    <div className={`flex min-h-screen flex-col ${community ? 'community-layout' : ''} ${showMemberNavigation ? '[--member-nav-height:10.25rem] sm:[--member-nav-height:6.25rem]' : '[--member-nav-height:0px]'}`}>
+      <div className={community ? 'hidden sm:contents' : 'contents'}><Header /></div>
       <SiteAnalyticsTracker />
-      {showMemberNavigation && <DashboardNavigation key={user.id} role={profile.role as 'owner' | 'driver'} userId={user.id} />}
+      {showMemberNavigation && <div className={community ? 'hidden sm:contents' : 'contents'}><DashboardNavigation key={user.id} role={profile.role as 'owner' | 'driver'} userId={user.id} /></div>}
       <ExperienceFeedbackPrompt />
       <ActionAd />
       {settings.maintenance_mode !== 'true' && !location.pathname.startsWith('/admin') && location.pathname !== '/community' && <InstallAppPrompt />}
-      <main key={location.pathname} className={location.pathname.startsWith('/chat') || location.pathname.startsWith('/admin') ? 'flex-1' : 'page-enter flex-1'}>{children}</main>
-      <Footer key={`footer:${location.pathname}`} />
+      <main key={location.pathname} className={community || location.pathname.startsWith('/chat') || location.pathname.startsWith('/admin') ? 'flex-1' : 'page-enter flex-1'}>{children}</main>
+      <div className={community ? 'hidden sm:contents' : 'contents'}><Footer key={`footer:${location.pathname}`} /></div>
     </div>
   );
 }

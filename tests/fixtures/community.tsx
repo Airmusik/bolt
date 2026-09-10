@@ -4,6 +4,9 @@ import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { CommunityRoom } from "../../src/components/CommunityRoom";
+import { CommunityFrame } from "../../src/components/CommunityFrame";
+import { CommunityBanDialog } from "../../src/components/CommunityBanDialog";
+import { useCommunitySound } from "../../src/lib/useCommunitySound";
 import { ConfirmDialog } from "../../src/components/ConfirmDialog";
 import { Modal } from "../../src/components/Modal";
 import {
@@ -29,7 +32,12 @@ const sample = (index: number): CommunityMessage => ({
   filtered: false,
 });
 export function Fixture() {
-  const [role, setRole] = useState<CommunitySession["role"]>("driver");
+  const [role, setRole] = useState<CommunitySession["role"]>(() =>
+    new URLSearchParams(location.search).get("role") === "admin"
+      ? "admin"
+      : "driver",
+  );
+  const [asSupport, setAsSupport] = useState(true);
   const [enabled, setEnabled] = useState(true);
   const [muted, setMuted] = useState(false);
   const [messages, setMessages] = useState(
@@ -53,7 +61,14 @@ export function Fixture() {
         : role === "driver"
           ? "Member 20cab190ef"
           : "Member f329a146bf",
+    member_alias:
+      role === "admin"
+        ? "Member abcde12345"
+        : role === "driver"
+          ? "Member 20cab190ef"
+          : "Member f329a146bf",
   };
+  const sound = useCommunitySound(messages, false, session.member_alias);
   return (
     <BrowserRouter>
       <div
@@ -102,7 +117,7 @@ export function Fixture() {
           Unmute test member
         </button>
       </div>
-      <div style={{ maxWidth: 940, margin: "0 auto", padding: 12 }}>
+      <CommunityFrame>
         <CommunityRoom
           key={role}
           siteName="11Drive"
@@ -111,6 +126,11 @@ export function Fixture() {
           loading={false}
           sending={sending}
           connection="Live"
+          backTo="/tests/fixtures/community.html"
+          soundEnabled={sound.enabled}
+          onToggleSound={sound.toggle}
+          asSupport={asSupport}
+          onIdentityChange={role === "admin" ? setAsSupport : undefined}
           error=""
           notice={notice}
           hasOlder={older}
@@ -132,15 +152,20 @@ export function Fixture() {
               : undefined
           }
           onSend={async (body) => {
+            const id = crypto.randomUUID();
+            sound.rememberOwn(id);
             setSending(true);
             await new Promise((resolve) => setTimeout(resolve, 600));
             const safe = filterCommunityText(body);
             setMessages((current) =>
               mergeCommunityMessages(current, [
                 {
-                  id: crypto.randomUUID(),
-                  alias: session.alias,
-                  member_role: role,
+                  id,
+                  alias:
+                    role === "admin" && !asSupport
+                      ? session.member_alias!
+                      : session.alias,
+                  member_role: role === "admin" && !asSupport ? "member" : role,
                   body: safe,
                   filtered: safe !== body,
                   created_at: new Date().toISOString(),
@@ -153,7 +178,7 @@ export function Fixture() {
             return true;
           }}
         />
-      </div>
+      </CommunityFrame>
       {report && (
         <Modal title="Report community message" onClose={() => setReport(null)}>
           <p className="text-sm text-ink-600">
@@ -178,34 +203,47 @@ export function Fixture() {
           </button>
         </Modal>
       )}
-      {confirm && (
-        <ConfirmDialog
-          title="Confirm community action"
-          message={
-            confirm.action === "toggle"
-              ? "Change whether members can view and post in the room?"
-              : "Apply this moderation action? Private chats and ratings stay unchanged."
-          }
-          confirmLabel="Confirm"
+      {confirm?.action === "mute" ? (
+        <CommunityBanDialog
+          alias={confirm.message?.alias || "Member"}
           onClose={() => setConfirm(null)}
-          onConfirm={async () => {
-            if (confirm.action === "toggle") setEnabled(!enabled);
-            if (confirm.action === "mute") setMuted(true);
-            if (confirm.action === "remove")
-              setMessages((current) =>
-                current.map((row) =>
-                  row.id === confirm.message?.id
-                    ? {
-                        ...row,
-                        removed: true,
-                        body: "Message removed by a moderator.",
-                      }
-                    : row,
-                ),
-              );
-            setNotice("Community updated.");
+          onBan={async (hours, reason) => {
+            setNotice(
+              `Test ban applied: ${hours ?? "indefinite"} hours · ${reason}`,
+            );
+            return true;
           }}
         />
+      ) : (
+        confirm && (
+          <ConfirmDialog
+            title="Confirm community action"
+            message={
+              confirm.action === "toggle"
+                ? "Change whether members can view and post in the room?"
+                : "Apply this moderation action? Private chats and ratings stay unchanged."
+            }
+            confirmLabel="Confirm"
+            onClose={() => setConfirm(null)}
+            onConfirm={async () => {
+              if (confirm.action === "toggle") setEnabled(!enabled);
+              if (confirm.action === "mute") setMuted(true);
+              if (confirm.action === "remove")
+                setMessages((current) =>
+                  current.map((row) =>
+                    row.id === confirm.message?.id
+                      ? {
+                          ...row,
+                          removed: true,
+                          body: "Message removed by a moderator.",
+                        }
+                      : row,
+                  ),
+                );
+              setNotice("Community updated.");
+            }}
+          />
+        )
       )}
     </BrowserRouter>
   );

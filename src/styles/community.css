@@ -49,6 +49,39 @@
   }
 }
 @media (max-width: 639px) {
+  .community-layout {
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .community-page {
+    position: fixed;
+    top: var(--community-viewport-top, 0px);
+    left: 0;
+    width: 100%;
+    max-width: none;
+    height: var(--community-viewport-height, 100dvh);
+    padding: 0;
+    z-index: 40;
+  }
+  .community-page .community-room {
+    height: 100%;
+    min-height: 0;
+    border-radius: 0;
+    border: 0;
+  }
+  .community-page .community-room > header {
+    max-height: 45%;
+    overflow-y: auto;
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+  .community-page .community-room > footer {
+    max-height: 45%;
+    overflow-y: auto;
+  }
+  .community-embedded > .community-room {
+    display: none;
+  }
   .community-room {
     height: calc(100dvh - var(--member-nav-height, 0px) - 7.25rem);
     min-height: 480px;

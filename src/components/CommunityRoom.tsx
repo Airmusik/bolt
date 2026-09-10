@@ -9,6 +9,8 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import {
   COMMUNITY_LIMIT,
@@ -36,6 +38,11 @@ export type CommunityRoomProps = {
   onSend: (text: string) => Promise<boolean>;
   onReport: (message: CommunityMessage) => void;
   onModerate?: (action: "remove" | "mute", message: CommunityMessage) => void;
+  backTo?: string;
+  soundEnabled?: boolean;
+  onToggleSound?: () => void;
+  asSupport?: boolean;
+  onIdentityChange?: (support: boolean) => void;
 };
 export function CommunityRoom(props: CommunityRoomProps) {
   const { session, messages, loading, sending } = props;
@@ -54,6 +61,14 @@ export function CommunityRoom(props: CommunityRoomProps) {
     atBottom.current = true;
     setNewMessages(false);
   };
+  useLayoutEffect(() => {
+    if (!pane.current || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => {
+      if (atBottom.current) scrollBottom();
+    });
+    observer.observe(pane.current);
+    return () => observer.disconnect();
+  }, []);
   useLayoutEffect(() => {
     if (!pane.current) return;
     const latest = messages[messages.length - 1]?.id;
@@ -94,11 +109,20 @@ export function CommunityRoom(props: CommunityRoomProps) {
       <header className="shrink-0 border-b border-ink-100 bg-white p-4 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700">
+            {props.backTo && (
+              <Link
+                to={props.backTo}
+                aria-label="Back from community"
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-ink-800 hover:bg-ink-50"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+            )}
+            <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 sm:flex">
               <Users className="h-6 w-6" />
             </span>
             <div className="min-w-0">
-              <h1 className="font-display text-xl font-bold text-ink-900 sm:text-2xl">
+              <h1 className="font-display text-lg font-bold text-ink-900 sm:text-2xl">
                 Community lounge
               </h1>
               <p className="mt-1 text-xs text-ink-500">
@@ -106,18 +130,40 @@ export function CommunityRoom(props: CommunityRoomProps) {
               </p>
             </div>
           </div>
-          <span
-            role="status"
-            className="flex shrink-0 items-center gap-1.5 pt-1 text-[11px] text-ink-600"
-          >
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            {props.onToggleSound && (
+              <button
+                type="button"
+                aria-label={
+                  props.soundEnabled
+                    ? "Mute community sounds"
+                    : "Enable community sounds"
+                }
+                aria-pressed={props.soundEnabled}
+                title="New messages sound after you interact with this page"
+                onClick={props.onToggleSound}
+                className="flex h-10 w-10 items-center justify-center rounded-lg text-ink-700 hover:bg-ink-50"
+              >
+                {props.soundEnabled ? (
+                  <Volume2 className="h-5 w-5" />
+                ) : (
+                  <VolumeX className="h-5 w-5" />
+                )}
+              </button>
+            )}
             <span
-              className={cn(
-                "h-1.5 w-1.5 rounded-full",
-                session?.enabled ? "bg-emerald-500" : "bg-ink-400",
-              )}
-            />
-            {session?.enabled ? props.connection : "Paused"}
-          </span>
+              role="status"
+              className="flex shrink-0 items-center gap-1.5 pt-1 text-[11px] text-ink-600"
+            >
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  session?.enabled ? "bg-emerald-500" : "bg-ink-400",
+                )}
+              />
+              {session?.enabled ? props.connection : "Paused"}
+            </span>
+          </div>
         </div>
         <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-ink-600">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
@@ -137,17 +183,45 @@ export function CommunityRoom(props: CommunityRoomProps) {
             messages and pause posting.
           </p>
         </details>
-        {session && (
-          <p className="mt-2 text-xs text-ink-600">
-            Posting as{" "}
-            <span className="font-semibold text-ink-900">{session.alias}</span>{" "}
-            ·{" "}
-            {session.role === "owner"
-              ? "Car owner"
-              : session.role === "admin"
-                ? "Official moderator"
-                : "Driver"}
-          </p>
+        {session?.role === "admin" && props.onIdentityChange ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <label
+              htmlFor="community-post-identity"
+              className="font-medium text-ink-700"
+            >
+              Post as
+            </label>
+            <select
+              id="community-post-identity"
+              className="input !h-9 !w-auto min-w-0 max-w-full !py-1 text-xs"
+              value={props.asSupport ? "support" : "alias"}
+              disabled={sending || !session.member_alias}
+              onChange={(event) =>
+                props.onIdentityChange?.(event.target.value === "support")
+              }
+            >
+              <option value="support">Official {props.siteName} Support</option>
+              <option value="alias">
+                My alias · {session.member_alias || "Loading…"}
+              </option>
+            </select>
+            <span className="text-ink-500">New messages only</span>
+          </div>
+        ) : (
+          session && (
+            <p className="mt-2 text-xs text-ink-600">
+              Posting as{" "}
+              <span className="font-semibold text-ink-900">
+                {session.alias}
+              </span>{" "}
+              ·{" "}
+              {session.role === "owner"
+                ? "Car owner"
+                : session.role === "admin"
+                  ? "Official moderator"
+                  : "Driver"}
+            </p>
+          )
         )}
       </header>
       {props.error && (
@@ -228,7 +302,9 @@ export function CommunityRoom(props: CommunityRoomProps) {
         ) : (
           messages.map((message) => {
             const moderator = message.member_role === "admin";
-            const mine = !moderator && message.alias === session?.alias;
+            const mine =
+              !moderator &&
+              message.alias === (session?.member_alias || session?.alias);
             return (
               <article
                 key={message.id}
@@ -244,7 +320,9 @@ export function CommunityRoom(props: CommunityRoomProps) {
                   )}
                 >
                   <span className="font-bold text-ink-700">
-                    {moderator ? "Official moderator" : message.alias}
+                    {moderator
+                      ? `Official ${props.siteName} Support`
+                      : message.alias}
                     {mine ? " · You" : ""}
                   </span>
                   <span className="text-ink-500">
@@ -252,7 +330,9 @@ export function CommunityRoom(props: CommunityRoomProps) {
                       ? "Support"
                       : message.member_role === "owner"
                         ? "Car owner"
-                        : "Driver"}
+                        : message.member_role === "member"
+                          ? "Member"
+                          : "Driver"}
                   </span>
                 </div>
                 <div
@@ -305,13 +385,13 @@ export function CommunityRoom(props: CommunityRoomProps) {
                       >
                         Remove
                       </button>
-                      {!moderator && (
+                      {!moderator && !mine && (
                         <button
                           type="button"
                           className="min-h-8 px-2 text-ink-700"
                           onClick={() => props.onModerate?.("mute", message)}
                         >
-                          Mute member
+                          Ban from community
                         </button>
                       )}
                     </>
@@ -340,7 +420,11 @@ export function CommunityRoom(props: CommunityRoomProps) {
         )}
         {session?.muted ? (
           <p className="text-sm text-ink-700">
-            Community posting is paused for your account.{" "}
+            You are banned from posting in the community
+            {session.muted_until
+              ? ` until ${new Date(session.muted_until).toLocaleString()}`
+              : " until a moderator unbans you"}
+            .{session.muted_reason ? ` Reason: ${session.muted_reason}.` : ""}{" "}
             <Link to="/contact" className="underline">
               Contact support
             </Link>

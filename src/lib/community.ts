@@ -1,7 +1,7 @@
 export type CommunityMessage = {
   id: string;
   alias: string;
-  member_role: "driver" | "owner" | "admin";
+  member_role: "driver" | "owner" | "admin" | "member";
   body: string;
   created_at: string;
   removed: boolean;
@@ -10,8 +10,11 @@ export type CommunityMessage = {
 export type CommunitySession = {
   enabled: boolean;
   alias: string;
+  member_alias?: string;
   role: "driver" | "owner" | "admin";
   muted: boolean;
+  muted_until?: string | null;
+  muted_reason?: string | null;
 };
 export type CommunityReport = CommunityMessage & {
   reports: number;
@@ -19,7 +22,11 @@ export type CommunityReport = CommunityMessage & {
 };
 export type CommunityModeration = {
   reports: CommunityReport[];
-  muted: { alias: string }[];
+  muted: {
+    alias: string;
+    muted_until?: string | null;
+    muted_reason?: string | null;
+  }[];
 };
 export const COMMUNITY_LIMIT = 1000;
 
@@ -106,6 +113,7 @@ export function communityError(error: unknown) {
     "Phone numbers, email addresses and links are not allowed. Write a message without contact details.",
     "Report limit reached. Please contact support.",
     "This message cannot be reported.",
+    "This member cannot be banned.",
   ])
     if (raw.includes(message)) return message;
   return "Could not complete that action. Check your connection and try again. Your draft is still here.";

@@ -123,6 +123,12 @@ test("community database enforces anonymity, filtering, moderation, pause and sp
       ]);
       await db.exec(`SET ROLE ${role === "anon" ? "anon" : "authenticated"}`);
     };
+    await db.exec(
+      readFileSync(
+        "supabase/migrations/20260910150000_community_posting_identity.sql",
+        "utf8",
+      ),
+    );
     const releaseRate = async () => {
       await db.exec(
         "RESET ROLE;UPDATE operations_private.community_authors SET created_at=now()-interval '2 minutes'",
@@ -394,6 +400,171 @@ test("community database enforces anonymity, filtering, moderation, pause and sp
           ]),
           /slow down/,
         );
+      },
+    );
+    await t.test(
+      "admin can post as a stable alias or Support without changing existing messages",
+      async () => {
+        await releaseRate();
+        await actor("admin");
+        const session = (await db.query("SELECT community_session() s")).rows[0]
+          .s;
+        assert.match(session.member_alias, /^Member [a-f0-9]{10}$/);
+        assert.notEqual(session.alias, session.member_alias);
+        const aliasId = crypto.randomUUID();
+        const alias = (
+          await db.query("SELECT (community_send($1,$2,false)).*", [
+            "A community tip 👋",
+            aliasId,
+          ])
+        ).rows[0];
+        assert.equal(alias.alias, session.member_alias);
+        assert.equal(alias.member_role, "member");
+        assert.ok(!JSON.stringify(alias).includes(ids.admin));
+        const retried = (
+          await db.query("SELECT (community_send($1,$2,true)).*", [
+            "A community tip 👋",
+            aliasId,
+          ])
+        ).rows[0];
+        assert.deepEqual(
+          retried,
+          alias,
+          "Retry never relabels a published message",
+        );
+        await releaseRate();
+        await actor("admin");
+        const support = (
+          await db.query("SELECT (community_send($1,$2,true)).*", [
+            "Support can help.",
+            crypto.randomUUID(),
+          ])
+        ).rows[0];
+        assert.equal(support.member_role, "admin");
+        assert.equal(support.alias, "Community moderator");
+        assert.equal(
+          (
+            await db.query(
+              "SELECT member_role FROM community_messages WHERE id=$1",
+              [aliasId],
+            )
+          ).rows[0].member_role,
+          "member",
+        );
+        await db.exec("RESET ROLE");
+        assert.equal(
+          (
+            await db.query(
+              "SELECT user_id FROM operations_private.community_authors WHERE message_id=$1",
+              [aliasId],
+            )
+          ).rows[0].user_id,
+          ids.admin,
+        );
+        await releaseRate();
+        await actor("owner");
+        const normal = (
+          await db.query("SELECT (community_send($1,$2,true)).*", [
+            "An owner tip.",
+            crypto.randomUUID(),
+          ])
+        ).rows[0];
+        assert.equal(
+          normal.member_role,
+          "owner",
+          "Members cannot impersonate support",
+        );
+        await actor("anon");
+        await assert.rejects(
+          db.query("SELECT community_send($1,$2,false)", [
+            "Hi",
+            crypto.randomUUID(),
+          ]),
+          /permission denied/,
+        );
+      },
+    );
+    await t.test(
+      "timed bans block posting server-side, expire automatically, and allow early unban",
+      async () => {
+        await releaseRate();
+        await actor("owner");
+        await assert.rejects(
+          db.query(
+            "SELECT admin_community_action('mute',$1,NULL,1,'Spam or scams')",
+            [messageId],
+          ),
+          /Administrator/,
+        );
+        await actor("admin");
+        for (const hours of [0, 721, -1])
+          await assert.rejects(
+            db.query("SELECT admin_community_action('mute',$1,NULL,$2)", [
+              messageId,
+              hours,
+            ]),
+            /Choose a ban/,
+          );
+        await db.query(
+          "SELECT admin_community_action('mute',$1,NULL,1,'Spam or scams')",
+          [messageId],
+        );
+        const active = (await db.query("SELECT admin_community_overview() s"))
+          .rows[0].s.muted;
+        assert.equal(active.length, 1);
+        assert.equal(active[0].muted_reason, "Spam or scams");
+        assert.ok(Date.parse(active[0].muted_until) > Date.now() + 3500000);
+        await actor("driver");
+        const blocked = (await db.query("SELECT community_session() s")).rows[0]
+          .s;
+        assert.equal(blocked.muted, true);
+        assert.equal(blocked.muted_reason, "Spam or scams");
+        await assert.rejects(
+          db.query("SELECT community_send($1,$2,false)", [
+            "Blocked",
+            crypto.randomUUID(),
+          ]),
+          /muted/,
+        );
+        await db.exec(
+          "RESET ROLE;UPDATE operations_private.community_members SET muted_until=clock_timestamp()-interval '1 second' WHERE muted",
+        );
+        await actor("driver");
+        assert.equal(
+          (await db.query("SELECT community_session() s")).rows[0].s.muted,
+          false,
+        );
+        await db.query("SELECT community_send($1,$2)", [
+          "My timed ban ended.",
+          crypto.randomUUID(),
+        ]);
+        await actor("admin");
+        assert.equal(
+          (await db.query("SELECT admin_community_overview() s")).rows[0].s
+            .muted.length,
+          0,
+        );
+        await db.query(
+          "SELECT admin_community_action('mute',$1,NULL,168,'Community rules violation')",
+          [messageId],
+        );
+        await db.query("SELECT admin_community_action('unmute',NULL,$1)", [
+          blocked.member_alias,
+        ]);
+        await actor("driver");
+        const unbanned = (await db.query("SELECT community_session() s"))
+          .rows[0].s;
+        assert.equal(unbanned.muted, false);
+        assert.equal(unbanned.muted_until, null);
+        assert.equal(unbanned.muted_reason, null);
+        await db.exec("RESET ROLE");
+        const audit = (
+          await db.query(
+            "SELECT details FROM operations_private.community_actions WHERE action='mute' AND details->>'ban_reason'='Spam or scams'",
+          )
+        ).rows;
+        assert.equal(audit.length, 1);
+        assert.ok(audit[0].details.ban_until);
       },
     );
   } finally {

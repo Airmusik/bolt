@@ -1,1 +1,50 @@
-<!doctype html><html><head><meta charset="utf-8"><title>Community mobile widths</title></head><body style="margin:0;background:#e5e7eb"><iframe title="360px mobile community" src="./community.html" style="display:block;width:360px;height:640px;border:0;margin:10px auto"></iframe></body></html>
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Community mobile widths</title>
+  </head>
+  <body style="margin: 0; background: #e5e7eb">
+    <div style="padding: 10px; text-align: center">
+      <label
+        >Phone height
+        <select id="height">
+          <option>640</option>
+          <option>800</option>
+          <option>400</option>
+        </select></label
+      >
+      <label
+        >Role
+        <select id="role">
+          <option>driver</option>
+          <option>admin</option>
+        </select></label
+      >
+      <button id="theme">Toggle phone theme</button>
+    </div>
+    <iframe
+      title="360px mobile community"
+      src="./community.html"
+      style="
+        display: block;
+        width: 360px;
+        height: 640px;
+        border: 0;
+        margin: 10px auto;
+      "
+    ></iframe>
+    <script>
+      const phone = document.querySelector("iframe");
+      document.getElementById("height").addEventListener("change", (event) => {
+        phone.style.height = event.target.value + "px";
+      });
+      document.getElementById("role").addEventListener("change", (event) => {
+        phone.src = "./community.html?role=" + event.target.value;
+      });
+      document.getElementById("theme").addEventListener("click", () => {
+        phone.contentDocument.documentElement.classList.toggle("dark");
+      });
+    </script>
+  </body>
+</html>

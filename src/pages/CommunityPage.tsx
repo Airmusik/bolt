@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Power, ShieldCheck } from "lucide-react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/lib/useAuth";
 import { useSiteSettings } from "@/lib/siteSettings";
@@ -10,7 +11,10 @@ import {
   type CommunityModeration,
   type CommunitySession,
 } from "@/lib/community";
-import { CommunityBackLink, CommunityRoom } from "@/components/CommunityRoom";
+import { CommunityRoom } from "@/components/CommunityRoom";
+import { CommunityFrame } from "@/components/CommunityFrame";
+import { CommunityBanDialog } from "@/components/CommunityBanDialog";
+import { useCommunitySound } from "@/lib/useCommunitySound";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Modal } from "@/components/Modal";
 import "@/styles/community.css";
@@ -29,6 +33,12 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
   const [messages, setMessages] = useState<CommunityMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [asSupport, setAsSupport] = useState(true);
+  const sound = useCommunitySound(
+    messages,
+    loading,
+    session?.member_alias || session?.alias,
+  );
   const [connection, setConnection] = useState("Connecting…");
   const [error, setError] = useState("");
   const [loadError, setLoadError] = useState("");
@@ -50,7 +60,11 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
   } | null>(null);
   const alive = useRef(false);
   const refreshing = useRef(false);
-  const pending = useRef<{ body: string; id: string } | null>(null);
+  const pending = useRef<{
+    body: string;
+    id: string;
+    asSupport: boolean;
+  } | null>(null);
   const isAdmin = profile?.role === "admin";
   const userId = user?.id;
   const firstPage = useRef(true);
@@ -191,12 +205,17 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
     setSending(true);
     setError("");
     setNotice("");
-    if (pending.current?.body !== body)
-      pending.current = { body, id: crypto.randomUUID() };
+    if (
+      pending.current?.body !== body ||
+      pending.current.asSupport !== asSupport
+    )
+      pending.current = { body, id: crypto.randomUUID(), asSupport };
+    sound.rememberOwn(pending.current.id);
     try {
       const result = await supabase.rpc("community_send", {
         p_body: body,
         p_client_id: pending.current.id,
+        p_as_support: asSupport,
       });
       if (result.error) throw result.error;
       setMessages((current) =>
@@ -217,21 +236,30 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
       setSending(false);
     }
   };
-  const action = async () => {
-    if (!confirm) return;
+  const action = async (
+    hours: number | null = null,
+    reason: string | null = null,
+  ) => {
+    if (!confirm) return false;
     setWorking(true);
+    setError("");
+    setNotice("");
     try {
       const result = await supabase.rpc("admin_community_action", {
         p_action: confirm.action,
         p_message_id: confirm.message?.id || null,
         p_alias: confirm.alias || null,
+        p_duration_hours: hours,
+        p_reason: reason,
       });
       if (result.error) throw result.error;
       setNotice("Community updated.");
       await refreshSettings();
       await load();
+      return true;
     } catch (failure) {
       setError(communityError(failure));
+      return false;
     } finally {
       setWorking(false);
     }
@@ -257,13 +285,8 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
     }
   };
   return (
-    <div
-      className={
-        embedded ? "space-y-4" : "container-content max-w-5xl py-3 sm:py-5"
-      }
-    >
-      {!embedded && <CommunityBackLink admin={isAdmin} />}
-      {isAdmin && (
+    <CommunityFrame embedded={embedded}>
+      {isAdmin && embedded && (
         <section className="card mb-4 p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -289,6 +312,29 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
               {session?.enabled ? "Turn community off" : "Turn community on"}
             </button>
           </div>
+          <Link to="/community" className="btn-secondary mt-3">
+            Open full-page community chat
+          </Link>
+          {(error || loadError) && (
+            <p role="alert" className="mt-3 text-sm text-danger">
+              {error || loadError}
+              <button
+                type="button"
+                className="ml-2 underline"
+                onClick={() => {
+                  setError("");
+                  void load();
+                }}
+              >
+                Retry connection
+              </button>
+            </p>
+          )}
+          {notice && (
+            <p role="status" className="mt-3 text-sm text-brand-700">
+              {notice}
+            </p>
+          )}
           {!!moderation.reports.length && (
             <div className="mt-4 border-t border-ink-100 pt-4">
               <h3 className="text-sm font-bold text-ink-900">
@@ -321,7 +367,7 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
                           {value === "remove"
                             ? "Remove message"
                             : value === "mute"
-                              ? "Mute member"
+                              ? "Ban from community"
                               : "Dismiss report"}
                         </button>
                       ))}
@@ -333,13 +379,21 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
           )}
           {!!moderation.muted.length && (
             <div className="mt-4 border-t border-ink-100 pt-4">
-              <h3 className="text-sm font-bold text-ink-900">Muted members</h3>
+              <h3 className="text-sm font-bold text-ink-900">Community bans</h3>
               {moderation.muted.map((member) => (
                 <div
                   key={member.alias}
                   className="mt-2 flex items-center justify-between gap-3 text-xs text-ink-700"
                 >
-                  <span>{member.alias}</span>
+                  <span className="min-w-0">
+                    <strong>{member.alias}</strong>
+                    <span className="mt-1 block text-ink-500">
+                      {member.muted_until
+                        ? `Until ${new Date(member.muted_until).toLocaleString()}`
+                        : "Until manually unbanned"}
+                      {member.muted_reason ? ` · ${member.muted_reason}` : ""}
+                    </span>
+                  </span>
                   <button
                     type="button"
                     className="btn-secondary text-xs"
@@ -348,7 +402,7 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
                       setConfirm({ action: "unmute", alias: member.alias })
                     }
                   >
-                    Unmute
+                    Unban
                   </button>
                 </div>
               ))}
@@ -364,8 +418,19 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
         loading={loading}
         sending={sending}
         connection={connection}
-        error={error || loadError}
-        notice={notice}
+        backTo={
+          !embedded
+            ? isAdmin
+              ? "/admin?tab=community"
+              : "/dashboard"
+            : undefined
+        }
+        soundEnabled={sound.enabled}
+        onToggleSound={sound.toggle}
+        asSupport={asSupport}
+        onIdentityChange={isAdmin ? setAsSupport : undefined}
+        error={embedded ? "" : error || loadError}
+        notice={embedded ? "" : notice}
         hasOlder={older}
         loadingOlder={loadingOlder}
         onOlder={() => void loadOlder()}
@@ -435,40 +500,48 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
           </div>
         </Modal>
       )}
-      {confirm && (
-        <ConfirmDialog
-          title={
-            confirm.action === "disable"
-              ? "Pause community chat?"
-              : confirm.action === "enable"
-                ? "Open community chat?"
-                : "Confirm moderation action"
-          }
-          message={
-            confirm.action === "disable"
-              ? "Members will no longer see this room or send messages. History is preserved."
-              : confirm.action === "enable"
-                ? "Registered drivers and owners will be able to join. Please keep an eye on reports."
-                : confirm.action === "mute"
-                  ? "This member will not be able to post in the community until unmuted. Their private chats and rating are unchanged."
+      {confirm?.action === "mute" ? (
+        <CommunityBanDialog
+          alias={confirm.message?.alias || "This member"}
+          onBan={action}
+          onClose={() => setConfirm(null)}
+        />
+      ) : (
+        confirm && (
+          <ConfirmDialog
+            title={
+              confirm.action === "disable"
+                ? "Pause community chat?"
+                : confirm.action === "enable"
+                  ? "Open community chat?"
+                  : "Confirm moderation action"
+            }
+            message={
+              confirm.action === "disable"
+                ? "Members will no longer see this room or send messages. History is preserved."
+                : confirm.action === "enable"
+                  ? "Registered drivers and owners will be able to join. Please keep an eye on reports."
                   : confirm.action === "remove"
                     ? "This message will be replaced with a moderator removal notice. A private moderation record will be kept."
                     : confirm.action === "unmute"
-                      ? "Allow this member to post in the community again?"
+                      ? "Unban this member and allow them to post in the community again?"
                       : "Mark reports on this message as reviewed without changing the member’s rating?"
-          }
-          confirmLabel={
-            confirm.action === "enable"
-              ? "Open community"
-              : confirm.action === "disable"
-                ? "Pause community"
-                : "Confirm"
-          }
-          danger={["remove", "mute", "disable"].includes(confirm.action)}
-          onConfirm={action}
-          onClose={() => setConfirm(null)}
-        />
+            }
+            confirmLabel={
+              confirm.action === "enable"
+                ? "Open community"
+                : confirm.action === "disable"
+                  ? "Pause community"
+                  : "Confirm"
+            }
+            danger={["remove", "mute", "disable"].includes(confirm.action)}
+            onConfirm={async () => {
+              await action();
+            }}
+            onClose={() => setConfirm(null)}
+          />
+        )
       )}
-    </div>
+    </CommunityFrame>
   );
 }
