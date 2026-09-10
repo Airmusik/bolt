@@ -57,6 +57,7 @@ export const DEFAULT_SITE_SETTINGS = {
   google_signin_enabled: 'true',
   new_listings_enabled: 'true',
   chat_images_enabled: 'true',
+  community_enabled: 'false',
   connection_email_enabled: 'true',
   message_email_enabled: 'true',
   welcome_email_enabled: 'true',

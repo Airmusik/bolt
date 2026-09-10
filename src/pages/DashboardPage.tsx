@@ -195,7 +195,8 @@ export function DashboardPage() {
         </Link>
       </div>}
       {tab === 'overview' && <>
-      <h1 className="sr-only">Account overview</h1>
+        <h1 className="sr-only">Account overview</h1>
+        {settings.community_enabled==='true'&&<Link to="/community" className="dashboard-panel mt-3 flex items-center justify-between gap-3 border-l-2 border-brand-500"><div><h2 className="text-sm font-bold text-ink-900">Community lounge</h2><p className="mt-1 text-xs text-ink-500">Swap tips and ideas with drivers and car owners, using an anonymous alias.</p></div><span className="shrink-0 text-xs font-bold text-brand-700">Join chat →</span></Link>}
 
       {recommendedAction && <div className="dashboard-panel overview-recommendation relative isolate mt-3 overflow-hidden border-l-2 border-accent-500">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

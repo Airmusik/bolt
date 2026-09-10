@@ -138,7 +138,7 @@ export function videoAdIsVisible(settings: AdSettings): boolean {
 }
 export function adPageAllowed(pathname: string, search = ''): boolean {
   // Exclude task flows, including chat tabs embedded in the dashboard.
-  if (/^\/(admin|login|register|reset-password|auth|chat|contact|help|terms|privacy|onboarding|settings|suspended|notifications)(\/|$)/.test(pathname)) return false;
+  if (/^\/(admin|login|register|reset-password|auth|chat|community|contact|help|terms|privacy|onboarding|settings|suspended|notifications)(\/|$)/.test(pathname)) return false;
   if (/^\/vehicles\/(new|[^/]+\/edit)(\/|$)/.test(pathname)) return false;
   if (pathname === '/dashboard') return ['overview', 'cars', 'drivers'].includes(new URLSearchParams(search).get('tab') || 'overview');
   return true;

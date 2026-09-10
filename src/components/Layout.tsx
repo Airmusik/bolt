@@ -41,7 +41,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {showMemberNavigation && <DashboardNavigation key={user.id} role={profile.role as 'owner' | 'driver'} userId={user.id} />}
       <ExperienceFeedbackPrompt />
       <ActionAd />
-      {settings.maintenance_mode !== 'true' && !location.pathname.startsWith('/admin') && <InstallAppPrompt />}
+      {settings.maintenance_mode !== 'true' && !location.pathname.startsWith('/admin') && location.pathname !== '/community' && <InstallAppPrompt />}
       <main key={location.pathname} className={location.pathname.startsWith('/chat') || location.pathname.startsWith('/admin') ? 'flex-1' : 'page-enter flex-1'}>{children}</main>
       <Footer key={`footer:${location.pathname}`} />
     </div>

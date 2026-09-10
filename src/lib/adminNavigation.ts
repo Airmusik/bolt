@@ -1,4 +1,4 @@
-export const ADMIN_TABS = ['overview', 'members', 'updates', 'content', 'security', 'cars', 'contact', 'feedback', 'chat', 'reviews', 'reports', 'analytics', 'promotions', 'advertisements', 'assistant', 'settings', 'drivers', 'owners'] as const;
+export const ADMIN_TABS = ['overview', 'members', 'updates', 'content', 'security', 'cars', 'contact', 'feedback', 'chat', 'community', 'reviews', 'reports', 'analytics', 'promotions', 'advertisements', 'assistant', 'settings', 'drivers', 'owners'] as const;
 export type AdminTab = typeof ADMIN_TABS[number];
 export type LegacyAdminTab = 'controls' | 'documents' | 'history' | 'expired';
 export type ReviewSection = 'history' | 'files' | 'expired';

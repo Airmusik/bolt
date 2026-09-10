@@ -16,6 +16,7 @@ import { changedSettings, mergeSettingsDraft } from '@/lib/adminSettingsDraft';
 import { AdminSecurityCentre } from '@/components/AdminSecurityCentre';
 import { AdminMfaSetup } from '@/components/AdminMfaSetup';
 import { AdminDiagnostics } from '@/components/AdminDiagnostics';
+import { CommunityPage } from '@/pages/CommunityPage';
 import { AdminChatbot } from '@/components/AdminChatbot';
 import { AdminFeedback } from '@/components/AdminFeedback';
 import { ReportRemovalAction } from '@/components/ReportRemovalAction';
@@ -474,6 +475,7 @@ export function AdminPage() {
     { key: 'cars', label: 'Cars', icon: Car, badge: pendingListings.length || vehicles.length },
     { key: 'contact', label: 'Messages', icon: Mail, badge: newContactMessages.length },
     { key: 'feedback', label: 'Feedback', icon: MessageSquare },
+    { key: 'community', label: 'Community', icon: Users },
     { key: 'chat', label: 'Support chats', icon: MessageSquare, badge: reports.filter((report) => report.target_type === 'conversation' && report.reason === 'Support requested' && ['open', 'reviewing'].includes(report.status)).length },
     { key: 'reviews', label: 'Uploads & reviews', icon: FileText, badge: pendingDocs.length + pendingVehiclePhotos.length + history.filter(h => historyState(h) === 'pending').length },
     { key: 'reports', label: 'Reports', icon: Flag, badge: unsolvedReports.length },
@@ -867,6 +869,7 @@ export function AdminPage() {
         )}
 
         {tab === 'feedback' && <AdminFeedback />}
+        {tab === 'community' && <CommunityPage embedded />}
 
         {/* ---------- Reports ---------- */}
         {tab === 'contact' && !loading && <AdminMessageInbox messages={contactMessages} adminId={user?.id || null} siteName={siteSettings.site_name} onRefresh={load} onResolve={resolveContactMessage} onDelete={(message) => setConfirmAction({ message: `Permanently delete the message history from ${message.name}?`, label: 'Delete', onConfirm: () => deleteContactMessage(message) })} onViewUser={setViewingUser} />}

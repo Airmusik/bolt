@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import { Menu, X, Bell, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy, User, Megaphone } from 'lucide-react';
+import { Menu, X, Bell, LogOut, LayoutDashboard, Heart, Settings, LifeBuoy, User, Users, Megaphone } from 'lucide-react';
 import { useAuth } from '@/lib/useAuth';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -159,12 +159,14 @@ export function Header() {
     : isAdmin
       ? [
           { to: '/admin', label: 'Admin dashboard', icon: LayoutDashboard },
+          { to: '/admin?tab=community', label: 'Community moderation', icon: Users },
           { to: '/help', label: 'Help center', icon: LifeBuoy },
         ]
       : [
           { to: `/members/${user?.id}`, label: 'View profile', icon: User },
           { to: '/saved', label: 'Saved listings', icon: Heart },
           { to: '/settings', label: 'Settings', icon: Settings },
+          ...(settings.community_enabled === 'true' ? [{ to: '/community', label: 'Community lounge', icon: Users }] : []),
           ...(promotionsEnabled ? [{ to: '/promotions', label: 'Promotions', icon: LayoutDashboard }] : []),
           { to: '/help', label: 'Help center', icon: LifeBuoy },
         ];

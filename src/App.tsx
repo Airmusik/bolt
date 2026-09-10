@@ -26,6 +26,7 @@ const DashboardPage = lazy(() => import('@/pages/DashboardPage').then((module) =
 const VehicleFormPage = lazy(() => import('@/pages/VehicleFormPage').then((module) => ({ default: module.VehicleFormPage })));
 const DriverOnboardingPage = lazy(() => import('@/pages/DriverOnboardingPage').then((module) => ({ default: module.DriverOnboardingPage })));
 const ChatPage = lazy(() => import('@/pages/ChatPage').then((module) => ({ default: module.ChatPage })));
+const CommunityPage = lazy(() => import('@/pages/CommunityPage').then((module) => ({ default: module.CommunityPage })));
 const NotificationsPage = lazy(() => import('@/pages/NotificationsPage').then((module) => ({ default: module.NotificationsPage })));
 const UpdatesPage = lazy(() => import('@/pages/UpdatesPage').then((module) => ({ default: module.UpdatesPage })));
 const SavedPage = lazy(() => import('@/pages/SavedPage').then((module) => ({ default: module.SavedPage })));
@@ -152,6 +153,7 @@ export default function App() {
         <Route path="/privacy" element={<PrivacyPage />} />
 
         <Route path="/dashboard" element={<ProtectedRoute roles={['owner', 'driver']}><DashboardPage /></ProtectedRoute>} />
+        <Route path="/community" element={<ProtectedRoute roles={['owner','driver','admin']}><CommunityPage /></ProtectedRoute>} />
         <Route path="/vehicles/new" element={<ProtectedRoute roles={['owner']}>{settings.new_listings_enabled === 'true' ? <VehicleFormPage /> : unavailable('New vehicle listings are currently paused.')}</ProtectedRoute>} />
         <Route path="/vehicles/:id/edit" element={<ProtectedRoute roles={['owner']}><VehicleFormPage /></ProtectedRoute>} />
         <Route path="/onboarding" element={<ProtectedRoute roles={['driver']}><DriverOnboardingPage /></ProtectedRoute>} />

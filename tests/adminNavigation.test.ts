@@ -46,7 +46,7 @@ test('saved button order maps merged sections once and preserves distinct suppor
 test('admin navigation removes duplicate buttons but keeps existing approval and moderation actions', () => {
   const page = readFileSync('src/pages/AdminPage.tsx', 'utf8');
   const tabs = page.slice(page.indexOf('  const tabs:'), page.indexOf('  const completeNavOrder'));
-  assert.equal((tabs.match(/key: '/g) || []).length, 16);
+  assert.equal((tabs.match(/key: '/g) || []).length, 17);
   assert.match(tabs, /label: 'Uploads & reviews'/);
   assert.doesNotMatch(tabs, /key: '(controls|documents|expired|history)'/);
   assert.doesNotMatch(page, /> Dashboard<\/button>/);
