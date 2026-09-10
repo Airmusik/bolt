@@ -1,24 +1,420 @@
-import { useEffect, useState } from 'react';
-import { Bot, Pencil, Plus, RefreshCw, Save, Trash2 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
-import { useSiteSettings } from '@/lib/siteSettings';
-import { useToast } from './useToast';
+import { useCallback, useEffect, useState } from "react";
+import { Bot, Pencil, Plus, RefreshCw, Save, Trash2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { useSiteSettings } from "@/lib/siteSettings";
+import { useToast } from "./useToast";
+import {
+  assistantDisplayOrder,
+  isAssistantPagePath,
+} from "@/lib/assistantArticle";
 
-type Article={id:string;question:string;answer:string;keywords:string[];link_path:string|null;link_label:string|null;enabled:boolean;sort_order:number};
-type Unanswered={id:string;query_text:string;occurrences:number;last_asked_at:string};
-const empty={id:'',question:'',answer:'',keywords:[] as string[],link_path:'',link_label:'',enabled:true,sort_order:100};
+type Article = {
+  id: string;
+  question: string;
+  answer: string;
+  keywords: string[];
+  link_path: string | null;
+  link_label: string | null;
+  enabled: boolean;
+  sort_order: number;
+};
+type Unanswered = {
+  id: string;
+  query_text: string;
+  occurrences: number;
+  last_asked_at: string;
+};
+const empty = {
+  id: "",
+  question: "",
+  answer: "",
+  keywords: [] as string[],
+  link_path: "",
+  link_label: "",
+  enabled: true,
+  sort_order: "100",
+};
 
-export function AdminChatbot(){
- const{settings,refreshSettings}=useSiteSettings();const{toast}=useToast();const[articles,setArticles]=useState<Article[]>([]);const[unanswered,setUnanswered]=useState<Unanswered[]>([]);const[form,setForm]=useState({...empty});const[saving,setSaving]=useState(false);const[title,setTitle]=useState(settings.chatbot_title);const[welcome,setWelcome]=useState(settings.chatbot_welcome);
- useEffect(()=>{setTitle(settings.chatbot_title);setWelcome(settings.chatbot_welcome)},[settings.chatbot_title,settings.chatbot_welcome]);
- const load=async()=>{const[a,u]=await Promise.all([supabase.from('chatbot_articles').select('*').order('sort_order'),supabase.from('chatbot_unanswered').select('*').order('last_asked_at',{ascending:false}).limit(100)]);if(a.error||u.error)toast(a.error?.message||u.error?.message||'Could not load assistant data.','error');setArticles((a.data as Article[])||[]);setUnanswered((u.data as Unanswered[])||[])};useEffect(()=>{void load()},[]);
- const setSetting=async(key:'chatbot_enabled'|'chatbot_unanswered_logging',enabled:boolean)=>{const{error}=await supabase.from('site_settings').upsert({key,value:String(enabled),updated_at:new Date().toISOString()},{onConflict:'key'});if(error)return toast(error.message,'error');await refreshSettings();toast(`${enabled?'Enabled':'Disabled'} assistant ${key==='chatbot_enabled'?'visibility':'unanswered-question logging'}.`)};
- const saveAppearance=async()=>{if(title.trim().length<3||welcome.trim().length<8)return toast('Add a clear assistant name and welcome message.','error');const now=new Date().toISOString();const{error}=await supabase.from('site_settings').upsert([{key:'chatbot_title',value:title.trim(),updated_at:now},{key:'chatbot_welcome',value:welcome.trim(),updated_at:now}],{onConflict:'key'});if(error)return toast(error.message,'error');await refreshSettings();toast('Assistant name and welcome message saved.')};
- const saveArticle=async()=>{if(form.question.trim().length<4||form.answer.trim().length<8)return toast('Add a clear question and answer.','error');setSaving(true);const row={question:form.question.trim(),answer:form.answer.trim(),keywords:form.keywords.map(value=>value.trim().toLowerCase()).filter(Boolean),link_path:form.link_path.trim()||null,link_label:form.link_label.trim()||null,enabled:form.enabled,sort_order:Number(form.sort_order)||100,updated_at:new Date().toISOString()};const result=form.id?await supabase.from('chatbot_articles').update(row).eq('id',form.id):await supabase.from('chatbot_articles').insert(row);setSaving(false);if(result.error)return toast(result.error.message,'error');setForm({...empty});await load();toast('Assistant answer saved.')};
- const remove=async(id:string)=>{if(!window.confirm('Delete this assistant answer?'))return;const{error}=await supabase.from('chatbot_articles').delete().eq('id',id);if(error)return toast(error.message,'error');await load();toast('Assistant answer deleted.')};
- return <div className="space-y-5"><section className="card p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="flex items-center gap-2 text-xl font-bold text-ink-900"><Bot className="h-5 w-5"/>11Drive Assistant</h2><p className="mt-1 text-sm text-ink-500">Free guided support using approved answers. It does not call an external AI or research the web.</p></div><button className="btn-secondary" onClick={()=>void load()}><RefreshCw className="h-4 w-4"/>Refresh</button></div><div className="mt-5 grid gap-3 sm:grid-cols-2"><Toggle label="Show assistant to users" checked={settings.chatbot_enabled==='true'} onChange={value=>void setSetting('chatbot_enabled',value)}/><Toggle label="Log unanswered questions" checked={settings.chatbot_unanswered_logging==='true'} onChange={value=>void setSetting('chatbot_unanswered_logging',value)}/></div><div className="mt-4 grid gap-4"><label className="label">Assistant name<input className="input mt-1" value={title} onChange={event=>setTitle(event.target.value)} maxLength={60}/></label><label className="label">Welcome message<textarea className="input mt-1 min-h-20" value={welcome} onChange={event=>setWelcome(event.target.value)} maxLength={400}/></label><button className="btn-secondary w-fit" onClick={()=>void saveAppearance()}><Save className="h-4 w-4"/>Save assistant details</button></div></section>
- <section className="card p-5"><h3 className="font-bold text-ink-900">{form.id?'Edit approved answer':'Add approved answer'}</h3><div className="mt-4 grid gap-4"><label className="label">Question<input className="input mt-1" value={form.question} onChange={e=>setForm({...form,question:e.target.value})} maxLength={180}/></label><label className="label">Answer<textarea className="input mt-1 min-h-28" value={form.answer} onChange={e=>setForm({...form,answer:e.target.value})} maxLength={2000}/></label><div className="grid gap-4 md:grid-cols-2"><label className="label">Keywords, separated by commas<input className="input mt-1" value={form.keywords.join(', ')} onChange={e=>setForm({...form,keywords:e.target.value.split(',')})}/></label><label className="label">Page link (optional)<input className="input mt-1" value={form.link_path||''} onChange={e=>setForm({...form,link_path:e.target.value})} placeholder="/terms"/></label><label className="label">Link label<input className="input mt-1" value={form.link_label||''} onChange={e=>setForm({...form,link_label:e.target.value})} placeholder="Read the terms"/></label><label className="label">Display order<input type="number" className="input mt-1" value={form.sort_order} onChange={e=>setForm({...form,sort_order:Number(e.target.value)})}/></label></div><Toggle label="Answer enabled" checked={form.enabled} onChange={enabled=>setForm({...form,enabled})}/><div className="flex flex-wrap gap-2"><button className="btn-primary" disabled={saving} onClick={()=>void saveArticle()}><Save className="h-4 w-4"/>{saving?'Saving…':'Save answer'}</button>{form.id&&<button className="btn-secondary" onClick={()=>setForm({...empty})}>Cancel editing</button>}</div></div></section>
- <section className="card p-5"><h3 className="font-bold text-ink-900">Approved answers ({articles.length})</h3><div className="mt-3 space-y-2">{articles.map(article=><div key={article.id} className="flex items-start gap-3 rounded-xl border border-ink-200 p-3"><div className="min-w-0 flex-1"><p className="text-sm font-semibold text-ink-900">{article.question}</p><p className="mt-1 line-clamp-2 text-xs leading-5 text-ink-500">{article.answer}</p><span className={`mt-2 text-[10px] ${article.enabled?'badge-success':'badge-neutral'}`}>{article.enabled?'Live':'Off'}</span></div><button className="btn-secondary h-9 w-9 p-0" onClick={()=>setForm({...article,link_path:article.link_path||'',link_label:article.link_label||''})} aria-label={`Edit ${article.question}`}><Pencil className="h-4 w-4"/></button><button className="btn-ghost h-9 w-9 p-0 text-danger" onClick={()=>void remove(article.id)} aria-label={`Delete ${article.question}`}><Trash2 className="h-4 w-4"/></button></div>)}</div></section>
- <section className="card p-5"><h3 className="font-bold text-ink-900">Questions needing an answer</h3><p className="mt-1 text-xs text-ink-500">Obvious email addresses and phone numbers are removed before these questions are stored.</p><div className="mt-3 space-y-2">{unanswered.map(item=><div key={item.id} className="flex items-center gap-3 rounded-xl bg-ink-50 p-3"><span className="min-w-0 flex-1 text-sm text-ink-800">{item.query_text}</span><span className="badge-neutral">Asked {item.occurrences}×</span><button className="btn-secondary px-3 py-1.5 text-xs" onClick={()=>setForm({...empty,question:item.query_text})}><Plus className="h-3.5 w-3.5"/>Answer</button></div>)}{!unanswered.length&&<p className="text-sm text-ink-500">No unanswered questions yet.</p>}</div></section></div>
+export function AdminChatbot() {
+  const { settings, refreshSettings } = useSiteSettings();
+  const { toast } = useToast();
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [unanswered, setUnanswered] = useState<Unanswered[]>([]);
+  const [form, setForm] = useState({ ...empty });
+  const [saving, setSaving] = useState(false);
+  const [title, setTitle] = useState(settings.chatbot_title);
+  const [welcome, setWelcome] = useState(settings.chatbot_welcome);
+  useEffect(() => {
+    setTitle(settings.chatbot_title);
+    setWelcome(settings.chatbot_welcome);
+  }, [settings.chatbot_title, settings.chatbot_welcome]);
+  const load = useCallback(async () => {
+    try {
+      const [a, u] = await Promise.all([
+        supabase.from("chatbot_articles").select("*").order("sort_order"),
+        supabase
+          .from("chatbot_unanswered")
+          .select("*")
+          .order("last_asked_at", { ascending: false })
+          .limit(100),
+      ]);
+      if (a.error || u.error) {
+        toast(
+          a.error?.message ||
+            u.error?.message ||
+            "Could not load assistant data.",
+          "error",
+        );
+        return;
+      }
+      setArticles((a.data as Article[]) || []);
+      setUnanswered((u.data as Unanswered[]) || []);
+    } catch {
+      toast(
+        "Could not load assistant data. Check your connection and try again.",
+        "error",
+      );
+    }
+  }, [toast]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const setSetting = async (
+    key: "chatbot_enabled" | "chatbot_unanswered_logging",
+    enabled: boolean,
+  ) => {
+    const { error } = await supabase
+      .from("site_settings")
+      .upsert(
+        { key, value: String(enabled), updated_at: new Date().toISOString() },
+        { onConflict: "key" },
+      );
+    if (error) return toast(error.message, "error");
+    await refreshSettings();
+    toast(
+      `${enabled ? "Enabled" : "Disabled"} assistant ${key === "chatbot_enabled" ? "visibility" : "unanswered-question logging"}.`,
+    );
+  };
+  const saveAppearance = async () => {
+    if (title.trim().length < 3 || welcome.trim().length < 8)
+      return toast("Add a clear assistant name and welcome message.", "error");
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("site_settings").upsert(
+      [
+        { key: "chatbot_title", value: title.trim(), updated_at: now },
+        { key: "chatbot_welcome", value: welcome.trim(), updated_at: now },
+      ],
+      { onConflict: "key" },
+    );
+    if (error) return toast(error.message, "error");
+    await refreshSettings();
+    toast("Assistant name and welcome message saved.");
+  };
+  const saveArticle = async () => {
+    if (saving) return;
+    if (form.question.trim().length < 4 || form.answer.trim().length < 8)
+      return toast("Add a clear question and answer.", "error");
+    const sortOrder = assistantDisplayOrder(form.sort_order);
+    if (sortOrder === null)
+      return toast("Enter a display order from 0 to 100,000.", "error");
+    if (!isAssistantPagePath(form.link_path))
+      return toast(
+        "Use a page inside this site, such as /terms. External links are not supported here.",
+        "error",
+      );
+    setSaving(true);
+    try {
+      const row = {
+        question: form.question.trim(),
+        answer: form.answer.trim(),
+        keywords: form.keywords
+          .map((value) => value.trim().toLowerCase())
+          .filter(Boolean),
+        link_path: form.link_path.trim() || null,
+        link_label: form.link_label.trim() || null,
+        enabled: form.enabled,
+        sort_order: sortOrder,
+        updated_at: new Date().toISOString(),
+      };
+      const result = form.id
+        ? await supabase.from("chatbot_articles").update(row).eq("id", form.id)
+        : await supabase.from("chatbot_articles").insert(row);
+      if (result.error) return toast(result.error.message, "error");
+      setForm({ ...empty });
+      await load();
+      toast("Assistant answer saved.");
+    } catch {
+      toast(
+        "Could not save the answer. Your changes are still here; please try again.",
+        "error",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+  const remove = async (id: string) => {
+    if (!window.confirm("Delete this assistant answer?")) return;
+    const { error } = await supabase
+      .from("chatbot_articles")
+      .delete()
+      .eq("id", id);
+    if (error) return toast(error.message, "error");
+    await load();
+    toast("Assistant answer deleted.");
+  };
+  return (
+    <div className="space-y-5">
+      <section className="card p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-xl font-bold text-ink-900">
+              <Bot className="h-5 w-5" />
+              {settings.site_name} Assistant
+            </h2>
+            <p className="mt-1 text-sm text-ink-500">
+              Free guided support using approved answers. It does not call an
+              external AI or research the web.
+            </p>
+          </div>
+          <button className="btn-secondary" onClick={() => void load()}>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <Toggle
+            label="Show assistant to users"
+            checked={settings.chatbot_enabled === "true"}
+            onChange={(value) => void setSetting("chatbot_enabled", value)}
+          />
+          <Toggle
+            label="Log unanswered questions"
+            checked={settings.chatbot_unanswered_logging === "true"}
+            onChange={(value) =>
+              void setSetting("chatbot_unanswered_logging", value)
+            }
+          />
+        </div>
+        <div className="mt-4 grid gap-4">
+          <label className="label">
+            Assistant name
+            <input
+              className="input mt-1"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              maxLength={60}
+            />
+          </label>
+          <label className="label">
+            Welcome message
+            <textarea
+              className="input mt-1 min-h-20"
+              value={welcome}
+              onChange={(event) => setWelcome(event.target.value)}
+              maxLength={400}
+            />
+          </label>
+          <button
+            className="btn-secondary w-fit"
+            onClick={() => void saveAppearance()}
+          >
+            <Save className="h-4 w-4" />
+            Save assistant details
+          </button>
+        </div>
+      </section>
+      <section className="card p-5">
+        <h3 className="font-bold text-ink-900">
+          {form.id ? "Edit approved answer" : "Add approved answer"}
+        </h3>
+        <div className="mt-4 grid gap-4">
+          <label className="label">
+            Question
+            <input
+              className="input mt-1"
+              value={form.question}
+              onChange={(e) => setForm({ ...form, question: e.target.value })}
+              maxLength={180}
+            />
+          </label>
+          <label className="label">
+            Answer
+            <textarea
+              className="input mt-1 min-h-28"
+              value={form.answer}
+              onChange={(e) => setForm({ ...form, answer: e.target.value })}
+              maxLength={2000}
+            />
+          </label>
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="label">
+              Keywords, separated by commas
+              <input
+                className="input mt-1"
+                value={form.keywords.join(", ")}
+                onChange={(e) =>
+                  setForm({ ...form, keywords: e.target.value.split(",") })
+                }
+              />
+            </label>
+            <label className="label">
+              Page link (optional)
+              <input
+                className="input mt-1"
+                value={form.link_path || ""}
+                onChange={(e) =>
+                  setForm({ ...form, link_path: e.target.value })
+                }
+                placeholder="/terms"
+              />
+            </label>
+            <label className="label">
+              Link label
+              <input
+                className="input mt-1"
+                value={form.link_label || ""}
+                onChange={(e) =>
+                  setForm({ ...form, link_label: e.target.value })
+                }
+                placeholder="Read the terms"
+              />
+            </label>
+            <label className="label">
+              Display order
+              <input
+                type="number"
+                className="input mt-1"
+                value={form.sort_order}
+                onChange={(e) =>
+                  setForm({ ...form, sort_order: e.target.value })
+                }
+              />
+            </label>
+          </div>
+          <Toggle
+            label="Answer enabled"
+            checked={form.enabled}
+            onChange={(enabled) => setForm({ ...form, enabled })}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              className="btn-primary"
+              disabled={saving}
+              onClick={() => void saveArticle()}
+            >
+              <Save className="h-4 w-4" />
+              {saving ? "Saving…" : "Save answer"}
+            </button>
+            {form.id && (
+              <button
+                className="btn-secondary"
+                onClick={() => setForm({ ...empty })}
+              >
+                Cancel editing
+              </button>
+            )}
+          </div>
+        </div>
+      </section>
+      <section className="card p-5">
+        <h3 className="font-bold text-ink-900">
+          Approved answers ({articles.length})
+        </h3>
+        <div className="mt-3 space-y-2">
+          {articles.map((article) => (
+            <div
+              key={article.id}
+              className="flex items-start gap-3 rounded-xl border border-ink-200 p-3"
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-ink-900">
+                  {article.question}
+                </p>
+                <p className="mt-1 line-clamp-2 text-xs leading-5 text-ink-500">
+                  {article.answer}
+                </p>
+                <span
+                  className={`mt-2 text-[10px] ${article.enabled ? "badge-success" : "badge-neutral"}`}
+                >
+                  {article.enabled ? "Live" : "Off"}
+                </span>
+              </div>
+              <button
+                className="btn-secondary h-9 w-9 p-0"
+                onClick={() =>
+                  setForm({
+                    ...article,
+                    sort_order: String(article.sort_order),
+                    link_path: article.link_path || "",
+                    link_label: article.link_label || "",
+                  })
+                }
+                aria-label={`Edit ${article.question}`}
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                className="btn-ghost h-9 w-9 p-0 text-danger"
+                onClick={() => void remove(article.id)}
+                aria-label={`Delete ${article.question}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section className="card p-5">
+        <h3 className="font-bold text-ink-900">Questions needing an answer</h3>
+        <p className="mt-1 text-xs text-ink-500">
+          Obvious email addresses and phone numbers are removed before these
+          questions are stored.
+        </p>
+        <div className="mt-3 space-y-2">
+          {unanswered.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center gap-3 rounded-xl bg-ink-50 p-3"
+            >
+              <span className="min-w-0 flex-1 text-sm text-ink-800">
+                {item.query_text}
+              </span>
+              <span className="badge-neutral">Asked {item.occurrences}×</span>
+              <button
+                className="btn-secondary px-3 py-1.5 text-xs"
+                onClick={() => setForm({ ...empty, question: item.query_text })}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Answer
+              </button>
+            </div>
+          ))}
+          {!unanswered.length && (
+            <p className="text-sm text-ink-500">No unanswered questions yet.</p>
+          )}
+        </div>
+      </section>
+    </div>
+  );
 }
-function Toggle({label,checked,onChange}:{label:string;checked:boolean;onChange:(value:boolean)=>void}){return <label className="flex items-center justify-between gap-3 rounded-xl border border-ink-200 p-3 text-sm font-semibold text-ink-800"><span>{label}</span><input type="checkbox" checked={checked} onChange={event=>onChange(event.target.checked)} className="h-5 w-5 accent-orange-600"/></label>}
+function Toggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center justify-between gap-3 rounded-xl border border-ink-200 p-3 text-sm font-semibold text-ink-800">
+      <span>{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-5 w-5 accent-orange-600"
+      />
+    </label>
+  );
+}

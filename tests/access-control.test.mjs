@@ -6,9 +6,10 @@ import { auditIsolatedPolicies } from '../scripts/audit-isolated-policies.mjs';
 // Schema/policies/functions only, captured before the fix. No real member rows.
 const snapshot = JSON.parse(await readFile(new URL('./fixtures/access-control-baseline.json',import.meta.url),'utf8'));
 const migration = await readFile(new URL('../supabase/migrations/20260902210000_access_control_audit_fixes.sql',import.meta.url),'utf8');
+const activeAdmin = await readFile(new URL('../supabase/migrations/20260910161000_active_admin_access.sql',import.meta.url),'utf8');
 
 test('launch-audit access controls against the deployed schema and synthetic users',async t => {
-  await auditIsolatedPolicies(snapshot,{migrations:[migration],onlyVerify:true,verify:async(db,ids)=>{
+  await auditIsolatedPolicies(snapshot,{migrations:[migration,activeAdmin],onlyVerify:true,verify:async(db,ids)=>{
     const {owner,driver,other,admin,vehicle,pendingVehicle,application,connection,unusedConnection,thread,conversation}=ids;
     const denied = async fn => {
       await db.exec('SAVEPOINT expected_denial');

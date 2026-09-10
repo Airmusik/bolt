@@ -9,7 +9,7 @@ async function get(path) {
     } catch {if(attempt===2) throw new Error(`Availability check failed: ${path}`);await new Promise(resolve=>setTimeout(resolve,3000));}
   }
 }
-for(const path of ['/','/login','/register','/contact','/updates','/admin','/api/health']) {
+for(const path of ['/','/login','/register','/reset-password','/browse-cars','/browse-drivers','/how-it-works','/about','/faq','/terms','/privacy','/contact','/help','/updates','/dashboard','/notifications','/chat','/community','/admin/login','/admin','/api/health']) {
   const response=await get(path);
   if(path!=='/api/health') {
     const html=await response.text();

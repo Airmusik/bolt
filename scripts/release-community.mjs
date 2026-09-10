@@ -18,8 +18,9 @@ try {
     await db.query('INSERT INTO supabase_migrations.schema_migrations(version,name,statements) VALUES($1,$2,$3)', [version,'anonymous_community',[sql]]);
   }
   const columns = (await db.query("SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='community_messages' ORDER BY ordinal_position")).rows.map(row=>row.column_name);
-  assert.deepEqual(columns, ['id','alias','member_role','body','created_at','removed','filtered']);
-  const access = (await db.query("SELECT has_table_privilege('anon','public.community_messages','SELECT') anon_read,has_table_privilege('authenticated','public.community_messages','INSERT') member_insert,has_table_privilege('authenticated','operations_private.community_authors','SELECT') member_authors,has_function_privilege('anon',coalesce(to_regprocedure('public.community_send(text,uuid,boolean)'),to_regprocedure('public.community_send(text,uuid)')),'EXECUTE') anon_send")).rows[0];
+  const enhanced = (await db.query("SELECT 1 FROM supabase_migrations.schema_migrations WHERE version='20260910160000'")).rowCount;
+  assert.deepEqual(columns, ['id','alias','member_role','body','created_at','removed','filtered',...(enhanced ? ['reply_to','reactions','pinned','revision'] : [])]);
+  const access = (await db.query("SELECT has_table_privilege('anon','public.community_messages','SELECT') anon_read,has_table_privilege('authenticated','public.community_messages','INSERT') member_insert,has_table_privilege('authenticated','operations_private.community_authors','SELECT') member_authors,has_function_privilege('anon',coalesce(to_regprocedure('public.community_send(text,uuid,boolean,uuid)'),to_regprocedure('public.community_send(text,uuid,boolean)'),to_regprocedure('public.community_send(text,uuid)')),'EXECUTE') anon_send")).rows[0];
   assert.deepEqual(access,{anon_read:false,member_insert:false,member_authors:false,anon_send:false});
   assert.equal((await db.query("SELECT relrowsecurity FROM pg_class WHERE oid='public.community_messages'::regclass")).rows[0].relrowsecurity,true);
   assert.equal((await db.query("SELECT 1 FROM pg_publication_tables WHERE pubname='supabase_realtime' AND schemaname='public' AND tablename='community_messages'")).rowCount,1);

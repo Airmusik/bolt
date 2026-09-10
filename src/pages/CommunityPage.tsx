@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/useAuth";
 import { useSiteSettings } from "@/lib/siteSettings";
 import {
   communityError,
+  COMMUNITY_RULES_VERSION,
   mergeCommunityMessages,
   type CommunityMessage,
   type CommunityModeration,
@@ -14,13 +15,21 @@ import {
 import { CommunityRoom } from "@/components/CommunityRoom";
 import { CommunityFrame } from "@/components/CommunityFrame";
 import { CommunityBanDialog } from "@/components/CommunityBanDialog";
+import { CommunityGuidelines } from "@/components/CommunityGuidelines";
+import { AdminMfaGate } from "@/components/AdminMfaGate";
 import { useCommunitySound } from "@/lib/useCommunitySound";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Modal } from "@/components/Modal";
 import "@/styles/community.css";
 
 export function CommunityPage({ embedded = false }: { embedded?: boolean }) {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  if (!embedded && profile?.role === "admin")
+    return (
+      <AdminMfaGate key={user?.id}>
+        <CommunityPageContent key={user?.id} embedded={false} />
+      </AdminMfaGate>
+    );
   return (
     <CommunityPageContent key={user?.id || "signed-out"} embedded={embedded} />
   );
@@ -34,6 +43,11 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [asSupport, setAsSupport] = useState(true);
+  const [guidelines, setGuidelines] = useState(false);
+  const [myReactions, setMyReactions] = useState<Record<string, string>>({});
+  const [reacting, setReacting] = useState(false);
+  const reactionEpoch = useRef(0);
+  const reactionBusy = useRef(false);
   const sound = useCommunitySound(
     messages,
     loading,
@@ -64,6 +78,7 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
     body: string;
     id: string;
     asSupport: boolean;
+    replyTo: string | null;
   } | null>(null);
   const isAdmin = profile?.role === "admin";
   const userId = user?.id;
@@ -94,6 +109,21 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
         firstPage.current = false;
       }
       setLoadError("");
+      const epoch = reactionEpoch.current;
+      const reactions = await supabase.rpc("community_my_reactions", {
+        p_ids: rows.map((row) => row.id),
+      });
+      if (reactions.error) throw reactions.error;
+      if (
+        alive.current &&
+        epoch === reactionEpoch.current &&
+        !reactionBusy.current
+      )
+        setMyReactions((current) => {
+          const updated = { ...current };
+          rows.forEach((row) => delete updated[row.id]);
+          return { ...updated, ...(reactions.data || {}) };
+        });
       if (isAdmin) {
         const admin = await supabase.rpc("admin_community_overview");
         if (admin.error) throw admin.error;
@@ -133,10 +163,26 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
         "postgres_changes",
         { event: "UPDATE", schema: "public", table: "community_messages" },
         (event) => {
-          if (alive.current)
-            setMessages((previous) =>
-              mergeCommunityMessages(previous, [event.new as CommunityMessage]),
-            );
+          if (!alive.current) return;
+          const row = event.new as CommunityMessage;
+          setMessages((previous) =>
+            previous.some((message) => message.id === row.id)
+              ? mergeCommunityMessages(previous, [row])
+              : previous,
+          );
+          setSession((current) =>
+            current
+              ? {
+                  ...current,
+                  pinned_message:
+                    row.pinned && !row.removed
+                      ? row
+                      : current.pinned_message?.id === row.id
+                        ? null
+                        : current.pinned_message,
+                }
+              : current,
+          );
         },
       )
       .on(
@@ -194,28 +240,42 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
         mergeCommunityMessages(current, result.data || []),
       );
       setOlder(result.data?.length === 50);
+      const ids = (result.data || []).map((row: CommunityMessage) => row.id);
+      const epoch = reactionEpoch.current;
+      const reactions = await supabase.rpc("community_my_reactions", {
+        p_ids: ids,
+      });
+      if (reactions.error) throw reactions.error;
+      if (epoch === reactionEpoch.current && !reactionBusy.current)
+        setMyReactions((current) => {
+          const next = { ...current };
+          ids.forEach((id: string) => delete next[id]);
+          return { ...next, ...(reactions.data || {}) };
+        });
     } catch (failure) {
       setError(communityError(failure));
     } finally {
       setLoadingOlder(false);
     }
   };
-  const send = async (body: string) => {
+  const send = async (body: string, replyTo: string | null = null) => {
     if (sending) return false;
     setSending(true);
     setError("");
     setNotice("");
     if (
       pending.current?.body !== body ||
-      pending.current.asSupport !== asSupport
+      pending.current.asSupport !== asSupport ||
+      pending.current.replyTo !== replyTo
     )
-      pending.current = { body, id: crypto.randomUUID(), asSupport };
+      pending.current = { body, id: crypto.randomUUID(), asSupport, replyTo };
     sound.rememberOwn(pending.current.id);
     try {
       const result = await supabase.rpc("community_send", {
         p_body: body,
         p_client_id: pending.current.id,
         p_as_support: asSupport,
+        p_reply_to: replyTo,
       });
       if (result.error) throw result.error;
       setMessages((current) =>
@@ -234,6 +294,71 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
       return false;
     } finally {
       setSending(false);
+    }
+  };
+  const acceptGuidelines = async () => {
+    const result = await supabase.rpc("community_accept_rules", {
+      p_version: COMMUNITY_RULES_VERSION,
+    });
+    if (result.error) {
+      setError(communityError(result.error));
+      return false;
+    }
+    setSession((current) =>
+      current ? { ...current, rules_accepted: true } : current,
+    );
+    setNotice("Welcome! You can now join the conversation.");
+    return true;
+  };
+  const react = async (message: CommunityMessage, emoji: string | null) => {
+    if (reactionBusy.current) return;
+    reactionBusy.current = true;
+    reactionEpoch.current++;
+    setReacting(true);
+    setError("");
+    try {
+      const result = await supabase.rpc("community_react", {
+        p_message_id: message.id,
+        p_emoji: emoji,
+      });
+      if (result.error) throw result.error;
+      setMessages((current) =>
+        mergeCommunityMessages(current, [result.data as CommunityMessage]),
+      );
+      setMyReactions((current) => {
+        const next = { ...current };
+        if (emoji) next[message.id] = emoji;
+        else delete next[message.id];
+        return next;
+      });
+    } catch (failure) {
+      setError(communityError(failure));
+      void load();
+    } finally {
+      reactionBusy.current = false;
+      reactionEpoch.current++;
+      setReacting(false);
+    }
+  };
+  const pin = async (message: CommunityMessage) => {
+    if (working) return;
+    setWorking(true);
+    setError("");
+    try {
+      const result = await supabase.rpc("community_pin", {
+        p_message_id: message.pinned ? null : message.id,
+      });
+      if (result.error) throw result.error;
+      await load();
+      setNotice(
+        message.pinned
+          ? "Pinned message cleared."
+          : "Message pinned for the community.",
+      );
+    } catch (failure) {
+      setError(communityError(failure));
+    } finally {
+      setWorking(false);
     }
   };
   const action = async (
@@ -439,6 +564,12 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
           void load();
         }}
         onSend={send}
+        onSendReply={send}
+        onGuidelines={() => setGuidelines(true)}
+        onReact={(message, emoji) => void react(message, emoji)}
+        myReactions={myReactions}
+        reacting={reacting}
+        onPin={isAdmin ? (message) => void pin(message) : undefined}
         onReport={(message) => {
           setReason("spam");
           setReportError("");
@@ -450,6 +581,14 @@ function CommunityPageContent({ embedded }: { embedded: boolean }) {
             : undefined
         }
       />
+      {guidelines && (
+        <CommunityGuidelines
+          siteName={settings.site_name}
+          accepted={session?.rules_accepted === true}
+          onAccept={acceptGuidelines}
+          onClose={() => setGuidelines(false)}
+        />
+      )}
       {reporting && (
         <Modal
           title="Report community message"

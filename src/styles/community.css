@@ -38,6 +38,23 @@
 .community-message {
   animation: community-arrive 0.18s ease-out;
 }
+.community-reaction {
+  transition:
+    transform 160ms ease,
+    background-color 160ms ease;
+}
+.community-reaction:active {
+  transform: scale(0.93);
+}
+.community-reaction[aria-pressed="true"] {
+  font-weight: 700;
+}
+.dark .community-pin {
+  background-color: rgb(var(--accent-500) / 0.09);
+}
+.dark .community-reaction[aria-pressed="true"] {
+  background-color: rgb(var(--accent-500) / 0.15);
+}
 @keyframes community-arrive {
   from {
     opacity: 0.5;
@@ -71,12 +88,16 @@
     border: 0;
   }
   .community-page .community-room > header {
-    max-height: 45%;
+    max-height: 35%;
     overflow-y: auto;
     padding-top: max(0.75rem, env(safe-area-inset-top));
   }
   .community-page .community-room > footer {
-    max-height: 45%;
+    max-height: 40%;
+    overflow-y: auto;
+  }
+  .community-page .community-pin {
+    max-height: 15%;
     overflow-y: auto;
   }
   .community-embedded > .community-room {
@@ -97,5 +118,9 @@
 @media (prefers-reduced-motion: reduce) {
   .community-message {
     animation: none;
+  }
+  .community-reaction {
+    transition: none;
+    transform: none;
   }
 }

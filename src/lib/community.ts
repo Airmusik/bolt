@@ -6,6 +6,10 @@ export type CommunityMessage = {
   created_at: string;
   removed: boolean;
   filtered: boolean;
+  reply_to?: string | null;
+  reactions?: Record<string, number>;
+  pinned?: boolean;
+  revision?: number;
 };
 export type CommunitySession = {
   enabled: boolean;
@@ -15,6 +19,9 @@ export type CommunitySession = {
   muted: boolean;
   muted_until?: string | null;
   muted_reason?: string | null;
+  rules_accepted?: boolean;
+  rules_version?: string;
+  pinned_message?: CommunityMessage | null;
 };
 export type CommunityReport = CommunityMessage & {
   reports: number;
@@ -29,6 +36,8 @@ export type CommunityModeration = {
   }[];
 };
 export const COMMUNITY_LIMIT = 1000;
+export const COMMUNITY_RULES_VERSION = "2026-09-10";
+export const COMMUNITY_REACTIONS = ["👍", "💡", "👏", "❤️"] as const;
 
 // Convenience preview only. PostgreSQL applies the same rules before storing
 // or broadcasting a message, including clients that bypass this JavaScript.
@@ -93,6 +102,7 @@ export function mergeCommunityMessages(
 ) {
   const rows = new Map(previous.map((row) => [row.id, row]));
   incoming.forEach((row) => {
+    if ((rows.get(row.id)?.revision || 0) > (row.revision || 0)) return;
     if (!rows.get(row.id)?.removed || row.removed) rows.set(row.id, row);
   });
   return [...rows.values()].sort(
@@ -114,6 +124,12 @@ export function communityError(error: unknown) {
     "Report limit reached. Please contact support.",
     "This message cannot be reported.",
     "This member cannot be banned.",
+    "Read and accept the community guidelines before posting.",
+    "Please reload and read the latest community guidelines.",
+    "That message is no longer available to reply to.",
+    "That message is no longer available to react to.",
+    "That message is no longer available to pin.",
+    "Please wait a moment before reacting again.",
   ])
     if (raw.includes(message)) return message;
   return "Could not complete that action. Check your connection and try again. Your draft is still here.";

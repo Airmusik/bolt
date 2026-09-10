@@ -157,5 +157,6 @@ test('assistant answers from only the signed-in account summary',()=>{
   assert.match(context,/\.eq\('owner_id',userId\)/);
   assert.match(context,/do not inspect private message contents/);
   assert.match(context,/Suggested next steps/);
-  assert.match(assistant,/loadAssistantAccountContext\(user\.id,profile\)/);
+  assert.match(assistant,/loadAssistantAccountContext\(user\.id,\s*profile\)/);
+  assert.match(assistant,/SiteAssistantContent key=\{user\?\.id \|\| "signed-out"\}/);
 });

@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { CommunityRoom } from "../../src/components/CommunityRoom";
 import { CommunityFrame } from "../../src/components/CommunityFrame";
 import { CommunityBanDialog } from "../../src/components/CommunityBanDialog";
+import { CommunityGuidelines } from "../../src/components/CommunityGuidelines";
 import { useCommunitySound } from "../../src/lib/useCommunitySound";
 import { ConfirmDialog } from "../../src/components/ConfirmDialog";
 import { Modal } from "../../src/components/Modal";
@@ -38,6 +39,9 @@ export function Fixture() {
       : "driver",
   );
   const [asSupport, setAsSupport] = useState(true);
+  const [accepted, setAccepted] = useState(false);
+  const [guidelines, setGuidelines] = useState(false);
+  const [myReactions, setMyReactions] = useState<Record<string, string>>({});
   const [enabled, setEnabled] = useState(true);
   const [muted, setMuted] = useState(false);
   const [messages, setMessages] = useState(
@@ -55,6 +59,9 @@ export function Fixture() {
     role,
     enabled,
     muted,
+    rules_accepted: accepted,
+    pinned_message:
+      messages.find((message) => message.pinned && !message.removed) || null,
     alias:
       role === "admin"
         ? "Community moderator"
@@ -69,6 +76,33 @@ export function Fixture() {
           : "Member f329a146bf",
   };
   const sound = useCommunitySound(messages, false, session.member_alias);
+  const send = async (body: string, replyTo: string | null = null) => {
+    const id = crypto.randomUUID();
+    sound.rememberOwn(id);
+    setSending(true);
+    await new Promise((resolve) => setTimeout(resolve, 600));
+    const safe = filterCommunityText(body);
+    setMessages((current) =>
+      mergeCommunityMessages(current, [
+        {
+          id,
+          alias:
+            role === "admin" && !asSupport
+              ? session.member_alias!
+              : session.alias,
+          member_role: role === "admin" && !asSupport ? "member" : role,
+          body: safe,
+          filtered: safe !== body,
+          created_at: new Date().toISOString(),
+          removed: false,
+          reply_to: replyTo,
+        },
+      ]),
+    );
+    setSending(false);
+    setNotice("Message sent.");
+    return true;
+  };
   return (
     <BrowserRouter>
       <div
@@ -131,6 +165,38 @@ export function Fixture() {
           onToggleSound={sound.toggle}
           asSupport={asSupport}
           onIdentityChange={role === "admin" ? setAsSupport : undefined}
+          onGuidelines={() => setGuidelines(true)}
+          onSendReply={send}
+          myReactions={myReactions}
+          onReact={(message, emoji) => {
+            setMessages((current) =>
+              current.map((row) => {
+                if (row.id !== message.id) return row;
+                const counts = { ...row.reactions };
+                const old = myReactions[row.id];
+                if (old) counts[old] = Math.max(0, (counts[old] || 0) - 1);
+                if (emoji) counts[emoji] = (counts[emoji] || 0) + 1;
+                return { ...row, reactions: counts };
+              }),
+            );
+            setMyReactions((current) => {
+              const next = { ...current };
+              if (emoji) next[message.id] = emoji;
+              else delete next[message.id];
+              return next;
+            });
+          }}
+          onPin={
+            role === "admin"
+              ? (message) =>
+                  setMessages((current) =>
+                    current.map((row) => ({
+                      ...row,
+                      pinned: row.id === message.id && !message.pinned,
+                    })),
+                  )
+              : undefined
+          }
           error=""
           notice={notice}
           hasOlder={older}
@@ -151,34 +217,20 @@ export function Fixture() {
               ? (action, message) => setConfirm({ action, message })
               : undefined
           }
-          onSend={async (body) => {
-            const id = crypto.randomUUID();
-            sound.rememberOwn(id);
-            setSending(true);
-            await new Promise((resolve) => setTimeout(resolve, 600));
-            const safe = filterCommunityText(body);
-            setMessages((current) =>
-              mergeCommunityMessages(current, [
-                {
-                  id,
-                  alias:
-                    role === "admin" && !asSupport
-                      ? session.member_alias!
-                      : session.alias,
-                  member_role: role === "admin" && !asSupport ? "member" : role,
-                  body: safe,
-                  filtered: safe !== body,
-                  created_at: new Date().toISOString(),
-                  removed: false,
-                },
-              ]),
-            );
-            setSending(false);
-            setNotice("Message sent.");
-            return true;
-          }}
+          onSend={send}
         />
       </CommunityFrame>
+      {guidelines && (
+        <CommunityGuidelines
+          siteName="11Drive"
+          accepted={accepted}
+          onAccept={async () => {
+            setAccepted(true);
+            return true;
+          }}
+          onClose={() => setGuidelines(false)}
+        />
+      )}
       {report && (
         <Modal title="Report community message" onClose={() => setReport(null)}>
           <p className="text-sm text-ink-600">

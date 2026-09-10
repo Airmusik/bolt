@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Eye, FileText, Plus, Save, Trash2 } from 'lucide-react';
+import { Eye, Plus, Save, Trash2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useSiteSettings } from '@/lib/siteSettings';
 import { legalText } from '@/lib/legal';
