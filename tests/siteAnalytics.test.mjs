@@ -27,7 +27,12 @@ test('analytics aggregation is admin-only; visits are validated, deduplicated an
     const report = (await db.query(`SELECT admin_site_analytics(current_date-1,current_date) AS report`)).rows[0].report;
     assert.equal(report.views, 1); assert.equal(report.sessions, 1); assert.equal(report.countries[0].country, 'KE');
     await db.query(`SELECT record_site_visit($1,'/browse-cars',true,'KE')`, ['00000000-0000-4000-8000-000000000002']);
+    // Administrators must not inflate public visit totals.
     assert.equal((await db.query('SELECT count(*)::int AS count FROM site_visits')).rows[0].count, 2);
+    await db.exec(`CREATE OR REPLACE FUNCTION is_admin() RETURNS boolean LANGUAGE sql AS 'SELECT false';`);
+    await db.query(`SELECT record_site_visit($1,'/browse-cars',true,'KE')`, ['00000000-0000-4000-8000-000000000002']);
+    assert.equal((await db.query('SELECT count(*)::int AS count FROM site_visits')).rows[0].count, 3);
+    await db.exec(`CREATE OR REPLACE FUNCTION is_admin() RETURNS boolean LANGUAGE sql AS 'SELECT true';`);
     await assert.rejects(db.query(`SELECT admin_site_analytics(current_date,current_date-1)`), /valid range/);
     await db.exec('SET ROLE anon');
     await assert.rejects(db.query('SELECT * FROM site_visits'), /permission denied/);

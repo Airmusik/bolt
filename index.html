@@ -15,6 +15,19 @@
   </head>
   <body>
     <div id="root"></div>
+    <section id="boot-recovery" hidden style="max-width:28rem;margin:12vh auto;padding:1.5rem;font-family:system-ui;background:#fff;color:#18181b;border:1px solid #ddd;border-radius:12px" role="alert">
+      <h1 style="font-size:1.4rem">The page couldn’t finish loading</h1>
+      <p>Check your internet connection, then reload. Reloading may clear unsaved changes.</p>
+      <button type="button" onclick="window.location.reload()" style="padding:.75rem 1rem;background:#111;color:#fff;border:0;border-radius:8px">Reload page</button>
+      <a href="/contact" style="margin-left:1rem;color:#164e63">Contact support</a>
+    </section>
+    <noscript><p style="padding:2rem;font-family:system-ui">Enable JavaScript in your browser to use this site.</p></noscript>
+    <script>
+      window.setTimeout(function () {
+        var root = document.getElementById('root');
+        if (root && !root.hasChildNodes()) document.getElementById('boot-recovery').hidden = false;
+      }, 20000);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

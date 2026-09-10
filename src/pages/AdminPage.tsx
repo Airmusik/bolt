@@ -15,6 +15,7 @@ import { adminView, canonicalAdminParams, adminDestination, adminNavOrder, type 
 import { changedSettings, mergeSettingsDraft } from '@/lib/adminSettingsDraft';
 import { AdminSecurityCentre } from '@/components/AdminSecurityCentre';
 import { AdminMfaSetup } from '@/components/AdminMfaSetup';
+import { AdminDiagnostics } from '@/components/AdminDiagnostics';
 import { AdminChatbot } from '@/components/AdminChatbot';
 import { AdminFeedback } from '@/components/AdminFeedback';
 import { ReportRemovalAction } from '@/components/ReportRemovalAction';
@@ -598,7 +599,7 @@ export function AdminPage() {
         {tab === 'advertisements' && <AdminAdvertisements />}
         {tab === 'updates' && !loading && <AdminMemberUpdates users={users} />}
         {tab === 'content' && !loading && <AdminLegalContent />}
-        {tab === 'security' && !loading && <><AdminMfaSetup /><div className="h-5"/><AdminSecurityCentre /></>}
+        {tab === 'security' && !loading && <><AdminMfaSetup /><div className="h-5"/><AdminDiagnostics /><div className="h-5"/><AdminSecurityCentre /></>}
         {tab === 'assistant' && !loading && <AdminChatbot />}
         {tab === 'overview' && !loading && (
           <div className="grid gap-6 lg:grid-cols-2">

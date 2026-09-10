@@ -22,3 +22,10 @@ dist-ssr
 *.sw?
 .env
 supabase/.temp/
+# Private recovery material and local tooling must never be published.
+.backups.local/
+.backup-keys.local/
+.tools.local/
+.env.backup.local
+*.dump
+*.enc

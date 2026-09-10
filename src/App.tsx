@@ -10,6 +10,8 @@ import { SecurityDeviceTracker } from '@/components/SecurityDeviceTracker';
 import { AdminMfaGate } from '@/components/AdminMfaGate';
 import { SiteAssistant } from '@/components/SiteAssistant';
 import { LaunchIntro } from '@/components/LaunchIntro';
+import { AppErrorBoundary } from '@/components/AppErrorBoundary';
+import { useLocation } from 'react-router-dom';
 
 const HomePage = lazy(() => import('@/pages/HomePage').then((module) => ({ default: module.HomePage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then((module) => ({ default: module.LoginPage })));
@@ -41,6 +43,7 @@ const SuspendedPage = lazy(() => import('@/pages/SuspendedPage').then((module) =
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((module) => ({ default: module.NotFoundPage })));
 
 export default function App() {
+  const route = useLocation();
   useSeo();
   const { profile, loading: authLoading } = useAuth();
   const { settings, loading } = useSiteSettings();
@@ -129,7 +132,7 @@ export default function App() {
       <Layout>
       <SecurityDeviceTracker />
       <SiteAssistant />
-      <Suspense fallback={<div role="status" className="min-h-48"><span className="sr-only">Loading page…</span></div>}>
+      <AppErrorBoundary key={route.pathname}><Suspense fallback={<div role="status" className="min-h-48"><span className="sr-only">Loading page…</span></div>}>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
@@ -165,7 +168,7 @@ export default function App() {
 
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
-      </Suspense>
+      </Suspense></AppErrorBoundary>
     </Layout>
     </>
   );

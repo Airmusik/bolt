@@ -17,6 +17,7 @@ export function PrivacyPage() {
           <p>{legalText(document.summary, settings)}</p>
           {document.sections.map((section,index) => <section key={`${section.title}-${index}`}><h2 className="font-display text-lg font-bold text-ink-900">{section.title}</h2>{section.paragraphs.map((paragraph,paragraphIndex) => <p key={paragraphIndex} className="mt-2">{legalText(paragraph, settings)}</p>)}</section>)}
           <AnalyticsPreference />
+          <section><h2 className="font-display text-lg font-bold text-ink-900">Essential error diagnostics</h2><p className="mt-2">To investigate technical failures, the site records a general page category, error category, browser family, application release and grouped counts. Administrators can view the last 30 days; older aggregates are removed when new reports are processed. These reports do not include your message contents, form inputs, password, account ID or full page URL. Only administrators can view the reports. Hosting providers may separately maintain their own request logs.</p></section>
         </>}
         <p>Privacy requests: <a href={`mailto:${settings.admin_contact_email}`} className="break-all underline">{settings.admin_contact_email}</a> · <a href={`tel:${settings.admin_contact_phone}`} className="underline">{settings.admin_contact_phone}</a>.</p>
       </div>
