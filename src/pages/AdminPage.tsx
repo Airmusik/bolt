@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { AdminAdvertisements } from '@/components/AdminAdvertisements';
 import { AdminSiteAnalytics } from '@/components/AdminSiteAnalytics';
 import { AdminMemberUpdates } from '@/components/AdminMemberUpdates';
+import { AdminSupportChatHeader } from '@/components/AdminSupportChatHeader';
 import { AdminLegalContent } from '@/components/AdminLegalContent';
 import { AdminAddMember } from '@/components/AdminAddMember';
 import { AdminControlCentre } from '@/components/AdminControlCentre';
@@ -18,7 +19,7 @@ import { AdminChatbot } from '@/components/AdminChatbot';
 import { AdminFeedback } from '@/components/AdminFeedback';
 import { ReportRemovalAction } from '@/components/ReportRemovalAction';
 import { normalizeReportWarnings } from '@/lib/reportWarnings';
-import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone, ChevronUp, ChevronDown, SlidersHorizontal, RotateCcw, Bot } from 'lucide-react';
+import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone, ChevronUp, ChevronDown, SlidersHorizontal, RotateCcw, Bot } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
@@ -2244,7 +2245,7 @@ function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; ema
   const canLeaveLiveChat = Boolean(active && active.driver && active.owner && !active.closed_at && !supportSessionActive && active.admin_id !== user?.id && joinedConversationIds.has(active.id));
 
   return (
-    <div className="grid h-[70vh] min-h-0 gap-4 overflow-hidden lg:grid-cols-[300px_1fr]">
+    <div className="grid h-[70dvh] min-h-[420px] min-w-0 gap-4 overflow-hidden lg:grid-cols-[300px_minmax(0,1fr)]">
       <div className={cn('card overflow-y-auto', active && 'hidden lg:block')}>
         {conversations.map((c) => {
           const u = c.driver || c.owner;
@@ -2263,18 +2264,10 @@ function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; ema
         })}
       </div>
 
-      <div className={cn('card min-h-0 flex-col overflow-hidden', !active ? 'hidden lg:flex' : 'flex')}>
+      <div className={cn('card min-h-0 min-w-0 flex-col overflow-hidden', !active ? 'hidden lg:flex' : 'flex')}>
         {active && other ? (
           <>
-            <div className="flex items-center gap-3 border-b border-ink-100 p-4">
-              <button onClick={() => setActiveId(null)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold text-ink-600 hover:bg-ink-100"><ArrowLeft className="h-4 w-4" /> Back</button>
-              <Avatar name={other.full_name} src={other.avatar_url} size={40} verified={other.role === 'driver' && other.is_verified} />
-              <div>
-                <p className="font-semibold text-ink-900">{active.driver && active.owner ? `Driver: ${active.driver.full_name} ↔ Car owner: ${active.owner.full_name}` : other.full_name}</p>
-                <p className="text-xs text-brand-600">{active.closed_at ? 'Ended · preserved history' : supportSessionActive ? 'Reopened support session · members can chat' : 'Active driver and car-owner chat · support invited'}</p>
-              </div>
-              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">{active.driver && <button type="button" onClick={() => onViewUser(active.driver!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View driver</button>}{active.owner && <button type="button" onClick={() => onViewUser(active.owner!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View owner</button>}{active.closed_at ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><Headphones className="h-4 w-4" /> {joining ? 'Reopening…' : 'Reopen with support'}</button> : !activeJoined ? <button onClick={() => joinConversation(active.id)} disabled={joining} className="btn-primary text-xs"><UserPlus className="h-4 w-4" /> {joining ? 'Joining…' : 'Join chat'}</button> : <span className="badge badge-success"><Check className="h-3.5 w-3.5" /> Joined</span>}{canLeaveLiveChat && <button onClick={() => setConfirmLeaveChat(true)} disabled={leaving} className="btn-secondary text-xs"><UserMinus className="h-4 w-4" /> Leave chat</button>}{active.driver && active.owner && !active.closed_at && <button onClick={() => setConfirmCloseChat(true)} className="btn-secondary text-xs"><LockKeyhole className="h-4 w-4" /> {supportSessionActive ? 'End support chat' : 'Close chat'}</button>}</div>
-            </div>
+            <AdminSupportChatHeader driver={active.driver} owner={active.owner} closed={!!active.closed_at} supportSessionActive={supportSessionActive} joined={activeJoined} canLeave={canLeaveLiveChat} joining={joining} leaving={leaving} onBack={() => setActiveId(null)} onViewUser={onViewUser} onJoin={() => void joinConversation(active.id)} onLeave={() => setConfirmLeaveChat(true)} onCloseChat={() => setConfirmCloseChat(true)} />
             <div ref={scrollRef} className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain bg-ink-50/50 p-4">
               {messages.map((m) => {
                 const mine = m.sender_id === user?.id;
@@ -2290,10 +2283,10 @@ function AdminChat({ user, onDataChange, onViewUser }: { user: { id: string; ema
                 );
               })}
             </div>
-            {activeJoined && !active.closed_at ? <div className="flex items-end gap-2 border-t border-ink-100 p-3">
+            {activeJoined && !active.closed_at ? <div className="flex shrink-0 items-end gap-2 border-t border-ink-100 p-3">
               <input ref={imageInputRef} type="file" accept="image/*,.heic,.heif" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadChatImage(file); }} />
               <button type="button" onClick={() => imageInputRef.current?.click()} disabled={uploadingImage} aria-label="Send an image" title="Send an image" className="rounded-full p-2 text-ink-500 hover:bg-ink-100 disabled:cursor-wait disabled:opacity-60">{uploadingImage ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}</button>
-              <AutoGrowTextarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !sending) { e.preventDefault(); send(); } }} placeholder="Type a message…" className="input min-h-10 flex-1 py-2.5" disabled={sending} />
+              <AutoGrowTextarea value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !sending) { e.preventDefault(); send(); } }} placeholder="Type a message…" aria-label="Message to this support chat" className="input min-h-10 min-w-0 flex-1 py-2.5" disabled={sending} />
               <button onClick={send} disabled={sending || !text.trim()} aria-label="Send message" className="btn-primary px-3">{sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}</button>
             </div> : <div className="flex items-center gap-2 border-t border-amber-200 bg-amber-50 p-3 text-xs text-amber-900"><LockKeyhole className="h-4 w-4" />This history is read-only. Click Reopen with support to let both members and support message again.</div>}
           </>

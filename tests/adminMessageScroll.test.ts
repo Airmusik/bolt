@@ -16,6 +16,17 @@ test('admin message panes keep scrolling on mobile and desktop', () => {
   assert.match(styles, /-webkit-overflow-scrolling: touch/);
 });
 
+test('support chat separates the mobile header from its scrollable history and composer', () => {
+  const supportHeader = readFileSync('src/components/AdminSupportChatHeader.tsx', 'utf8');
+  assert.match(supportHeader, /admin-support-chat-header shrink-0/);
+  assert.match(supportHeader, /grid min-w-0 grid-cols-2 gap-2/);
+  assert.match(supportHeader, /break-words text-sm font-semibold/);
+  assert.match(supportHeader, /Back to support chats/);
+  for (const action of ['onBack', 'onViewUser', 'onJoin', 'onLeave', 'onCloseChat']) assert.match(admin, new RegExp(`${action}=`));
+  assert.match(admin, /className="flex shrink-0 items-end gap-2 border-t/);
+  assert.match(admin, /Message to this support chat/);
+});
+
 test('member updates control uses compact header sizing', () => {
   assert.match(header, /updates-header-button relative flex h-9 items-center gap-1/);
   assert.match(header, /updates-header-button[^']*text-ink-900/);

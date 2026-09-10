@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Check, Clock3, Mail, Megaphone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -9,6 +10,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { SiteLogo } from '@/components/SiteLogo';
 import { useToast } from '@/components/useToast';
 import { notifyUnreadCountChanged } from '@/lib/notificationEvents';
+import { updateFromSearch } from '@/lib/memberUpdates';
 
 export function UpdatesPage() {
   const { user, profile } = useAuth();
@@ -16,6 +18,18 @@ export function UpdatesPage() {
   const { toast } = useToast();
   const [updates, setUpdates] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const { search } = useLocation();
+  const selectedUpdate = updateFromSearch(search);
+  const focusedUpdate = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedUpdate || focusedUpdate.current === selectedUpdate) return;
+    const article = document.getElementById(`update-${selectedUpdate}`);
+    if (!article) return;
+    focusedUpdate.current = selectedUpdate;
+    article.focus({ preventScroll: true });
+    article.scrollIntoView({ block: 'start', behavior: 'instant' });
+  }, [selectedUpdate, updates]);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -49,12 +63,12 @@ export function UpdatesPage() {
   return <div className="container-content py-8">
     <BackButton to={profile?.role === 'admin' ? '/admin' : '/dashboard'} />
     <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-50 text-accent-600 ring-1 ring-accent-200"><Megaphone className="h-5 w-5" /></span><div><h1 className="font-display text-2xl font-bold text-ink-900">11Drive updates</h1><p className="text-sm text-ink-500">Official news and service announcements.</p></div></div>
+      <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent-50 text-accent-600 ring-1 ring-accent-200"><Megaphone className="h-5 w-5" /></span><div><h1 className="font-display text-2xl font-bold text-ink-900">{settings.site_name} Updates</h1><p className="text-sm text-ink-500">Official news and service announcements.</p></div></div>
       {updates.some(update => !update.read) && <button className="btn-secondary text-sm" onClick={markAllRead}><Check className="h-4 w-4" /> Mark all read</button>}
     </div>
 
     <div className="mx-auto mt-6 max-w-3xl space-y-5">
-      {loading ? <div className="card h-56 animate-pulse" /> : updates.length === 0 ? <EmptyState title="No updates yet" description="Official 11Drive announcements will appear here in full." /> : updates.map(update => <article key={update.id} className={`overflow-hidden rounded-2xl border bg-white shadow-card dark:bg-[#141416] ${update.read ? 'border-ink-200' : 'border-accent-300 ring-2 ring-accent-100'}`}>
+      {loading ? <div className="card h-56 animate-pulse" /> : updates.length === 0 ? <EmptyState title="No updates yet" description={`Official ${settings.site_name} announcements will appear here in full.`} /> : updates.map(update => <article key={update.id} id={`update-${update.id}`} tabIndex={-1} className={`scroll-mt-44 overflow-hidden rounded-2xl border bg-white shadow-card focus:outline-none focus:ring-2 focus:ring-accent-500 dark:bg-[#141416] ${update.read ? 'border-ink-200' : 'border-accent-300 ring-2 ring-accent-100'}`}>
         <div className="h-1.5 bg-accent-500" />
         <div className="border-b border-ink-100 bg-ink-50/70 px-5 py-4 sm:px-7">
           <div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl bg-white ring-1 ring-ink-200"><SiteLogo /></span><div className="min-w-0 flex-1"><p className="font-bold text-ink-900">Official {settings.site_name}</p><p className="flex items-center gap-1.5 text-xs text-ink-500"><Mail className="h-3.5 w-3.5" /> To: You</p></div>{!update.read && <span className="badge-accent">New</span>}</div>

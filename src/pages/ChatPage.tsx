@@ -82,13 +82,14 @@ export function ChatPage() {
   const { profile } = useAuth();
   if (params.get('view') === 'support') {
     if (profile?.role === 'admin') return <Navigate replace to="/admin?tab=contact" />;
-    return <SupportMessagesPage />;
   }
   return <MemberChatPage />;
 }
 
 function MemberChatPage() {
   const { conversationId } = useParams();
+  const [params] = useSearchParams();
+  const supportView = params.get('view') === 'support';
   const navigate = useNavigate();
   const { user, profile, refreshProfile } = useAuth();
   const { toast } = useToast();
@@ -205,6 +206,7 @@ function MemberChatPage() {
   }, [active, user]);
 
   useEffect(() => {
+    if (supportView || !conversationId) { setActive(null); return; }
     if (conversationId && conversations.length > 0) {
       const c = conversations.find((x) => x.id === conversationId);
       if (c && user) {
@@ -212,10 +214,8 @@ function MemberChatPage() {
         const group = conversationGroups.find((item) => item.key === (partnerId ? `member:${partnerId}` : `conversation:${c.id}`));
         setActive(group?.activeConversation || c);
       }
-    } else if (!conversationId && conversations.length > 0 && !active) {
-      // keep none selected on mobile until clicked
     }
-  }, [conversationId, conversations, conversationGroups, active, user]);
+  }, [conversationId, conversations, conversationGroups, active, user, supportView]);
 
   const loadMessages = useCallback(async () => {
     if (!active || activeConversationIds.length === 0) return;
@@ -513,15 +513,15 @@ function MemberChatPage() {
   const canEndConnection = Boolean(memberConnectionChat && active?.connection_id && active.connection?.status === 'accepted' && !chatClosed);
 
   return (
-    <div className={cn('container-content py-4 sm:py-6', active && 'mobile-chat-fullscreen')}>
+    <div className={cn('container-content py-4 sm:py-6', (active || supportView) && 'mobile-chat-fullscreen')}>
       {pendingImage && pendingImage.conversation === active?.id && <Modal title="Preview image before sending" onClose={() => { if (!uploadingImage) setPendingImage(null); }}><img src={pendingImage.url} alt="Image ready to send" className="mx-auto max-h-[60dvh] max-w-full rounded-xl object-contain" /><div className="mt-4 flex gap-3"><button className="btn-secondary" disabled={uploadingImage} onClick={() => setPendingImage(null)}>Cancel</button><button className="btn-primary" disabled={uploadingImage} onClick={() => void uploadChatImage(pendingImage.file)}>{uploadingImage ? 'Sending…' : 'Send image'}</button></div></Modal>}
-      <div className={cn('mb-4 flex items-end justify-between gap-4', active && 'hidden lg:flex')}>
+      <div className={cn('mb-4 flex items-end justify-between gap-4', (active || supportView) && 'hidden lg:flex')}>
         <div><p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand-600"><Sparkles className="h-3.5 w-3.5 text-accent-500" /> Your connections</p><h1 className="font-display text-2xl font-bold text-ink-900">Messages</h1></div>
         <span className="hidden items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 sm:inline-flex"><ShieldCheck className="h-3.5 w-3.5" /> Private & saved</span>
       </div>
       <div className="chat-grid grid h-[calc(100dvh-9.5rem-var(--member-nav-height,0px))] min-h-[320px] max-h-[820px] gap-4 lg:grid-cols-[320px_1fr]">
         {/* Conversation list */}
-        <div className={cn('card overflow-y-auto bg-gradient-to-b from-white to-ink-50/60 dark:from-[#141416] dark:to-[#101012]', active && 'hidden lg:block')}>
+        <div className={cn('card min-h-0 overflow-y-auto bg-gradient-to-b from-white to-ink-50/60 dark:from-[#141416] dark:to-[#101012]', (active || supportView) && 'hidden lg:block')}>
           <div className="sticky top-0 z-10 border-b border-ink-100 bg-white/90 p-3 backdrop-blur-xl dark:bg-[#141416]/90">
             <div className="flex items-center justify-between px-1 pb-3">
               <span className="flex items-center gap-2 text-sm font-semibold text-ink-900"><MessageCircle className="h-4 w-4 text-brand-600" /> Conversations</span>
@@ -529,7 +529,7 @@ function MemberChatPage() {
             </div>
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={conversationSearch} onChange={(event) => setConversationSearch(event.target.value)} aria-label="Search conversations" placeholder="Search people or cars" className="input h-10 rounded-xl bg-ink-50 py-2 pl-9 pr-3 text-xs focus:bg-ink-100" /></div>
           </div>
-          {profile?.role !== 'admin' && <SupportInboxEntry search={conversationSearch} />}
+          {profile?.role !== 'admin' && <SupportInboxEntry search={conversationSearch} selected={supportView} />}
           {filteredConversationGroups.map((group) => {
             const c = group.latest;
             const otherUser = user?.id === c.driver_id ? (c.owner || c.admin) : user?.id === c.owner_id ? (c.driver || c.admin) : (c.driver || c.owner);
@@ -553,8 +553,8 @@ function MemberChatPage() {
         </div>
 
         {/* Chat window */}
-        <div className={cn('card flex flex-col overflow-hidden shadow-card-hover', !active && 'hidden lg:flex')}>
-          {active && other ? (
+        <div className={cn('card min-h-0 min-w-0 flex flex-col overflow-hidden shadow-card-hover', !active && !supportView && 'hidden lg:flex')}>
+          {supportView ? <SupportMessagesPage embedded /> : active && other ? (
             <>
               {/* Header */}
               <div className="flex items-center justify-between border-b border-brand-100 bg-gradient-to-r from-brand-50 via-white to-violet-50 p-3 sm:p-4 dark:from-brand-950/30 dark:via-[#141416] dark:to-violet-950/20">

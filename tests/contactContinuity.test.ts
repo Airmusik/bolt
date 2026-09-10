@@ -17,7 +17,12 @@ test('contact messages open in history and fit narrow screens', () => {
   assert.match(page, /submissionInFlight\.current = true/);
   assert.match(page, /overflow-x-hidden/);
   assert.match(page, /break-all text-sm/);
-  assert.match(page, /active && user && 'hidden lg:block'/);
+  assert.doesNotMatch(page, /Your message history|Support history|Choose previous messages/);
+  assert.match(page, /history\.map\(\(entry\)/);
+  assert.match(page, /min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain/);
+  const chat = readFileSync('src/pages/ChatPage.tsx', 'utf8');
+  assert.match(chat, /supportView \? <SupportMessagesPage embedded \/>/);
+  assert.doesNotMatch(chat, /return <SupportMessagesPage/);
 });
 
 test('guest messages and admin replies are delivered by a retryable email queue', () => {
