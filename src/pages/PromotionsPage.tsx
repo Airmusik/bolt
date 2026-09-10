@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowRight, BarChart3, Megaphone } from 'lucide-react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { BarChart3, Megaphone } from 'lucide-react';
 import { PromotionAnalytics } from '@/components/PromotionAnalytics';
 import { PromotionRequestCard } from '@/components/PromotionRequestCard';
+import { PromotionDraftActions } from '@/components/PromotionDraftActions';
 import { BackButton } from '@/components/BackButton';
 import { usePromotionLive, matchingPromotions } from '@/lib/promotionLive';
 import { supabase } from '@/lib/supabase';
@@ -17,6 +18,7 @@ export function PromotionsPage() {
   const userId = user?.id;
   const { toast } = useToast();
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const [settings, setSettings] = useState<PromotionSettings | null>(null);
   const [requests, setRequests] = useState<PromotionRequest[]>([]);
   const [vehicles, setVehicles] = useState<{ id: string; make: string; model: string }[]>([]);
@@ -94,7 +96,7 @@ export function PromotionsPage() {
       {!settings.enabled ? <div><h2 className="font-semibold">New promotions are currently paused</h2><p className="mt-2 text-sm leading-6 text-ink-600">Existing requests and their saved payment details remain above. <Link to="/contact?topic=promotion" className="underline">Contact support</Link> before sending a new payment.</p></div> : <>
         <h2 className="font-display text-lg font-bold text-ink-900">{current.length ? 'Choose or manage a promotion' : 'Choose your promotion'}</h2>
         {profile?.role === 'owner' ? <><label className="label mt-4" htmlFor="promotion-target">Which car do you want more drivers to see?</label><select id="promotion-target" className="input" value={target} onChange={e => setTarget(e.target.value)} disabled={!vehicles.length}>{!vehicles.length && <option value="">No live, approved cars yet</option>}{vehicles.map(v => <option key={v.id} value={v.id}>{v.make} {v.model}</option>)}</select><p className="mt-2 text-xs text-ink-500">Only your live, approved cars can be selected. Each car has its own promotion.</p>{!vehicles.length && <Link to="/dashboard?tab=vehicles" className="btn-secondary mt-3">View my vehicles</Link>}</> : <div className="mt-3 rounded-xl bg-ink-50 p-3"><p className="text-sm font-semibold">My driver profile</p><p className="mt-1 text-xs text-ink-500">Your profile must meet the usual approval and availability requirements to appear.</p></div>}
-        {target && <><div className="mt-4 rounded-xl border border-brand-200 bg-brand-50/30 p-4 dark:bg-brand-950/20"><p className="text-xs font-medium text-ink-500">{existing ? 'Saved price for your existing promotion' : 'Total price for this promotion'}</p><p className="mt-1 text-2xl font-bold text-ink-900">{formatMoney(quotedPrice)}</p><p className="mt-1 text-sm text-ink-600">{quotedDays} days · starts after admin confirms payment</p></div><details className="mt-3 text-sm"><summary className="cursor-pointer font-medium">Promotion terms & important information</summary><p className="mt-2 whitespace-pre-wrap break-words text-ink-600">{existing?.terms || settings.terms}</p><p className="mt-2 text-xs text-ink-500">Promotion never replaces admin approval or driver platform-history review. Search filters and availability still apply.</p></details><button type="button" disabled={busy} onClick={() => void create()} className="btn-primary mt-4 w-full sm:w-auto">{busy ? 'Preparing instructions…' : existing ? 'View my existing promotion' : 'Continue to payment instructions'}<ArrowRight className="h-4 w-4" /></button><p className="mt-2 text-xs text-ink-500">{existing ? 'No duplicate request or extra payment is needed.' : 'This button does not charge you. Review the payment details before deciding to pay.'}</p></>}
+        {target && <><div className="mt-4 rounded-xl border border-brand-200 bg-brand-50/30 p-4 dark:bg-brand-950/20"><p className="text-xs font-medium text-ink-500">{existing ? 'Saved price for your existing promotion' : 'Total price for this promotion'}</p><p className="mt-1 text-2xl font-bold text-ink-900">{formatMoney(quotedPrice)}</p><p className="mt-1 text-sm text-ink-600">{quotedDays} days · starts after admin confirms payment</p></div><details className="mt-3 text-sm"><summary className="cursor-pointer font-medium">Promotion terms & important information</summary><p className="mt-2 whitespace-pre-wrap break-words text-ink-600">{existing?.terms || settings.terms}</p><p className="mt-2 text-xs text-ink-500">Promotion never replaces admin approval or driver platform-history review. Search filters and availability still apply.</p></details><PromotionDraftActions busy={busy} existing={!!existing} onContinue={() => void create()} onCancel={() => navigate(profile?.role === 'owner' ? '/dashboard?tab=vehicles' : '/dashboard')} /></>}
       </>}
     </section>}
     {requests.some(r => r.starts_at) && <section><button type="button" aria-expanded={showAnalytics} aria-controls="user-promotion-analytics" onClick={() => setShowAnalytics(value => !value)} className="btn-secondary"><BarChart3 className="h-4 w-4" />{showAnalytics ? 'Hide promotion results' : 'See views & clicks'}</button><div id="user-promotion-analytics">{showAnalytics && <PromotionAnalytics />}</div></section>}

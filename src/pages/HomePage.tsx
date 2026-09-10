@@ -137,7 +137,7 @@ export function HomePage() {
       <section className="relative z-10 bg-gradient-to-b from-accent-50/60 to-white/80 dark:from-brand-50/40 dark:to-[#0b0b0d]/80">
         <div className="container-content relative pt-9 pb-2 sm:pt-14 lg:pt-16">
           <div className="mx-auto max-w-3xl text-center animate-slide-up">
-            <span className="mb-4 inline-flex items-center gap-2 rounded-full border border-ink-200 bg-white/80 px-3 py-1.5 text-xs font-medium text-ink-700 dark:bg-[#141416]">
+            <span className="mb-4 inline-flex items-center gap-2 text-xs font-medium text-ink-700">
               <ShieldCheck className="h-4 w-4 shrink-0 text-accent-600 dark:text-accent-400" /> {settings.homepage_badge}
             </span>
             <h1 className="font-display text-[clamp(1.75rem,7.8vw,3.75rem)] font-extrabold leading-[1.12] tracking-tight text-ink-950">
@@ -327,7 +327,7 @@ export function HomePage() {
                   <p className="mt-1 text-xs text-ink-500">{d.age != null ? `${d.age} years old` : 'Age not provided'}</p>
                   <div className="mt-1"><VerifiedBadge verified={d.platform_history_approved} size={11} showLabel /></div>
                   <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-2 justify-center" />
-                  <div className="mt-3 flex flex-wrap justify-center gap-1">
+                  <div className="status-list mt-3 justify-center">
                     {d.platforms_worked?.slice(0, 3).map((p) => (
                       <span key={p} className="badge-neutral">{titleCase(p)}</span>
                     ))}

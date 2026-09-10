@@ -293,10 +293,10 @@ function DriversTab({ users, loading, siteName }: { users: Profile[]; loading: b
                 <p className="flex items-center gap-1 truncate text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
                 <p className="mt-1 text-xs text-ink-500">{d.age != null ? `${d.age} years old` : 'Age not provided'}</p>
               </div>
-              <div className="flex w-full flex-wrap gap-2"><AvailabilityBadge availability={d.availability} profile={d} /><PromotionBadge kind="profile" id={d.id} /></div>
+              <div className="status-list w-full"><AvailabilityBadge availability={d.availability} profile={d} /><PromotionBadge kind="profile" id={d.id} /></div>
             </div>
             <Rating value={d.rating} size={12} showValue count={d.rating_count} className="mt-3" />
-            <div className="mt-2 flex flex-wrap gap-1">
+            <div className="status-list mt-2">
               {(d.platforms_worked || []).slice(0, 3).map((p) => <span key={p} className="badge-neutral">{titleCase(p)}</span>)}
             </div>
           </Link>

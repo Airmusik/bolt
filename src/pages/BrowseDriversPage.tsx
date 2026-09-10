@@ -97,7 +97,7 @@ export function BrowseDriversPage() {
                       <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
                 <p className="mt-1 text-xs text-ink-500">{d.age != null ? `${d.age} years old` : 'Age not provided'}</p>
                     </div>
-                    <div className="flex w-full flex-wrap gap-2"><AvailabilityBadge availability={d.availability} profile={d} /><PromotionBadge kind="profile" id={d.id} /></div>
+                    <div className="status-list w-full"><AvailabilityBadge availability={d.availability} profile={d} /><PromotionBadge kind="profile" id={d.id} /></div>
                   </div>
                   <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-3" />
                   <div className="mt-3 space-y-2 rounded-xl bg-ink-50 p-3 text-xs leading-5 text-ink-600">
@@ -106,7 +106,7 @@ export function BrowseDriversPage() {
                       <p className="flex items-start gap-2"><Languages className="mt-0.5 h-4 w-4 shrink-0" /><span className="break-words">{d.languages.join(', ')}</span></p>
                     )}
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-1">
+                  <div className="status-list mt-3">
                     {(d.platforms_worked || []).slice(0, 4).map((p) => (
                       <span key={p} className="badge-neutral">{titleCase(p)}</span>
                     ))}

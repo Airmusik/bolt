@@ -141,7 +141,7 @@ export function NotificationsPage() {
             <div className="mb-4 flex items-center gap-2 text-xs text-ink-500">
               <Clock3 className="h-4 w-4" />
               {new Date(selected.created_at).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}
-              <span className="rounded-full bg-white px-2 py-0.5 font-medium capitalize text-brand-700 ring-1 ring-brand-100 dark:bg-[#1d1d20]">{selected.type.replace(/_/g, ' ')}</span>
+              <span className="badge-neutral capitalize">{selected.type.replace(/_/g, ' ')}</span>
             </div>
             <p className="whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{selected.body || 'There are no additional details for this notification.'}</p>
             {typeof selected.data?.reason === 'string' && (

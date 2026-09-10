@@ -42,7 +42,10 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
             <span className="text-sm">No photo</span>
           </div>
         )}
-        <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
+      </div>
+
+      <div className="p-4">
+        <div className="status-list mb-3" aria-label="Listing status">
           {showApprovalStatus && vehicle.document_listing_visibility && vehicle.document_listing_visibility !== 'public' && <span className="badge-danger">{vehicle.document_listing_visibility === 'private' ? 'Private · document renewal needed' : 'Removed from discovery'}</span>}
           {showApprovalStatus && vehicle.approval_status === 'pending' && <span className="badge-warning">Pending admin approval</span>}
           {showApprovalStatus && vehicle.approval_status === 'approved' && <span className="badge-success">Approved</span>}
@@ -52,13 +55,10 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
 
         </div>
         {issuesCount > 0 && (
-          <div className="absolute bottom-3 left-3 flex items-center gap-1 rounded-full bg-amber-50/95 px-2 py-1 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
+          <div className="badge-warning mb-3">
             <AlertTriangle className="h-3 w-3" /> {issuesCount} known issue{issuesCount > 1 ? 's' : ''}
           </div>
         )}
-      </div>
-
-        <div className="p-4">
         {showApprovalStatus && vehicle.approval_status === 'rejected' && vehicle.approval_note && (
           <div className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">Admin note: {vehicle.approval_note}</div>
         )}
@@ -87,9 +87,9 @@ export function VehicleCard({ vehicle, showOwner = true, showApprovalStatus = fa
         </div>
 
         {vehicle.registered_platforms?.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
+          <div className="status-list mt-3">
             {vehicle.registered_platforms.map((platform) => (
-              <span key={platform} className="rounded-full bg-violet-50 px-2.5 py-1 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-100 dark:bg-violet-950/30 dark:text-violet-300 dark:ring-violet-900">
+              <span key={platform} className="badge-neutral text-[11px]">
                 {platformLabels[platform]}
               </span>
             ))}

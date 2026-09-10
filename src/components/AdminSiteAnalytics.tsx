@@ -73,7 +73,7 @@ export function AdminSiteAnalytics() {
   };
   return <section className="space-y-6" aria-label="Site analytics">
     <div className="analytics-banner rounded-2xl bg-gradient-to-r from-emerald-900 via-teal-800 to-sky-900 p-6 text-white">
-      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-emerald-200">11Drive insights</p><h2 className="mt-1 text-3xl font-bold">See how your community grows</h2><p className="mt-2 text-sm text-emerald-100">Traffic, countries and marketplace activity—explained simply.</p></div><span className="flex items-center gap-2 rounded-full bg-white/10 px-3 py-2 text-xs"><span className="h-2 w-2 rounded-full bg-emerald-300" />{busy ? 'Updating…' : auto ? 'Refreshes every 60 seconds' : 'Manual refresh'}</span></div>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-emerald-200">11Drive insights</p><h2 className="mt-1 text-3xl font-bold">See how your community grows</h2><p className="mt-2 text-sm text-emerald-100">Traffic, countries and marketplace activity—explained simply.</p></div><span className="flex items-center gap-2 text-xs"><span className="h-2 w-2 rounded-full bg-emerald-300" />{busy ? 'Updating…' : auto ? 'Refreshes every 60 seconds' : 'Manual refresh'}</span></div>
     </div>
     <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-ink-200 p-4">
       <label className="text-xs font-medium">From (UTC)<input aria-label="Start date" type="date" value={start} max={end} onChange={e => setStart(e.target.value)} className="input mt-1 block" /></label>

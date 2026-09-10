@@ -21,7 +21,8 @@ export function PromotionRequestCard({ request: r, visible = true, paused = fals
     finally { lock.current = false; setBusy(false); }
   };
   return <article id={`promotion-${r.id}`} tabIndex={-1} className="card scroll-mt-32 p-4 focus:outline-none focus:ring-2 focus:ring-brand-500 sm:p-5">
-    <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="text-xs font-medium uppercase tracking-wide text-ink-500">{r.kind === 'profile' ? 'Driver profile' : 'Car listing'}</p><h3 className="mt-1 font-semibold text-ink-900">{promotionTitle(r)}</h3></div><span className={progress.tone}>{progress.label}</span></div>
+    <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-medium uppercase tracking-wide text-ink-500">{r.kind === 'profile' ? 'Driver profile' : 'Car listing'}</p><h3 className="mt-1 font-semibold text-ink-900">{promotionTitle(r)}</h3><span className={`${progress.tone} mt-1`}>{progress.label}</span></div>{r.status === 'awaiting_payment' && <button type="button" disabled={busy} className="btn-secondary text-xs" onClick={() => setCancel(true)}>Cancel promotion</button>}</div>
+    {r.status === 'awaiting_payment' && <p className="mt-3 text-xs leading-5 text-ink-500">Not submitted to admin yet. You can cancel if you have not paid. Already paid? Send your reference below or contact support.</p>}
     <div className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1"><strong className="text-xl text-ink-900">{formatMoney(r.amount)}</strong><span className="text-sm text-ink-500">total · {r.duration_days} days from activation</span></div>
     <p className="mt-3 flex items-start gap-2 rounded-xl bg-ink-50 p-3 text-sm leading-6 text-ink-700">{r.status === 'pending' ? <Clock3 className="mt-1 h-4 w-4 shrink-0" /> : r.status === 'awaiting_payment' ? <CreditCard className="mt-1 h-4 w-4 shrink-0" /> : <CheckCircle2 className="mt-1 h-4 w-4 shrink-0" />}{progress.help}</p>
     <p className="mt-2 text-xs text-ink-500">Requested {formatDateTime(r.created_at)}</p>
@@ -38,11 +39,10 @@ export function PromotionRequestCard({ request: r, visible = true, paused = fals
       <label className="flex min-h-11 items-start gap-3 text-sm leading-6 text-ink-600"><input type="checkbox" className="mt-1 h-4 w-4 shrink-0" checked={accepted} disabled={busy} onChange={e => setAccepted(e.target.checked)} />I have paid {formatMoney(r.amount)} and agree to the promotion terms above.</label>
       <button type="button" className="btn-primary w-full sm:w-auto" disabled={busy || !accepted || reference.trim().length < 3} onClick={() => void act()}>{busy ? 'Submitting…' : '3. Send payment reference to admin'}</button>
       <p className="text-xs text-ink-500">Your {r.duration_days} days start after admin confirms payment—not while you wait.</p>
-      <button type="button" disabled={busy} className="btn-ghost text-xs" onClick={() => setCancel(true)}>Cancel this request · only if you have not paid</button>
     </div>}
     {r.payment_reference && <p className="mt-3 break-words text-xs text-ink-600">Submitted payment reference: <strong>{r.payment_reference}</strong></p>}
     {error && <p role="alert" className="mt-3 text-sm text-danger">{error}</p>}
     <Link to="/contact?topic=promotion" className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline">Need help with this promotion?</Link>
-    {cancel && <ConfirmDialog title="Cancel unpaid request?" message="Cancel only if you have not paid. If you have paid, submit your reference or contact support so your payment can be traced." confirmLabel="Cancel unpaid request" onConfirm={() => act(true)} onClose={() => { if (!lock.current) setCancel(false); }} />}
+    {cancel && <ConfirmDialog title="Cancel unpaid promotion?" message="This closes the unpaid promotion request without submitting it to admin. Cancel only if you have not paid. If you have paid, send your reference or contact support so your payment can be traced." confirmLabel="Cancel unpaid promotion" cancelLabel="Keep promotion" onConfirm={() => act(true)} onClose={() => { if (!lock.current) setCancel(false); }} />}
   </article>;
 }

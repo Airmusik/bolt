@@ -70,10 +70,6 @@
   color: #17202c;
 }
 .dark .admin-portal .admin-add-member:hover { background: #dce5ed; }
-.dark .admin-members .badge-success { background: #183c31; color: #9fe7c8; --tw-ring-color: #346452; }
-.dark .admin-members .badge-warning { background: #40331c; color: #f8d994; --tw-ring-color: #75603a; }
-.dark .admin-members .badge-danger { background: #44262e; color: #ffc0cb; --tw-ring-color: #79404e; }
-.admin-members :is(.badge-success, .badge-warning, .badge-danger) { padding: 5px 9px; }
 @media (min-width: 1280px) {
   .admin-member-actions .btn-secondary { flex: initial; }
 }

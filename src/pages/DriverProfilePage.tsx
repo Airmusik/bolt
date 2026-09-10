@@ -88,7 +88,7 @@ export function DriverProfilePage() {
                 </h1>
                 <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-ink-500">
                   <span className="inline-flex items-center gap-1"><MapPin className="h-4 w-4" /> {profile.location || 'Location not provided'}</span>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-brand-50 px-2.5 py-1 font-medium text-brand-700 ring-1 ring-brand-100"><CalendarDays className="h-4 w-4" /> Member since {new Date(profile.created_at).toLocaleDateString('en-KE', { month: 'long', year: 'numeric' })}</span>
+                  <span className="inline-flex items-center gap-1"><CalendarDays className="h-4 w-4" /> Member since {new Date(profile.created_at).toLocaleDateString('en-KE', { month: 'long', year: 'numeric' })}</span>
                   {user?.id === profile.id && profile.email && <span className="inline-flex items-center gap-1"><Mail className="h-4 w-4" /> {profile.email} <span className="text-xs">(only you can see this)</span></span>}
                   {!isOwner && profile.age && <span>{profile.age} years old</span>}
                   {!isOwner && <span className="inline-flex items-center gap-1"><Briefcase className="h-4 w-4" /> {profile.driving_experience_years} {profile.driving_experience_years === 1 ? 'year' : 'years'} experience</span>}
@@ -105,7 +105,7 @@ export function DriverProfilePage() {
 
             {profile.bio && <p className="mt-5 text-sm text-ink-700">{profile.bio}</p>}
 
-            {!isOwner && <div className="mt-5 flex flex-wrap gap-2">
+            {!isOwner && <div className="status-list mt-5">
               {!isOwner && (profile.platforms_worked || []).map((p) => <span key={p} className="badge-neutral">{titleCase(p)}</span>)}
             </div>}
           </div>
@@ -117,7 +117,7 @@ export function DriverProfilePage() {
           {/* Languages */}
           {profile.languages?.length > 0 && (
             <Section title="Languages" icon={<Languages className="h-5 w-5" />}>
-              <div className="flex flex-wrap gap-2">
+              <div className="status-list">
                 {profile.languages.map((l) => <span key={l} className="badge-neutral">{l}</span>)}
               </div>
             </Section>

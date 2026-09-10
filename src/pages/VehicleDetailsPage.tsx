@@ -200,9 +200,9 @@ export function VehicleDetailsPage() {
 
           <Section title="Ride-hailing platform readiness">
             {vehicle.registered_platforms?.length ? (
-              <div className="flex flex-wrap gap-2">
+              <div className="status-list">
                 {vehicle.registered_platforms.map((platform) => (
-                  <span key={platform} className="rounded-full bg-violet-50 px-3 py-1.5 text-sm font-semibold text-violet-700 ring-1 ring-violet-100 dark:bg-violet-950/30 dark:text-violet-300 dark:ring-violet-900">
+                  <span key={platform} className="badge-neutral text-sm">
                     {platform === 'little' ? 'Little Cab ready' : platform === 'other' ? 'Other platform' : `${titleCase(platform)} ready`}
                   </span>
                 ))}
