@@ -17,6 +17,7 @@ import { AdminMfaSetup } from '@/components/AdminMfaSetup';
 import { AdminChatbot } from '@/components/AdminChatbot';
 import { AdminFeedback } from '@/components/AdminFeedback';
 import { ReportRemovalAction } from '@/components/ReportRemovalAction';
+import { normalizeReportWarnings } from '@/lib/reportWarnings';
 import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, UserMinus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone, ChevronUp, ChevronDown, SlidersHorizontal, RotateCcw, Bot } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
@@ -61,7 +62,8 @@ import { AutoGrowTextarea } from '@/components/AutoGrowTextarea';
 type AdminVehicle = Vehicle & { owner?: Profile; photos?: VehiclePhoto[]; issues?: VehicleIssue[]; description?: string };
 type AdminDocument = DocumentRow & { user?: Profile; vehicle?: Pick<Vehicle, 'id' | 'make' | 'model' | 'year'> };
 type AdminHistory = PlatformHistory & { driver?: Profile };
-type AdminReport = Report & { reporter?: Profile; reported?: Profile; warnings?: UserWarning[] };
+type AdminReportRow = Report & { reporter?: Profile; reported?: Profile; warnings?: UserWarning | UserWarning[] | null };
+type AdminReport = Omit<AdminReportRow, 'warnings'> & { warnings: UserWarning[] };
 type ToastFn = (message: string, type?: ToastType) => void;
 
 async function notifyUser(userId: string, type: string, title: string, body: string, data?: Record<string, unknown>) {
@@ -172,8 +174,8 @@ export function AdminPage() {
     const usersById = new Map(loadedUsers.map((member) => [member.id, member]));
     setUsers(loadedUsers);
     setVehicles((v as AdminVehicle[]) || []);
-    setReports(((r as AdminReport[]) || []).map((report) => ({
-      ...report,
+    setReports(((r as AdminReportRow[]) || []).map((report) => ({
+      ...normalizeReportWarnings(report),
       reporter: usersById.get(report.reporter_id) || report.reporter,
       reported: report.reported_id ? usersById.get(report.reported_id) || report.reported : report.reported,
     })));
@@ -1812,7 +1814,7 @@ function ViewUserModal({ user, onClose, onSuspend, onReinstate, onViewDoc, onCha
         supabase.from('user_warnings').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       ]);
       setDocs((docsResult.data as DocumentRow[]) || []);
-      setProfileReports((reportsResult.data as AdminReport[]) || []);
+      setProfileReports(((reportsResult.data as AdminReportRow[]) || []).map(normalizeReportWarnings));
       setProfileWarnings(((warningsResult.data as UserWarning[]) || []).filter(warning => !warning.revoked_at));
       setLoadingDocs(false);
     })();
