@@ -764,7 +764,7 @@ export function AdminPage() {
         {tab === 'cars' && !loading && (
           <div className="space-y-3">
             <div className="flex flex-wrap gap-2">
-              {(['all', 'live', 'pending'] as const).map((filter) => <button key={filter} onClick={() => setCarStatusFilter(filter)} className={cn('rounded-full px-3 py-1.5 text-xs font-medium capitalize ring-1', carStatusFilter === filter ? 'bg-brand-600 text-white ring-brand-600' : 'bg-white text-ink-600 ring-ink-200')}>{filter === 'all' ? 'All listings' : `${filter} listings`}</button>)}
+              {(['all', 'live', 'pending'] as const).map((filter) => <button key={filter} type="button" aria-pressed={carStatusFilter === filter} onClick={() => setCarStatusFilter(filter)} className="admin-member-filter rounded-full border px-3 py-1.5 text-xs font-medium capitalize">{filter === 'all' ? 'All listings' : `${filter} listings`}</button>)}
             </div>
             {filteredVehicles.map((v) => (
               <div key={v.id} className="card flex items-center gap-3 p-4">

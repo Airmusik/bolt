@@ -97,7 +97,7 @@ export function DocumentViewer({ doc, onClose }: { doc: DocumentRow; onClose: ()
 
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-end justify-center overflow-hidden p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={doc.label || doc.type.replace(/_/g, ' ')}>
-      <div className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative flex h-[100dvh] max-h-[100dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-2xl bg-white shadow-card-hover dark:bg-[#141416] sm:h-[88dvh] sm:rounded-2xl">
         <div className="flex shrink-0 items-center justify-between gap-2 border-b border-ink-100 px-3 py-2 pt-[calc(0.5rem+env(safe-area-inset-top))] sm:p-4">
           <h3 className="flex min-w-0 flex-1 items-center gap-2 font-display text-base font-bold text-ink-900 sm:text-lg">
