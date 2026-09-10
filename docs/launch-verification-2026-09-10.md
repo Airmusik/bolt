@@ -16,6 +16,8 @@
 
 ## Still requires the owner / additional access
 
+Release `2401ebd` was pushed to `main` and deployed successfully by Vercel. GitHub's [Release checks](https://github.com/Airmusik/bolt/actions/runs/34464965520) passed on Node 24. A manually triggered [Website availability run](https://github.com/Airmusik/bolt/actions/runs/34465075774) also passed from GitHub's runner. A separate live check passed `/`, `/login`, `/register`, `/contact`, `/updates`, `/admin`, first-load assets and `/api/health`. Failed-run email receipt and future scheduled execution are not established by that successful manual run.
+
 1. Add a server-only Supabase key to ignored local backup configuration; choose off-site destination and keep the recovery key separately.
 2. Verify a complete copy and configure/verify its recurring job and failure alerts.
 3. Approve an isolated Supabase recovery project for a full managed-service restore rehearsal (the local data test is not that).
