@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Facebook, Instagram, Linkedin, Mail, MapPin, Phone, ChevronDown } from 'lucide-react';
 import { useSiteSettings } from '@/lib/siteSettings';
-import { SiteLogo } from './SiteLogo';
+import { SiteWordmark } from './SiteWordmark';
 import { AdSlot } from './AdSlot';
 import { FooterVideoAd } from './FooterVideoAd';
 
@@ -18,10 +18,7 @@ export function Footer() {
         {/* Mobile: collapsed behind a button */}
         <div className="flex w-full items-center justify-between md:hidden">
           <Link to="/" className="flex items-center gap-2">
-            <SiteLogo />
-            <span className="site-wordmark font-display text-lg font-extrabold tracking-tight">
-              {settings.site_name}
-            </span>
+            <SiteWordmark name={settings.site_name} colours={settings.header_name_colours} className="h-auto w-[138px]" />
           </Link>
           <button type="button" onClick={() => setExpanded((v) => !v)} className="rounded-full p-2 text-ink-500 hover:bg-ink-100" aria-expanded={expanded} aria-label={expanded ? 'Collapse footer links' : 'Expand footer links'}><ChevronDown className={`h-5 w-5 transition-transform ${expanded ? 'rotate-180' : ''}`} /></button>
         </div>
@@ -30,10 +27,7 @@ export function Footer() {
         <div className={`mt-0 md:mt-0 ${expanded ? 'mt-6 grid' : 'hidden'} gap-10 md:grid md:grid-cols-4`}>
           <div>
             <Link to="/" className="hidden items-center gap-2 md:flex">
-              <SiteLogo />
-              <span className="site-wordmark font-display text-lg font-extrabold tracking-tight">
-                {settings.site_name}
-              </span>
+              <SiteWordmark name={settings.site_name} colours={settings.header_name_colours} className="h-auto w-[138px]" />
             </Link>
             <p className="mt-3 text-sm font-medium leading-6 text-ink-600">{settings.site_tagline}</p>
             <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-ink-400">{settings.footer_description}</p>

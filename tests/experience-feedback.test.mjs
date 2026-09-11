@@ -26,6 +26,7 @@ test('member reviews, private feedback, permissions and recurring prompt cooldow
     const previous = await readFile(new URL('../supabase/migrations/20260826233000_ratings_and_vehicle_platforms.sql', import.meta.url),'utf8');
     await db.exec(previous.slice(0, previous.indexOf('ALTER TABLE public.vehicles')));
     await db.exec(await readFile(new URL('../supabase/migrations/20260909120000_member_reviews_and_experience_feedback.sql', import.meta.url),'utf8'));
+    await db.exec(await readFile(new URL('../supabase/migrations/20260911180000_one_review_per_member.sql', import.meta.url),'utf8'));
     const owner=randomUUID(), driver=randomUUID(), other=randomUUID(), admin=randomUUID(), newbie=randomUUID();
     await db.query("INSERT INTO profiles(id,role) VALUES($1,'owner'),($2,'driver'),($3,'driver'),($4,'admin'),($5,'owner')",[owner,driver,other,admin,newbie]);
     await db.query('UPDATE profiles SET created_at=now() WHERE id=$1',[newbie]);
@@ -51,6 +52,20 @@ test('member reviews, private feedback, permissions and recurring prompt cooldow
     assert.equal(Number(await scalar('SELECT rating AS value FROM profiles WHERE id=$1',[owner])),3,'positive review increases average from 1 to 3');
     assert.equal(await scalar('SELECT rating_count AS value FROM profiles WHERE id=$1',[owner]),2);
     assert.equal((await review(chat,1)).id,positive.id,'retry does not create or replace a review');
+    await asUser(driver, 'postgres');
+    const repeatConnection = randomUUID(), repeatChat = randomUUID(), repeatApp = randomUUID(), repeatAppChat = randomUUID();
+    await db.query("INSERT INTO connections VALUES($1,$2,$3,'accepted')", [repeatConnection, driver, owner]);
+    await db.query('INSERT INTO conversations(id,driver_id,owner_id,connection_id) VALUES($1,$2,$3,$4)', [repeatChat, driver, owner, repeatConnection]);
+    await db.query("INSERT INTO applications VALUES($1,$2,$3,'completed')", [repeatApp, driver, owner]);
+    await db.query('INSERT INTO conversations(id,driver_id,owner_id,application_id) VALUES($1,$2,$3,$4)', [repeatAppChat, driver, owner, repeatApp]);
+    await assert.rejects(db.query('INSERT INTO reviews(connection_id,reviewer_id,reviewee_id,rating) VALUES($1,$2,$3,1)', [repeatConnection,driver,owner]), /reviews_one_per_member_pair/);
+    await asUser(driver);
+    assert.equal((await review(repeatChat,1)).id,positive.id,'a new connection cannot create a second rating for the same member');
+    assert.equal((await review(repeatAppChat,1)).id,positive.id,'application chats reuse the member rating too');
+    await assert.rejects(db.query('SELECT submit_review($1,1,NULL)',[repeatApp]), /reviews_one_per_member_pair/);
+    assert.equal(await scalar('SELECT count(*)::int AS value FROM reviews WHERE reviewer_id=$1 AND reviewee_id=$2',[driver,owner]),1);
+    assert.equal(await scalar('SELECT count(*)::int AS value FROM notifications WHERE user_id=$1 AND type=\'review\'',[owner]),1,'retries do not create extra review notifications');
+    assert.equal(await scalar('SELECT rating_count AS value FROM profiles WHERE id=$1',[owner]),2,'repeat chats do not increase rating count');
     await assert.rejects(review(chat,null),/Choose 1 to 5/);
     await assert.rejects(review(chat,6),/Choose 1 to 5/);
     await assert.rejects(review(chat,5,'x'.repeat(2001)),/2000/);

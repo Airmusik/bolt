@@ -1,4 +1,5 @@
 import { ProfileName } from '@/components/ProfileName';
+import { SiteWordmark } from '@/components/SiteWordmark';
 import { SupportReceipt } from '@/components/SupportReceipt';
 import { AdminMemberUpload } from '@/components/AdminMemberUpload';
 import { useSearchParams } from 'react-router-dom';
@@ -1514,6 +1515,7 @@ function AdminSettings({ section, onSectionChange }: { section: SettingsSection;
           <div>
             <label htmlFor="admin-site-name" className="label">Site name</label>
             <input id="admin-site-name" value={settings['site_name'] || ''} onChange={(e) => setSettings({ ...settings, site_name: e.target.value })} className="input" />
+            <p className="mt-1 text-xs text-ink-500">The previews below update as you type. Saving applies the name and styling to the header, footer and opening animation. Uploaded images and installed-app icons are managed separately.</p>
           </div>
           <div>
             <label htmlFor="admin-header-name-animation" className="label">Top header name animation</label>
@@ -1523,22 +1525,22 @@ function AdminSettings({ section, onSectionChange }: { section: SettingsSection;
                 <option value="pulse">Soft pulse</option>
                 <option value="float">Gentle float</option>
               </select><p className="mt-1 text-xs text-ink-500">Controls only the site name in the top navigation. Reduced-motion preferences are always respected.</p></div>
-              <span className={`site-wordmark site-wordmark--${settings.header_name_animation === 'glow' ? 'off' : settings.header_name_animation} site-wordmark-colours--${settings.header_name_colours || 'split'} inline-block truncate px-2 font-display text-2xl font-extrabold tracking-tight`}>{settings.site_name === '11Drive' ? <><span className="site-wordmark-eleven">11</span><span className="site-wordmark-drive text-[0.85em]">Drive</span></> : settings.site_name}</span>
+              <SiteWordmark name={settings.site_name} colours={settings.header_name_colours} animation={settings.header_name_animation} className="h-auto w-40" />
             </div>
           </div>
           <fieldset>
-            <legend className="label">Top header name colours</legend>
-            <p className="mb-3 text-xs text-ink-500">Choose a static, professional colour arrangement for 11Drive.</p>
+            <legend className="label">Site name colours</legend>
+            <p className="mb-3 text-xs text-ink-500">Choose the colours for {settings.site_name || 'your site'}. Used in the header, footer and opening animation.</p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {([
-                ['split', '11 dark · Drive theme'],
-                ['reverse', '11 theme · Drive dark'],
-                ['base', 'Both dark'],
+                ['split', 'First part neutral · Second part theme'],
+                ['reverse', 'First part theme · Second part neutral'],
+                ['base', 'Both neutral'],
                 ['action', 'Both theme colour'],
               ] as const).map(([value, label]) => {
                 const selected = (settings.header_name_colours || 'split') === value;
                 return <button key={value} type="button" aria-pressed={selected} onClick={() => setSettings({ ...settings, header_name_colours: value })} className={`rounded-xl border p-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500 ${selected ? 'border-accent-500 bg-accent-50 ring-1 ring-accent-200' : 'border-ink-200 bg-white hover:border-ink-400 dark:bg-[#141416]'}`}>
-                  <span className={`site-wordmark site-wordmark-colours--${value} block font-display text-xl font-extrabold tracking-tight`}><span className="site-wordmark-eleven">11</span><span className="site-wordmark-drive text-[0.85em]">Drive</span></span>
+                  <SiteWordmark name={settings.site_name} colours={value} className="h-auto w-32" />
                   <span className="mt-1 block text-[11px] font-medium text-ink-500">{label}</span>
                 </button>;
               })}
@@ -1582,7 +1584,7 @@ function AdminSettings({ section, onSectionChange }: { section: SettingsSection;
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-ink-100 bg-white p-3 dark:bg-[#17171a]">
                   <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-orange-600" checked={settings.launch_intro_enabled === 'true'} onChange={(event) => setSettings({ ...settings, launch_intro_enabled: String(event.target.checked) })} />
-                  <span><span className="block text-sm font-semibold text-ink-900">Animated 11Drive launch</span><span className="mt-1 block text-xs leading-5 text-ink-500">Show the full-page logo entrance, “True Connections” tagline, and loading line once per browsing session.</span></span>
+                  <span><span className="block text-sm font-semibold text-ink-900">Animated site-name launch</span><span className="mt-1 block text-xs leading-5 text-ink-500">Show the full-page logo entrance, “True Connections” tagline, and loading line once per browsing session.</span></span>
                 </label>
                 <label className={`flex items-start gap-3 rounded-xl border border-ink-100 bg-white p-3 dark:bg-[#17171a] ${settings.launch_intro_enabled === 'true' && settings.homepage_background_url ? 'cursor-pointer' : 'cursor-not-allowed opacity-55'}`}>
                   <input type="checkbox" className="mt-0.5 h-5 w-5 shrink-0 accent-orange-600" disabled={settings.launch_intro_enabled !== 'true' || !settings.homepage_background_url} checked={settings.launch_intro_background_enabled === 'true'} onChange={(event) => setSettings({ ...settings, launch_intro_background_enabled: String(event.target.checked) })} />

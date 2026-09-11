@@ -34,7 +34,7 @@ test('member updates control uses compact header sizing', () => {
 });
 
 test('header logo uses a transparent vector asset without a solid-background filter', () => {
-  assert.match(header, /ElevenDriveWordmark/);
+  assert.match(header, /SiteWordmark name=\{settings.site_name\}/);
   assert.doesNotMatch(header, /11drive-wordmark-steering-preview\.png/);
   assert.doesNotMatch(header, /brightness-0/);
   assert.match(wordmark, /viewBox="0 0 780 200"/);
@@ -42,8 +42,8 @@ test('header logo uses a transparent vector asset without a solid-background fil
   assert.match(wordmark, /site-wordmark-drive/);
   assert.match(wordmark, /site-wordmark-steering-wheel/);
   assert.match(wordmark, /aria-label=\{decorative \? undefined : '11Drive'\}/);
-  assert.match(intro, /siteName === '11Drive'/);
-  assert.match(intro, /<ElevenDriveWordmark decorative/);
+  assert.match(readFileSync('src/components/SiteWordmark.tsx', 'utf8'), /name === '11Drive'/);
+  assert.match(intro, /<SiteWordmark decorative name=\{siteName\}/);
   assert.match(intro, /True Connections/);
   assert.match(intro, /launch-loading-line/);
 });

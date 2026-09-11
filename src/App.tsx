@@ -67,6 +67,7 @@ export default function App() {
   const completeLaunchIntro = useCallback(() => setShowLaunchIntro(false), []);
   const launchOverlay = showLaunchIntro && (installedAppLaunch || settings.launch_intro_enabled === 'true') ? <LaunchIntro
     siteName={settings.site_name}
+    nameColours={settings.header_name_colours}
     backgroundEnabled={settings.launch_intro_background_enabled === 'true'}
     backgroundType={settings.homepage_background_type}
     backgroundUrl={settings.homepage_background_url}

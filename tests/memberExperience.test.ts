@@ -25,7 +25,7 @@ test('installable site has manifest and safe navigation fallback',()=>{
   assert.match(document,/apple-touch-icon[^>]+app-icon-192\.png\?v=5/);
   assert.doesNotMatch(document,/boot-splash|data-pwa-launch/);
   const intro=readFileSync('src/components/LaunchIntro.tsx','utf8');assert.match(intro,/Opening \$\{siteName\}/);assert.doesNotMatch(intro,/launch-caret/);
-  assert.match(intro,/ElevenDriveWordmark decorative/);
+  assert.match(intro,/SiteWordmark decorative name=\{siteName\}/);
   assert.match(intro,/setTimeout\(onComplete, 5400\)/);
   const styles=readFileSync('src/index.css','utf8');
   assert.match(styles,/launch-slide-away/);
@@ -51,7 +51,7 @@ test('installable site has manifest and safe navigation fallback',()=>{
   assert.match(app,/settings\.launch_intro_enabled === 'true'/);
   assert.match(app,/settings\.launch_intro_background_enabled === 'true'/);
   const admin=readFileSync('src/pages/AdminPage.tsx','utf8');
-  assert.match(admin,/Animated 11Drive launch/);
+  assert.match(admin,/Animated site-name launch/);
   assert.match(admin,/Background during launch/);
   const installPrompt=readFileSync('src/components/InstallAppPrompt.tsx','utf8');
   assert.match(installPrompt,/2 \* 24 \* 60 \* 60 \* 1000/);
@@ -99,8 +99,8 @@ test('admin controls the top header name animation',()=>{
   assert.match(header,/header_name_animation/);
   assert.match(header,/header_name_colours/);
   assert.match(admin,/Top header name animation/);
-  assert.match(admin,/Top header name colours/);
-  assert.match(admin,/11 dark · Drive theme/);
+  assert.match(admin,/Site name colours/);
+  assert.match(admin,/First part neutral · Second part theme/);
   assert.match(admin,/value="off"/);
   assert.match(wordmark,/site-wordmark-eleven/);
   assert.match(wordmark,/site-wordmark-drive/);

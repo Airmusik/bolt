@@ -1,8 +1,9 @@
 import { useEffect } from 'react';
-import { ElevenDriveWordmark } from './ElevenDriveWordmark';
+import { SiteWordmark } from './SiteWordmark';
 
 type LaunchIntroProps = {
   siteName: string;
+  nameColours?: string;
   backgroundEnabled: boolean;
   backgroundType: string;
   backgroundUrl: string;
@@ -12,15 +13,12 @@ type LaunchIntroProps = {
   onComplete: () => void;
 };
 
-export function LaunchIntro({ siteName, backgroundEnabled, backgroundType, backgroundUrl, backgroundPosition, overlayOpacity, allowVideo, onComplete }: LaunchIntroProps) {
+export function LaunchIntro({ siteName, nameColours, backgroundEnabled, backgroundType, backgroundUrl, backgroundPosition, overlayOpacity, allowVideo, onComplete }: LaunchIntroProps) {
   useEffect(() => {
     const timer = window.setTimeout(onComplete, 5400);
     return () => window.clearTimeout(timer);
   }, [onComplete]);
 
-  const driveAt = siteName.toLowerCase().indexOf('drive');
-  const prefix = driveAt >= 0 ? siteName.slice(0, driveAt) : siteName;
-  const suffix = driveAt >= 0 ? siteName.slice(driveAt) : '';
   const showBackground = backgroundEnabled && Boolean(backgroundUrl);
 
   return (
@@ -36,10 +34,8 @@ export function LaunchIntro({ siteName, backgroundEnabled, backgroundType, backg
         <div className="pointer-events-none absolute inset-0 -z-10 bg-white dark:bg-[#0b0b0d]" style={{ opacity: overlayOpacity }} aria-hidden="true" />
       </>}
       <div className="launch-content flex w-full flex-col items-center px-6">
-        <div className="launch-wordmark whitespace-nowrap rounded-3xl bg-white/45 px-[0.2em] pb-[0.08em] font-display text-[clamp(3.5rem,16vw,10rem)] font-extrabold tracking-[-0.07em] text-ink-950 backdrop-blur-[2px] dark:bg-black/25">
-          {siteName === '11Drive'
-            ? <ElevenDriveWordmark decorative className="site-wordmark site-wordmark-colours--split h-auto w-[min(82vw,44rem)]" />
-            : <><span>{prefix}</span><span className="text-brand-600">{suffix}</span></>}
+        <div className="launch-wordmark max-w-full rounded-3xl bg-white/45 p-2 text-ink-950 backdrop-blur-[2px] dark:bg-black/25">
+          <SiteWordmark decorative name={siteName} colours={nameColours} className="h-auto w-[min(82vw,44rem)]" />
         </div>
         <p className="launch-tagline mt-5 font-display text-sm font-semibold uppercase tracking-[0.32em] text-ink-700 dark:text-white/80 sm:text-base">
           True Connections
