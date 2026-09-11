@@ -23,6 +23,7 @@ import { endConnection } from '@/lib/connections';
 import { isSupportPartner } from '@/lib/supportIdentity';
 import { SiteLogo } from '@/components/SiteLogo';
 import { ChatPartnerIdentity } from '@/components/ChatPartnerIdentity';
+import { ChatNotice } from '@/components/ChatNotice';
 import { AutoGrowTextarea } from '@/components/AutoGrowTextarea';
 import { SupportMessagesPage } from './ContactPage';
 import { SupportInboxEntry } from '@/components/SupportInboxEntry';
@@ -544,17 +545,17 @@ function MemberChatPage() {
               </div>}
 
               {supportSessionActive && (
-                <div className="flex items-start gap-2 border-b border-ink-200 bg-ink-50 px-4 py-3 text-ink-700">
+                <ChatNotice key={`session:${active.id}`} label="support session notice">
                   <Headphones className="mt-0.5 h-4 w-4 shrink-0" />
                   <p className="text-xs leading-5"><strong>Support session active:</strong> An administrator reopened this ended chat. Both members can message while support helps resolve the issue.</p>
-                </div>
+                </ChatNotice>
               )}
 
               {memberConnectionChat && !isDirectSupportConversation && (
-                <div className="flex items-start gap-2 border-b border-ink-200 bg-ink-50 px-4 py-2.5 text-ink-700">
+                <ChatNotice key={`dispute:${active.id}`} label="dispute support notice">
                   <LockKeyhole className="mt-0.5 h-4 w-4 shrink-0" />
                   <p className="text-xs leading-5"><strong>Dispute support:</strong> An authorised administrator may review and join this chat if a report, safety concern, or dispute needs help resolving.</p>
-                </div>
+                </ChatNotice>
               )}
 
               {chatBlocked && (
