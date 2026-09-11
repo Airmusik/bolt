@@ -131,7 +131,7 @@ export function ConnectionButton({ otherUserId, vehicleId, size = 'md', classNam
     <button type="button" onClick={() => setShowApproval(true)} className={cn('btn-primary', btnSize, className)}><Link2 className="h-4 w-4" /> Connect</button>
     {showApproval && <Modal title="Platform history approval required" onClose={() => setShowApproval(false)}><DriverApprovalNotice profile={profile} /></Modal>}
   </>;
-  if (driverNeedsApproval(otherProfile) && connection?.status !== 'accepted') return <span className={cn('rounded-lg bg-amber-50 p-3 text-xs text-amber-800', className)}>This driver needs approved platform history before connecting.</span>;
+  if (driverNeedsApproval(otherProfile) && connection?.status !== 'accepted') return <span className={cn('rounded-lg bg-ink-50 p-3 text-xs text-ink-700', className)}>This driver needs approved platform history before connecting.</span>;
 
   // Reserve the driver, not the owner's whole fleet. The backend checks the selected car.
   const driver = profile?.role === 'driver' ? profile : otherProfile?.role === 'driver' ? otherProfile : null;

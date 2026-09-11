@@ -7,7 +7,7 @@ export function ReportRemovalAction({ onRemove }: { onRemove: (reason: string) =
   const [reason, setReason] = useState('');
   const [confirm, setConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
-  return <section className="rounded-xl border border-emerald-200 bg-emerald-50/50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
+  return <section className="rounded-xl border border-ink-200 bg-ink-50 p-4">
     <h3 className="font-semibold text-ink-900">Was this report incorrect?</h3>
     <p className="mt-1 text-sm text-ink-600">Remove its rating deduction and revoke its warning. Other valid reports and member reviews still count. The case stays in the admin history.</p>
     {!expanded ? <button type="button" onClick={() => setExpanded(true)} className="btn-secondary mt-3"><RotateCcw className="h-4 w-4" />Remove report & restore rating</button> : <div className="mt-3 space-y-3">

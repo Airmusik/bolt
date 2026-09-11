@@ -291,7 +291,7 @@ export function SettingsPage() {
 
       {showAvailabilityWarning && (
         <Modal title="End active connection and become available?" onClose={() => setShowAvailabilityWarning(false)}>
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+          <div className="rounded-xl border border-ink-200 bg-ink-50 p-4 text-ink-700">
             <AlertTriangle className="h-6 w-6" />
             <p className="mt-3 text-sm font-semibold">You currently have {activeRelationships} active connection{activeRelationships === 1 ? '' : 's'}.</p>
             <p className="mt-2 text-sm leading-6">Setting your profile to available will end the active connection immediately. You and the other member will no longer be able to send messages in that chat unless a new connection request is sent and accepted.</p>

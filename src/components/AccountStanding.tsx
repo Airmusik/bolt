@@ -52,13 +52,13 @@ export function AccountStanding() {
       <h3 className="mt-5 flex items-center gap-2 text-sm font-semibold text-ink-900"><AlertTriangle className="h-4 w-4" /> Warnings ({data.warnings.length})</h3>
       {data.warnings.length === 0 ? <p className="mt-2 text-sm text-success">You have no warnings.</p> : <>
         <p className="mt-2 text-sm text-ink-600">Three warnings may lead to suspension. Contact support if you believe a warning is incorrect.</p>
-        <div className="mt-3 space-y-3">{data.warnings.map((warning) => <div key={warning.id} className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+        <div className="mt-3 space-y-3">{data.warnings.map((warning) => <div key={warning.id} className="rounded-xl border border-ink-200 bg-ink-50 p-3 text-sm text-ink-700">
           <p className="font-semibold">{titleCase(warning.report_reason.replace(/_/g, ' '))}</p>
           {warning.report_description && <p className="mt-1 whitespace-pre-wrap break-words">Report: {warning.report_description}</p>}
           <p className="mt-2 whitespace-pre-wrap break-words">{warning.message}</p><p className="mt-2 text-xs">{formatDateTime(warning.created_at)}</p>
         </div>)}</div>
       </>}
-      {!!data.removed_reports?.length && <details className="mt-5 rounded-xl border border-emerald-200 p-3"><summary className="cursor-pointer text-sm font-semibold">Removed reports ({data.removed_reports.length}) · no rating deduction</summary>{data.removed_reports.map(report => <div key={report.id} className="mt-3 text-sm"><p className="font-semibold">{report.reason}</p><p className="mt-1 whitespace-pre-wrap break-words text-ink-600">{report.dismissal_reason}</p><p className="mt-1 text-xs text-ink-500">Removed {formatDateTime(report.dismissed_at)}. Any warning from this report no longer counts.</p></div>)}</details>}
+      {!!data.removed_reports?.length && <details className="mt-5 rounded-xl border border-ink-200 p-3"><summary className="cursor-pointer text-sm font-semibold">Removed reports ({data.removed_reports.length}) · no rating deduction</summary>{data.removed_reports.map(report => <div key={report.id} className="mt-3 text-sm"><p className="font-semibold">{report.reason}</p><p className="mt-1 whitespace-pre-wrap break-words text-ink-600">{report.dismissal_reason}</p><p className="mt-1 text-xs text-ink-500">Removed {formatDateTime(report.dismissed_at)}. Any warning from this report no longer counts.</p></div>)}</details>}
       <Link to="/contact?topic=account-standing" className="btn-secondary mt-4">Ask support about my account</Link>
     </>}
   </section>;

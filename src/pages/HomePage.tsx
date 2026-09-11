@@ -409,8 +409,6 @@ export function HomePage() {
       {/* CTA */}
       <section className="container-content py-10 sm:py-16">
         <div className="relative overflow-hidden rounded-3xl bg-[#141416] px-5 py-9 text-center text-white sm:py-12 md:px-12">
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-brand-500/40 blur-3xl" />
-          <div className="absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-brand-400/30 blur-3xl" />
           <div className="relative">
             <h2 className="font-display text-2xl font-bold sm:text-3xl">Ready to get moving?</h2>
             <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-neutral-300 sm:text-base">

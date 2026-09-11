@@ -110,7 +110,7 @@ export function PlatePrivacyEditor({ file, onCancel, onUploadOriginal, onComplet
             <Range label="Box width" value={region.width} min={10} max={Math.max(10, 100 - region.x)} onChange={(width) => setRegion({ ...region, width })} />
             <Range label="Box height" value={region.height} min={6} max={Math.max(6, 100 - region.y)} onChange={(height) => setRegion({ ...region, height })} />
           </div>
-          <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">Confirm that every visible character is blurred. The red outline is a guide and will not appear in the uploaded photo.</p>
+          <p className="mt-3 rounded-lg bg-ink-50 px-3 py-2 text-xs text-ink-700">Confirm that every visible character is blurred. The red outline is a guide and will not appear in the uploaded photo.</p>
           <div className="mt-4 grid gap-2 sm:flex sm:justify-end">
             <button type="button" onClick={onUploadOriginal} className="btn-secondary w-full sm:w-auto">No plate visible—upload original</button>
             <button type="button" onClick={applyBlur} disabled={!image || processing} className="btn-primary w-full sm:w-auto">

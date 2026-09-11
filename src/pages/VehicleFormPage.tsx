@@ -343,7 +343,7 @@ export function VehicleFormPage() {
         <Card title="Known issues" desc="Disclose anything a driver should know so they're not caught unaware." icon={<AlertTriangle className="h-5 w-5 text-amber-500" />}>
           <div className="space-y-3">
             {issues.map((iss, idx) => (
-              <div key={idx} className="flex flex-col gap-2 rounded-xl bg-amber-50 p-3 ring-1 ring-amber-100 sm:flex-row sm:items-center">
+              <div key={idx} className="flex flex-col gap-2 rounded-xl bg-ink-50 p-3 ring-1 ring-ink-200 sm:flex-row sm:items-center">
                 <input value={iss.description} onChange={(e) => setIssues(issues.map((x, i) => i === idx ? { ...x, description: e.target.value } : x))} placeholder="e.g. Left side mirror cracked" className="input flex-1 bg-white dark:bg-[#141416]" />
                 <select value={iss.severity} onChange={(e) => setIssues(issues.map((x, i) => i === idx ? { ...x, severity: e.target.value as VehicleIssue['severity'] } : x))} className="input w-auto bg-white dark:bg-[#141416]">
                   <option value="minor">Minor</option>

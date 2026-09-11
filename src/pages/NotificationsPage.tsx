@@ -137,7 +137,7 @@ export function NotificationsPage() {
 
       {selected && (
         <Modal title={selected.title} onClose={() => setSelected(null)}>
-          <div className="rounded-2xl bg-gradient-to-br from-brand-50 to-white p-4 ring-1 ring-brand-100 dark:from-brand-950/30 dark:to-[#141416] dark:ring-brand-900">
+          <div className="rounded-xl border border-ink-200 bg-ink-50 p-4">
             <div className="mb-4 flex items-center gap-2 text-xs text-ink-500">
               <Clock3 className="h-4 w-4" />
               {new Date(selected.created_at).toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}
@@ -145,7 +145,7 @@ export function NotificationsPage() {
             </div>
             <p className="whitespace-pre-wrap break-words text-sm leading-6 text-ink-700">{selected.body || 'There are no additional details for this notification.'}</p>
             {typeof selected.data?.reason === 'string' && (
-              <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 ring-1 ring-amber-100 dark:bg-amber-950/20 dark:text-amber-200">
+              <div className="mt-4 rounded-xl bg-ink-50 p-3 text-sm text-ink-700 ring-1 ring-ink-200">
                 <span className="font-semibold">Related report:</span> {selected.data.reason}
               </div>
             )}

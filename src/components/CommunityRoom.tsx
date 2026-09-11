@@ -144,7 +144,7 @@ export function CommunityRoom(props: CommunityRoomProps) {
                 <ArrowLeft className="h-5 w-5" />
               </Link>
             )}
-            <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50 text-brand-700 sm:flex">
+            <span className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-ink-50 text-ink-700 sm:flex">
               <Users className="h-6 w-6" />
             </span>
             <div className="min-w-0">
@@ -203,7 +203,7 @@ export function CommunityRoom(props: CommunityRoomProps) {
             <button
               type="button"
               onClick={props.onGuidelines}
-              className="flex min-h-8 items-center gap-1.5 text-xs font-semibold text-brand-700"
+              className="flex min-h-8 items-center gap-1.5 text-xs font-semibold text-ink-700"
             >
               <BookOpen className="h-3.5 w-3.5" /> Community guidelines
             </button>
@@ -251,10 +251,10 @@ export function CommunityRoom(props: CommunityRoomProps) {
         )}
       </header>
       {session?.pinned_message && !session.pinned_message.removed && (
-        <details className="community-pin shrink-0 border-b border-brand-100 bg-brand-50 px-3 py-2 text-xs text-ink-700 sm:px-5">
+        <details className="community-pin shrink-0 border-b border-ink-200 bg-ink-50 px-3 py-2 text-xs text-ink-700 sm:px-5">
           <summary className="cursor-pointer list-none">
             <span className="flex items-center gap-2">
-              <Pin className="h-3.5 w-3.5 shrink-0 text-brand-700" />
+              <Pin className="h-3.5 w-3.5 shrink-0 text-ink-700" />
               <span className="truncate">
                 <strong>Pinned by moderators</strong> ·{" "}
                 {session.pinned_message.body}
@@ -406,7 +406,7 @@ export function CommunityRoom(props: CommunityRoomProps) {
                   )}
                 >
                   {!message.removed && message.reply_to && (
-                    <div className="mb-2 rounded-lg border-l-2 border-brand-400 bg-ink-50 px-3 py-2 text-xs text-ink-600">
+                    <div className="mb-2 rounded-lg border-l-2 border-ink-400 bg-ink-50 px-3 py-2 text-xs text-ink-600">
                       <span className="flex items-center gap-1 font-semibold">
                         <CornerUpLeft className="h-3 w-3" />
                         {messageIndex.get(message.reply_to)?.member_role ===
@@ -539,7 +539,7 @@ export function CommunityRoom(props: CommunityRoomProps) {
                         className={cn(
                           "community-reaction flex min-h-8 min-w-9 items-center justify-center gap-1 rounded-md border px-2 text-xs",
                           props.myReactions?.[message.id] === emoji
-                            ? "border-brand-300 bg-brand-50 text-brand-800"
+                            ? "border-ink-400 bg-ink-100 text-ink-900"
                             : "border-transparent text-ink-600 hover:border-ink-200 hover:bg-ink-50",
                         )}
                       >
@@ -560,7 +560,7 @@ export function CommunityRoom(props: CommunityRoomProps) {
         <button
           type="button"
           onClick={scrollBottom}
-          className="flex shrink-0 items-center justify-center gap-2 border-t border-brand-100 bg-brand-50 py-2 text-xs font-semibold text-brand-700"
+          className="flex shrink-0 items-center justify-center gap-2 border-t border-ink-200 bg-ink-50 py-2 text-xs font-semibold text-ink-700"
         >
           <ArrowDown className="h-4 w-4" />
           New messages — jump to latest
@@ -568,7 +568,7 @@ export function CommunityRoom(props: CommunityRoomProps) {
       )}
       <footer className="shrink-0 border-t border-ink-100 bg-white p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
         {props.notice && (
-          <p role="status" className="mb-2 text-xs text-brand-700">
+          <p role="status" className="mb-2 text-xs text-ink-700">
             {props.notice}
           </p>
         )}
@@ -607,7 +607,7 @@ export function CommunityRoom(props: CommunityRoomProps) {
         ) : (
           <>
             {replyTarget && (
-              <div className="mb-2 flex items-start gap-2 rounded-lg border-l-2 border-brand-400 bg-ink-50 p-2 text-xs text-ink-700">
+              <div className="mb-2 flex items-start gap-2 rounded-lg border-l-2 border-ink-400 bg-ink-50 p-2 text-xs text-ink-700">
                 <CornerUpLeft className="mt-0.5 h-4 w-4 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <strong>
@@ -635,7 +635,7 @@ export function CommunityRoom(props: CommunityRoomProps) {
             {safe !== draft.trim() && (
               <div
                 role="status"
-                className="mb-2 rounded-lg border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900"
+                className="mb-2 rounded-lg border border-ink-200 bg-ink-50 p-2 text-xs text-ink-700"
               >
                 Contact details won’t be shared. Preview:{" "}
                 <span className="break-words [overflow-wrap:anywhere]">

@@ -265,7 +265,7 @@ function OverviewTab({ conversations, pendingConnections, profile, userId }: {
           <div className="mt-3 space-y-1 text-sm">
             {pendingConnections.length === 0 && conversations.length === 0 && <div className="rounded-xl bg-ink-50 p-3"><p className="text-xs font-medium text-ink-700">You're all caught up</p><p className="mt-1 text-xs leading-5 text-ink-500">New requests and conversations will appear here.</p></div>}
             {pendingConnections.slice(0, 3).map((c: Connection) => (
-              <div key={c.id} className="flex items-start gap-3 rounded-xl px-2 py-2.5 hover:bg-ink-50"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700"><Link2 className="h-4 w-4" /></span><div><p className="font-medium text-ink-800">New request from {c.requester?.full_name || 'a member'}</p><p className="text-xs text-ink-400">{timeAgo(c.created_at)}</p></div></div>
+              <div key={c.id} className="flex items-start gap-3 rounded-xl px-2 py-2.5 hover:bg-ink-50"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-50 text-ink-700"><Link2 className="h-4 w-4" /></span><div><p className="font-medium text-ink-800">New request from {c.requester?.full_name || 'a member'}</p><p className="text-xs text-ink-400">{timeAgo(c.created_at)}</p></div></div>
             ))}
             {groupConversations(conversations, userId).slice(0, 3).map(({ latest: c, key }) => (
               <Link key={c.id} to={key === 'support' ? supportInboxPath() : `/chat/${c.id}`} className="group flex items-start gap-3 rounded-xl px-2 py-2.5 hover:bg-ink-50"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><MessageSquare className="h-4 w-4" /></span><div className="min-w-0 flex-1"><p className="truncate font-medium text-ink-800 group-hover:text-brand-700">{key === 'support' ? 'Support messages' : `Chat about ${c.vehicle?.make || 'your connection'} ${c.vehicle?.model || ''}`}</p><p className="text-xs text-ink-400">{timeAgo(c.last_message_at || c.created_at)}</p></div><ChevronRight className="mt-2 h-4 w-4 text-ink-300" /></Link>
@@ -355,7 +355,7 @@ function OwnerApplicationsTab({ applications, onAction, toast }: { applications:
   if (applications.length === 0) return <EmptyState title="No applications yet" description="When drivers connect with you, they'll appear here." />;
   return (
     <div className="space-y-3">
-      {applications.some((application) => application.status === 'pending') && <div className="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:text-amber-100">{ACCEPT_CAR_CONNECTION_MESSAGE}</div>}
+      {applications.some((application) => application.status === 'pending') && <div className="rounded-xl bg-ink-50 px-4 py-3 text-sm text-ink-700 ring-1 ring-ink-200">{ACCEPT_CAR_CONNECTION_MESSAGE}</div>}
       {applications.map((a) => (
         <div key={a.id} className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
           <Link to={`/drivers/${a.driver_id}`} className="flex items-center gap-3">
@@ -466,7 +466,7 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
       {pendingIn.length > 0 && (
         <div>
           <h3 className="font-display text-lg font-bold text-ink-900">Pending requests ({pendingIn.length})</h3>
-          <div className="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200 dark:bg-amber-950/20 dark:text-amber-100">{ACCEPT_CAR_CONNECTION_MESSAGE}</div>
+          <div className="mt-3 rounded-xl bg-ink-50 px-4 py-3 text-sm text-ink-700 ring-1 ring-ink-200">{ACCEPT_CAR_CONNECTION_MESSAGE}</div>
           <div className="mt-3 space-y-3">
             {pendingIn.map((c) => (
               <div key={c.id} className="card flex flex-wrap items-center gap-3 p-4">

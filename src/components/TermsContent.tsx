@@ -16,7 +16,7 @@ export function TermsContent({ document: supplied }: { document?: LegalDocument 
   };
   return <div className="space-y-5 text-sm leading-6 text-ink-700">
     <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-ink-500">Version {legalDocument.version} · Effective {legalDocument.effectiveDate}</p><button type="button" onClick={download} className="btn-secondary px-3 py-2 text-xs"><Download className="h-4 w-4" /> Download terms</button></div>
-    <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 font-medium text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">{text(legalDocument.summary)}</p>
+    <p className="rounded-xl border border-ink-200 bg-ink-50 p-4 font-medium text-ink-700">{text(legalDocument.summary)}</p>
     {legalDocument.sections.map((section,index) => <section key={`${section.title}-${index}`}><h2 className="font-display text-base font-bold text-ink-900">{section.title}</h2>{section.paragraphs.map((paragraph,paragraphIndex) => <p key={paragraphIndex} className="mt-2 break-words">{text(paragraph)}</p>)}</section>)}
     <p className="border-t border-ink-100 pt-4">Questions or a complaint about support? <a href={`mailto:${settings.admin_contact_email}`} className="break-all font-medium underline">{settings.admin_contact_email}</a> · <a href={`tel:${settings.admin_contact_phone}`} className="whitespace-nowrap underline">{settings.admin_contact_phone}</a></p>
   </div>;

@@ -239,7 +239,7 @@ export function VehicleDetailsPage() {
             {vehicle.issues?.length ? (
               <ul className="space-y-2">
                 {vehicle.issues.map((iss) => (
-                  <li key={iss.id} className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-ink-700 ring-1 ring-amber-100">
+                  <li key={iss.id} className="flex items-start gap-2 rounded-lg bg-ink-50 px-3 py-2 text-sm text-ink-700 ring-1 ring-ink-200">
                     <span className={cn('mt-1 h-2 w-2 shrink-0 rounded-full', iss.severity === 'minor' && 'bg-amber-400', iss.severity === 'moderate' && 'bg-orange-500', iss.severity === 'major' && 'bg-red-500')} />
                     <div>
                       <p>{iss.description}</p>
@@ -331,7 +331,7 @@ export function VehicleDetailsPage() {
               {isOwner ? (
                 <><VehicleLiveButton vehicle={vehicle} onChanged={() => void loadVehicle()} /><Link to={`/vehicles/${vehicle.id}/edit`} className="btn-secondary w-full">Edit listing</Link><DeleteListingButton id={vehicle.id} onDeleted={() => navigate('/dashboard?tab=vehicles')} /></>
               ) : !vehicle.owner ? (
-                <p className="rounded-lg bg-amber-50 px-3 py-2 text-center text-sm font-medium text-amber-700">The owner profile is currently unavailable.</p>
+                <p className="rounded-lg bg-ink-50 px-3 py-2 text-center text-sm font-medium text-ink-700">The owner profile is currently unavailable.</p>
               ) : !isVehicleLive(vehicle) ? (
                 <p className="rounded-lg bg-ink-50 px-3 py-2 text-center text-sm text-ink-600">This listing is not accepting new requests. Existing conversations remain in <Link to="/chat" className="font-semibold underline">Messages</Link>.</p>
               ) : (

@@ -373,11 +373,15 @@
   80%, 100% { transform: scale(1.8); opacity: 0; }
 }
 .chat-canvas {
-  background-image:
-    radial-gradient(circle at 8% 10%, rgb(var(--accent-500) / 0.07), transparent 24%),
-    radial-gradient(circle at 92% 88%, rgb(139 92 246 / 0.07), transparent 28%),
-    radial-gradient(rgb(var(--ink-300) / 0.13) 0.75px, transparent 0.75px);
-  background-size: auto, auto, 18px 18px;
+  background-color: rgb(var(--ink-50));
+}
+/* Sent messages stay readable regardless of the selected brand or dark mode. */
+.chat-outgoing {
+  background-color: #30343b;
+  color: #fff;
+}
+.dark .chat-outgoing {
+  background-color: #414853;
 }
 
 @media (prefers-reduced-motion: no-preference) {

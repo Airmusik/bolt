@@ -111,7 +111,7 @@ export function DriverProfilePage() {
           </div>
 
           {user?.id === profile.id && <AccountStanding key={profile.id} />}
-          {user?.id === profile.id && profile.role === 'driver' && !profile.onboarding_completed && <div className="mt-4 rounded-xl bg-amber-50 p-4 text-sm text-amber-900">Your profile is not public yet. <Link to="/onboarding" className="font-semibold underline">Complete About You</Link> to publish it.</div>}
+          {user?.id === profile.id && profile.role === 'driver' && !profile.onboarding_completed && <div className="mt-4 rounded-xl bg-ink-50 p-4 text-sm text-ink-700">Your profile is not public yet. <Link to="/onboarding" className="font-semibold underline">Complete About You</Link> to publish it.</div>}
           <WeeklyAvailabilityView userId={profile.id} />
 
           {/* Languages */}

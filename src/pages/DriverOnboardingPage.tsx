@@ -321,7 +321,7 @@ export function DriverOnboardingPage() {
     return (
       <div className="container-content max-w-3xl py-8">
         <BackButton to="/" />
-        <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900 dark:bg-amber-950/20 dark:text-amber-100">
+        <div className="mt-4 rounded-2xl border border-ink-200 bg-ink-50 p-5 text-ink-700">
           <div className="flex items-start gap-3"><AlertCircle className="mt-0.5 h-5 w-5 shrink-0" /><div><h1 className="font-display text-xl font-bold">Complete About You first</h1><p className="mt-1 text-sm">Your driver profile is not public yet. Complete the information below so owners can understand your experience before connecting with you.</p></div></div>
         </div>
         <div className="mt-6"><AboutFields profileForm={profileForm} setProfileForm={setProfileForm} /></div>
@@ -338,12 +338,12 @@ export function DriverOnboardingPage() {
       <div className="container-content max-w-3xl py-8">
         <BackButton to="/dashboard" />
         <div className="card mt-4 overflow-hidden">
-          <div className={cn('p-6 text-white sm:p-8', approved ? 'bg-gradient-to-br from-emerald-600 to-brand-700' : 'bg-gradient-to-br from-amber-500 to-orange-600')}>
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/20 ring-1 ring-white/30">
+          <div className="border-b border-ink-100 bg-ink-50 p-6 text-ink-900 sm:p-8">
+            <div className="flex h-14 w-14 items-center justify-center rounded-xl border border-ink-200 bg-ink-50 text-ink-700">
               {approved ? <CheckCircle2 className="h-8 w-8" /> : <Clock3 className="h-8 w-8" />}
             </div>
             <h1 className="mt-5 font-display text-2xl font-bold">Platform history {approved ? 'approved' : 'submitted'}</h1>
-            <p className="mt-2 max-w-xl text-sm text-white/85">{approved ? 'Your platform history is valid for six months from approval. Editing and renewal unlock when it expires.' : 'Your submission is locked while admins review it. You cannot edit or submit again until a decision is made. Rejected proof can be corrected; approved proof stays locked until expiry.'}</p>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-ink-600">{approved ? 'Your platform history is valid for six months from approval. Editing and renewal unlock when it expires.' : 'Your submission is locked while admins review it. You cannot edit or submit again until a decision is made. Rejected proof can be corrected; approved proof stays locked until expiry.'}</p>
           </div>
           <div className="space-y-3 p-6 sm:p-8">
             <CompletionRow label="Profile details" detail="Done" approved />
@@ -368,7 +368,7 @@ export function DriverOnboardingPage() {
       <h1 className="mt-4 font-display text-2xl font-bold text-ink-900">Build your driver trust profile</h1>
       <p className="mt-1 max-w-3xl text-sm text-ink-500">No identity document is required. Your latest ride-hailing platform history with proof is required so admins can confirm real driving activity.</p>
       <p className="mt-2 text-sm text-ink-600">Preview and upload your proof, then submit once for review. Approved proof is valid for six months and cannot be edited until it expires. Renew expired proof promptly to avoid your listing being made private or removed by an admin.</p>
-      {profile?.document_listing_visibility && profile.document_listing_visibility !== 'public' && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">Your driver listing is {profile.document_listing_visibility === 'deleted' ? 'removed from discovery' : 'private'}. Renew your proof and contact support to restore it. Your account and chats are still available.</p>}
+      {profile?.document_listing_visibility && profile.document_listing_visibility !== 'public' && <p className="mt-3 rounded-xl bg-ink-50 p-3 text-sm text-ink-700">Your driver listing is {profile.document_listing_visibility === 'deleted' ? 'removed from discovery' : 'private'}. Renew your proof and contact support to restore it. Your account and chats are still available.</p>}
       <p className="mt-2 text-xs text-ink-400"><span className="font-bold text-danger">*</span> Required information</p>
 
       <div className="mt-6 space-y-6">
@@ -480,7 +480,7 @@ function UploadPreview({ url, label }: { url: string; label: string }) {
 }
 
 function CompletionRow({ label, detail, approved }: { label: string; detail: string; approved: boolean }) {
-  return <div className="flex items-center justify-between gap-4 rounded-xl bg-ink-50 px-4 py-3 ring-1 ring-ink-100"><div className="flex items-center gap-3"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full', approved ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700')}><CheckCircle2 className="h-4 w-4" /></span><span className="text-sm font-semibold text-ink-900">{label}</span></div><span className={cn('text-xs font-semibold', approved ? 'text-success' : 'text-amber-600')}>{detail}</span></div>;
+  return <div className="flex items-center justify-between gap-4 rounded-xl bg-ink-50 px-4 py-3 ring-1 ring-ink-100"><div className="flex items-center gap-3"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full', approved ? 'text-green-700 dark:text-green-300' : 'text-amber-700 dark:text-amber-300')}><CheckCircle2 className="h-4 w-4" /></span><span className="text-sm font-semibold text-ink-900">{label}</span></div><span className={cn('text-xs font-semibold', approved ? 'text-success' : 'text-amber-600')}>{detail}</span></div>;
 }
 
 function TrustNote({ icon, title, text }: { icon: React.ReactNode; title: string; text: string }) {
