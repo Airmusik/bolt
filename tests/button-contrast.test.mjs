@@ -4,6 +4,18 @@ import { readFileSync } from 'node:fs';
 
 const source = path => readFileSync(new URL(`../src/${path}`, import.meta.url), 'utf8');
 
+test('shared safety notice stays neutral and retains its safety copy and accessible terms link', () => {
+  const notice = source('components/MemberSafetyNotice.tsx');
+  assert.match(notice, /border-ink-100 bg-ink-50/);
+  assert.match(notice, /text-ink-600/);
+  assert.match(notice, /text-ink-900/);
+  assert.doesNotMatch(notice, /amber-|yellow-|gradient/);
+  assert.match(notice, /platform-history approval is not identity verification or a safety guarantee/);
+  assert.match(notice, /\{settings.site_name\}/);
+  assert.match(notice, /to="\/terms" target="_blank" rel="noopener noreferrer"/);
+  assert.match(notice, /focus-visible:outline-2/);
+});
+
 test('dialog backdrops do not invert to white with dark-mode ink tokens', () => {
   const modal = source('components/Modal.tsx');
   const viewer = source('components/DocumentViewer.tsx');
