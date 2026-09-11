@@ -18,11 +18,46 @@ import { useToast } from '@/components/useToast';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { matchesLocation, matchesPlatform } from '@/lib/searchMatching';
 import { withinLocationRadius } from '@/lib/locationRadius';
+import { splitPromotedSearch } from '@/lib/promotionSearch';
+import { PromotedSearchSection } from '@/components/PromotedSearchSection';
 
 const PLATFORMS = ['uber', 'bolt', 'little', 'faras'];
 
+function DriverSearchCard({ driver: d }: { driver: Profile }) {
+  return (<div className="card card-hover flex h-full flex-col overflow-hidden border-t-2 border-t-emerald-400 p-4 sm:p-5">
+                <Link to={`/drivers/${d.id}`}>
+                  <div className="flex flex-wrap items-start gap-3">
+                    <Avatar name={d.full_name} src={d.avatar_url} size={56} verified={d.platform_history_approved} />
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words font-display text-base font-bold leading-snug text-ink-900">{d.full_name}</p>
+                      <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
+                <p className="mt-1 text-xs text-ink-500">{d.age != null ? `${d.age} years old` : 'Age not provided'}</p>
+                    </div>
+                    <div className="status-list w-full"><AvailabilityBadge availability={d.availability} profile={d} /><PromotionBadge kind="profile" id={d.id} /></div>
+                  </div>
+                  <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-3" />
+                  <div className="mt-3 space-y-2 rounded-xl bg-ink-50 p-3 text-xs leading-5 text-ink-600">
+                    <p className="flex items-start gap-2"><Briefcase className="mt-0.5 h-4 w-4 shrink-0" /> {d.driving_experience_years != null ? `${d.driving_experience_years} ${d.driving_experience_years === 1 ? 'year' : 'years'} experience` : 'Experience not provided'}</p>
+                    {d.languages?.length > 0 && (
+                      <p className="flex items-start gap-2"><Languages className="mt-0.5 h-4 w-4 shrink-0" /><span className="break-words">{d.languages.join(', ')}</span></p>
+                    )}
+                  </div>
+                  <div className="status-list mt-3">
+                    {(d.platforms_worked || []).slice(0, 4).map((p) => (
+                      <span key={p} className="badge-neutral">{titleCase(p)}</span>
+                    ))}
+                  </div>
+                </Link>
+                <div className="mt-3"><VerifiedBadge verified={d.platform_history_approved} size={12} showLabel /></div>
+                <div className="mt-auto grid grid-cols-2 gap-2 border-t border-ink-100 pt-4">
+                  <Link to={`/members/${d.id}`} className="btn-secondary justify-center px-2 text-xs">View driver</Link>
+                  <ConnectionButton otherUserId={d.id} size="sm" className="w-full" />
+                </div>
+              </div>);
+}
+
 export function BrowseDriversPage() {
-  const { revision } = usePromotionLive();
+  const { revision, campaigns } = usePromotionLive();
   const { toast } = useToast();
   const [params] = useSearchParams();
   const [driversRaw, setDrivers] = useState<Profile[]>([]);
@@ -56,6 +91,9 @@ export function BrowseDriversPage() {
     });
   }, [drivers, location, platform, verifiedOnly, name, availableOnly, radiusKm]);
 
+  const { promoted, results, matchingPromoted } = splitPromotedSearch(drivers.filter(d => d.availability === 'available' && d.platform_history_approved && !d.is_suspended), filtered, campaigns, 'profile');
+  const hasSearch = Boolean(name.trim() || location || platform || verifiedOnly || availableOnly || radiusKm);
+
   return (
     <div className="container-content py-8">
       <BackButton to="/" />
@@ -79,52 +117,27 @@ export function BrowseDriversPage() {
         {(name || location || platform || verifiedOnly || availableOnly || radiusKm) && <button type="button" className="btn-secondary" onClick={() => { setName(''); setLocation(''); setPlatform(''); setVerifiedOnly(false); setAvailableOnly(false); setRadiusKm(''); }}>Clear filters</button>}
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 min-w-0">
+        {!loading && <PromotedSearchSection items={promoted} kind="drivers" renderItem={d => <DriverSearchCard driver={d} />} />}
+        {!loading && promoted.length > 0 && <h2 className="mb-3 font-semibold text-ink-900">Search results{matchingPromoted > 0 && <span className="ml-2 text-xs font-normal text-ink-500">{matchingPromoted} matching promoted {matchingPromoted === 1 ? 'driver is' : 'drivers are'} shown above</span>}</h2>}
         <AdSlot placement="browse" />
         {loading ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {Array.from({ length: 8 }).map((_, i) => <div key={i} className="card h-48" />)}
           </div>
-        ) : filtered.length > 0 ? (
+        ) : results.length > 0 ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filtered.map((d, index) => (
-              <Fragment key={d.id}><div className="card card-hover flex h-full flex-col overflow-hidden border-t-2 border-t-emerald-400 p-4 sm:p-5">
-                <Link to={`/drivers/${d.id}`}>
-                  <div className="flex flex-wrap items-start gap-3">
-                    <Avatar name={d.full_name} src={d.avatar_url} size={56} verified={d.platform_history_approved} />
-                    <div className="min-w-0 flex-1">
-                      <p className="break-words font-display text-base font-bold leading-snug text-ink-900">{d.full_name}</p>
-                      <p className="flex items-center gap-1 text-xs text-ink-500"><MapPin className="h-3 w-3" /> {d.location || 'Location not provided'}</p>
-                <p className="mt-1 text-xs text-ink-500">{d.age != null ? `${d.age} years old` : 'Age not provided'}</p>
-                    </div>
-                    <div className="status-list w-full"><AvailabilityBadge availability={d.availability} profile={d} /><PromotionBadge kind="profile" id={d.id} /></div>
-                  </div>
-                  <Rating value={d.rating} size={13} showValue count={d.rating_count} className="mt-3" />
-                  <div className="mt-3 space-y-2 rounded-xl bg-ink-50 p-3 text-xs leading-5 text-ink-600">
-                    <p className="flex items-start gap-2"><Briefcase className="mt-0.5 h-4 w-4 shrink-0" /> {d.driving_experience_years != null ? `${d.driving_experience_years} ${d.driving_experience_years === 1 ? 'year' : 'years'} experience` : 'Experience not provided'}</p>
-                    {d.languages?.length > 0 && (
-                      <p className="flex items-start gap-2"><Languages className="mt-0.5 h-4 w-4 shrink-0" /><span className="break-words">{d.languages.join(', ')}</span></p>
-                    )}
-                  </div>
-                  <div className="status-list mt-3">
-                    {(d.platforms_worked || []).slice(0, 4).map((p) => (
-                      <span key={p} className="badge-neutral">{titleCase(p)}</span>
-                    ))}
-                  </div>
-                </Link>
-                <div className="mt-3"><VerifiedBadge verified={d.platform_history_approved} size={12} showLabel /></div>
-                <div className="mt-auto grid grid-cols-2 gap-2 border-t border-ink-100 pt-4">
-                  <Link to={`/members/${d.id}`} className="btn-secondary justify-center px-2 text-xs">View driver</Link>
-                  <ConnectionButton otherUserId={d.id} size="sm" className="w-full" />
-                </div>
-              </div>
-              {index === 5 && filtered.length > 6 && <AdSlot placement="inline" className="col-span-full" />}</Fragment>
+            {results.map((d, index) => (
+              <Fragment key={d.id}><DriverSearchCard driver={d} />
+              {index === 5 && results.length > 6 && <AdSlot placement="inline" className="col-span-full" />}</Fragment>
             ))}
           </div>
+        ) : matchingPromoted > 0 ? (
+          <p className="py-4 text-sm text-ink-600">All matching drivers are shown in the promoted section above.</p>
         ) : (
           <EmptyState
-            title={(location || platform || verifiedOnly) ? 'No drivers match your filters' : 'No driver profiles are available yet'}
-            description={(location || platform || verifiedOnly) ? 'Try adjusting your filters.' : 'Drivers with approved or pending platform history will appear here after they complete their profile.'}
+            title={hasSearch ? 'No drivers match your filters' : 'No driver profiles are available yet'}
+            description={hasSearch ? 'Try adjusting your filters.' : 'Drivers with approved or pending platform history will appear here after they complete their profile.'}
           />
         )}
       </div>

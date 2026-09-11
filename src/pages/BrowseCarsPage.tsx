@@ -13,6 +13,9 @@ import { useToast } from '@/components/useToast';
 import { PlaceAutocomplete } from '@/components/PlaceAutocomplete';
 import { matchesLocation, matchesPlatform, withinBudget } from '@/lib/searchMatching';
 import { withinLocationRadius } from '@/lib/locationRadius';
+import { splitPromotedSearch } from '@/lib/promotionSearch';
+import { isVehicleLive } from '@/lib/vehicleAvailability';
+import { PromotedSearchSection } from '@/components/PromotedSearchSection';
 
 const FUELS = ['petrol', 'diesel', 'hybrid', 'electric'];
 const TRANSMISSIONS = ['automatic', 'manual'];
@@ -31,7 +34,7 @@ interface Filters {
 }
 
 export function BrowseCarsPage() {
-  const { revision } = usePromotionLive();
+  const { revision, campaigns } = usePromotionLive();
   const { toast } = useToast();
   const [params] = useSearchParams();
   const [vehiclesRaw, setVehicles] = useState<VehicleWithRelations[]>([]);
@@ -81,6 +84,8 @@ export function BrowseCarsPage() {
       return true;
     });
   }, [vehicles, filters]);
+
+  const { promoted, results, matchingPromoted } = splitPromotedSearch(vehicles.filter(isVehicleLive), filtered, campaigns, 'listing');
 
   const activeCount = Object.entries(filters).filter(([k, val]) => k !== 'q' && val && val !== false && val !== '').length;
   const hasSearch = Boolean(filters.q.trim()) || activeCount > 0;
@@ -150,7 +155,9 @@ export function BrowseCarsPage() {
         </aside>
 
         {/* Results */}
-        <div>
+        <div className="min-w-0">
+          {!loading && <PromotedSearchSection items={promoted} kind="cars" renderItem={v => <VehicleCard vehicle={v} />} />}
+          {!loading && promoted.length > 0 && <h2 className="mb-3 font-semibold text-ink-900">Search results{matchingPromoted > 0 && <span className="ml-2 text-xs font-normal text-ink-500">{matchingPromoted} matching promoted {matchingPromoted === 1 ? 'car is' : 'cars are'} shown above</span>}</h2>}
           <AdSlot placement="browse" />
           {loading ? (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
@@ -161,10 +168,12 @@ export function BrowseCarsPage() {
                 </div>
               ))}
             </div>
-          ) : filtered.length > 0 ? (
+          ) : results.length > 0 ? (
             <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((v, index) => <Fragment key={v.id}><VehicleCard vehicle={v} />{index === 5 && filtered.length > 6 && <AdSlot placement="inline" className="col-span-full" />}</Fragment>)}
+              {results.map((v, index) => <Fragment key={v.id}><VehicleCard vehicle={v} />{index === 5 && results.length > 6 && <AdSlot placement="inline" className="col-span-full" />}</Fragment>)}
             </div>
+          ) : matchingPromoted > 0 ? (
+            <p className="py-4 text-sm text-ink-600">All matching cars are shown in the promoted section above.</p>
           ) : (
             <EmptyState
               title={hasSearch ? 'No vehicles match your filters' : 'No vehicles are listed yet'}

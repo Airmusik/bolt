@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { supabase } from './supabase';
+import { matchingPromotions, type LivePromotion } from './promotionSearch';
+export { matchingPromotions, type LivePromotion } from './promotionSearch';
 
-export type LivePromotion = { id: string; kind: 'listing' | 'profile'; target_id: string; expires_at: string };
 const Context = createContext({ campaigns: [] as LivePromotion[], revision: 0, enabled: false });
 
 export function PromotionLiveProvider({ children }: { children: ReactNode }) {
@@ -42,7 +43,4 @@ export function usePromotionRanking<T extends { id: string; owner_id?: string; c
     const promoted = (v: T) => Number(matchingPromotions(campaigns, kind, v.id, v.owner_id).length > 0);
     return promoted(b) - promoted(a) || (kind === 'profile' ? Number(!!b.platform_history_approved) - Number(!!a.platform_history_approved) || (b.rating || 0) - (a.rating || 0) : 0) || Date.parse(b.created_at) - Date.parse(a.created_at) || a.id.localeCompare(b.id);
   });
-}
-export function matchingPromotions(campaigns: LivePromotion[], kind: string, id: string, ownerId?: string) {
-  return campaigns.filter(c => Date.parse(c.expires_at) > Date.now() && ((c.kind === kind && c.target_id === id) || (kind === 'listing' && c.kind === 'profile' && c.target_id === ownerId)));
 }
