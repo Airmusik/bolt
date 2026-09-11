@@ -60,6 +60,8 @@ export function CommunityRoom(props: CommunityRoomProps) {
   const [draft, setDraft] = useState("");
   const [reply, setReply] = useState<CommunityMessage | null>(null);
   const [newMessages, setNewMessages] = useState(false);
+  const [noticeDismissed, setNoticeDismissed] = useState(false);
+  const guidelinesButton = useRef<HTMLButtonElement>(null);
   const pane = useRef<HTMLDivElement>(null);
   const atBottom = useRef(true);
   const lastId = useRef<string>();
@@ -191,18 +193,25 @@ export function CommunityRoom(props: CommunityRoomProps) {
             </span>
           </div>
         </div>
-        <p className="mt-3 flex items-start gap-2 text-xs leading-5 text-ink-600">
-          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
-          <span>
+        <div className={cn("mt-3 items-start gap-2 text-xs leading-5 text-ink-600", noticeDismissed ? "hidden sm:flex" : "flex")}>
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-ink-600" />
+          <p className="min-w-0 flex-1">
             Anonymous to members, not authorised moderators. Phone numbers,
             email addresses and links are filtered.
-          </span>
-        </p>
+          </p>
+          {props.onGuidelines && <button
+            type="button"
+            aria-label="Close community notice"
+            onClick={() => { setNoticeDismissed(true); guidelinesButton.current?.focus(); }}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-ink-600 hover:bg-ink-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-500 sm:hidden"
+          ><X className="h-5 w-5" aria-hidden="true" /></button>}
+        </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
           {props.onGuidelines && (
             <button
+              ref={guidelinesButton}
               type="button"
-              onClick={props.onGuidelines}
+              onClick={() => { setNoticeDismissed(false); props.onGuidelines?.(); }}
               className="flex min-h-8 items-center gap-1.5 text-xs font-semibold text-ink-700"
             >
               <BookOpen className="h-3.5 w-3.5" /> Community guidelines
