@@ -3,7 +3,7 @@ import { AdSlot } from '@/components/AdSlot';
 import { PromotionLink as Link, PromotionBadge, PromoteListingLink } from '@/components/PromotionLink';
 import { usePromotionLive, usePromotionRanking } from '@/lib/promotionLive';
 import { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { Car, Users, MessageSquare, Star, Check, X, Clock, Link2, MapPin, Pencil, ArrowRight, ShieldCheck, Activity, ChevronRight, Megaphone } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -29,6 +29,8 @@ import { ACCEPT_CAR_CONNECTION_MESSAGE, END_CAR_CONNECTION_MESSAGE } from '@/lib
 import { driverNeedsApproval, driverApprovalMessage } from '@/lib/driverEligibility';
 import { ProfileCompletionChecklist } from '@/components/ProfileCompletionChecklist';
 import { ReportFollowUpTracker } from '@/components/ReportFollowUpTracker';
+import { groupConversations } from '@/lib/conversationInbox';
+import { supportInboxPath } from '@/lib/supportInbox';
 
 import { dashboardDestination, dashboardTabFromSearch, getDashboardTabs, type DashboardTab as Tab } from '@/lib/dashboardNavigation';
 type OwnerApplication = Application & { driver?: Profile; vehicle?: VehicleWithRelations };
@@ -142,9 +144,7 @@ export function DashboardPage() {
   const isOwner = profile.role === 'owner';
   const isDriver = profile.role === 'driver';
   const pendingConnections = incomingConnections.filter((c) => c.status === 'pending');
-  const chatThreadCount = new Set(conversations.map((conversation) => (
-    conversation.driver_id === user?.id ? conversation.owner_id : conversation.driver_id
-  ) || conversation.id)).size;
+  const chatThreadCount = groupConversations(conversations, user?.id || '').filter(group => group.key !== 'support').length + 1;
 
   const stats = isOwner ? [
     { label: 'Live listings', value: vehicles.filter(v => v.status === 'active' && v.approval_status === 'approved').length, icon: Car, tab: 'vehicles' as Tab },
@@ -243,7 +243,7 @@ export function DashboardPage() {
         {tab === 'applications' && isOwner && <OwnerApplicationsTab applications={applications} onAction={load} toast={toast} />}
         {tab === 'applications' && isDriver && <DriverApplicationsTab applications={myApplications} />}
         {tab === 'connections' && <ConnectionsTab incoming={incomingConnections} outgoing={outgoingConnections} onAction={async () => { await load(); await refreshProfile(); }} onEnded={() => setTab('chats')} toast={toast} />}
-        {tab === 'chats' && <ChatsTab conversations={conversations} loading={loading} currentUserId={user?.id || ''} />}
+        {tab === 'chats' && <Navigate replace to="/chat" />}
       </div>
     </div>
   );
@@ -267,8 +267,8 @@ function OverviewTab({ conversations, pendingConnections, profile, userId }: {
             {pendingConnections.slice(0, 3).map((c: Connection) => (
               <div key={c.id} className="flex items-start gap-3 rounded-xl px-2 py-2.5 hover:bg-ink-50"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-700"><Link2 className="h-4 w-4" /></span><div><p className="font-medium text-ink-800">New request from {c.requester?.full_name || 'a member'}</p><p className="text-xs text-ink-400">{timeAgo(c.created_at)}</p></div></div>
             ))}
-            {conversations.slice(0, 3).map((c: Conversation) => (
-              <Link key={c.id} to={`/chat/${c.id}`} className="group flex items-start gap-3 rounded-xl px-2 py-2.5 hover:bg-ink-50"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><MessageSquare className="h-4 w-4" /></span><div className="min-w-0 flex-1"><p className="truncate font-medium text-ink-800 group-hover:text-brand-700">Chat about {c.vehicle?.make || 'your connection'} {c.vehicle?.model}</p><p className="text-xs text-ink-400">{timeAgo(c.last_message_at || c.created_at)}</p></div><ChevronRight className="mt-2 h-4 w-4 text-ink-300" /></Link>
+            {groupConversations(conversations, userId).slice(0, 3).map(({ latest: c, key }) => (
+              <Link key={c.id} to={key === 'support' ? supportInboxPath() : `/chat/${c.id}`} className="group flex items-start gap-3 rounded-xl px-2 py-2.5 hover:bg-ink-50"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-700"><MessageSquare className="h-4 w-4" /></span><div className="min-w-0 flex-1"><p className="truncate font-medium text-ink-800 group-hover:text-brand-700">{key === 'support' ? 'Support messages' : `Chat about ${c.vehicle?.make || 'your connection'} ${c.vehicle?.model || ''}`}</p><p className="text-xs text-ink-400">{timeAgo(c.last_message_at || c.created_at)}</p></div><ChevronRight className="mt-2 h-4 w-4 text-ink-300" /></Link>
             ))}
           </div>
         </div>
@@ -576,34 +576,6 @@ function ConnectionsTab({ incoming, outgoing, onAction, onEnded, toast }: { inco
   );
 }
 
-function ChatsTab({ conversations, loading, currentUserId }: { conversations: ConversationWithRelations[]; loading: boolean; currentUserId: string }) {
-  if (loading) return <div className="card h-48 animate-pulse" />;
-  if (conversations.length === 0) return <EmptyState title="No conversations yet" description="Chats open once a connection is accepted." action={<Link to="/browse-cars" className="btn-primary">Browse cars</Link>} />;
-  const grouped = new Map<string, ConversationWithRelations[]>();
-  conversations.forEach((conversation) => {
-    const partnerId = conversation.driver_id === currentUserId ? conversation.owner_id : conversation.driver_id;
-    const key = partnerId || conversation.id;
-    grouped.set(key, [...(grouped.get(key) || []), conversation]);
-  });
-  const threads = [...grouped.values()].map((items) => {
-    const ordered = [...items].sort((a, b) => new Date(b.last_message_at || b.created_at).getTime() - new Date(a.last_message_at || a.created_at).getTime());
-    return { latest: ordered[0], count: ordered.length };
-  }).sort((a, b) => new Date(b.latest.last_message_at || b.latest.created_at).getTime() - new Date(a.latest.last_message_at || a.latest.created_at).getTime());
-  return (
-    <div className="space-y-3">
-      {threads.map(({ latest: c, count }) => (
-        <Link key={c.id} to={`/chat/${c.id}`} className="card card-hover flex items-center gap-3 p-4">
-          <Avatar name={(c.driver?.full_name || c.owner?.full_name || 'User')} src={c.driver?.avatar_url || c.owner?.avatar_url} size={44} verified={!!c.driver?.platform_history_approved} />
-          <div className="min-w-0 flex-1 break-words">
-            <p className="font-semibold text-ink-900">{c.vehicle?.make ? `${c.vehicle.make} ${c.vehicle.model}` : `${c.driver?.full_name || 'Driver'} ↔ ${c.owner?.full_name || 'Owner'}`}</p>
-            <p className="text-xs text-ink-400">{count > 1 ? 'Complete chat history preserved' : c.closed_at ? 'Ended · history preserved' : c.last_message_at ? timeAgo(c.last_message_at) : 'No messages yet'}</p>
-          </div>
-          <MessageSquare className="h-5 w-5 text-ink-400" />
-        </Link>
-      ))}
-    </div>
-  );
-}
 
 export function ReviewModal({ application, onClose, onDone }: { application: Application; revieweeId: string; onClose: () => void; onDone: () => void }) {
   const { user } = useAuth();

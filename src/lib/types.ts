@@ -139,6 +139,7 @@ export interface PlatformHistory {
 }
 
 export interface ContactMessage {
+  legacy_conversation_id?: string | null;
   id: string;
   user_id: string | null;
   name: string;

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { END_CAR_CONNECTION_MESSAGE } from '@/lib/vehicleAvailability';
-import { useParams, Link, useNavigate, useSearchParams, Navigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, Navigate } from 'react-router-dom';
 import { Send, ArrowLeft, Check, CheckCheck, Smile, Flag, Ban, MessageCircle, Sparkles, CarFront, LockKeyhole, Headphones, ImagePlus, Loader2, Search, ShieldCheck, Power } from 'lucide-react';
 import { CHAT_MEDIA_BUCKET, supabase } from '@/lib/supabase';
 import { useAuth } from '@/lib/useAuth';
@@ -10,7 +10,6 @@ import { ExperienceFeedbackButton } from '@/components/ExperienceFeedback';
 import type { Conversation, Message, Profile, VehicleWithRelations } from '@/lib/types';
 import { Avatar } from '@/components/Avatar';
 import { VerifiedBadge } from '@/components/VerifiedBadge';
-import { EmptyState } from '@/components/EmptyState';
 import { ReportModal } from './VehicleDetailsPage';
 import { cn, timeAgo } from '@/lib/utils';
 import { PUBLIC_PROFILE_FIELDS } from '@/lib/profileSelect';
@@ -27,6 +26,8 @@ import { ChatPartnerIdentity } from '@/components/ChatPartnerIdentity';
 import { AutoGrowTextarea } from '@/components/AutoGrowTextarea';
 import { SupportMessagesPage } from './ContactPage';
 import { SupportInboxEntry } from '@/components/SupportInboxEntry';
+import { conversationActivity, conversationInboxKey, conversationPartner, groupConversations } from '@/lib/conversationInbox';
+import { supportInboxPath } from '@/lib/supportInbox';
 
 const EMOJIS = ['😀', '😂', '👍', '🙏', '🔥', '💪', '🚗', '✅', '❤️', '😎'];
 const ONLINE_WINDOW_MS = 2 * 60 * 1000;
@@ -66,24 +67,13 @@ function lastSeenText(member?: Profile | null) {
   return `Last seen ${timeAgo(member.last_seen_at)}`;
 }
 
-function conversationActivity(conversation: Conversation) {
-  return new Date(conversation.last_message_at || conversation.created_at).getTime();
-}
-
-function conversationPartnerId(conversation: Conversation, userId: string) {
-  if (userId === conversation.driver_id) return conversation.owner_id || conversation.admin_id;
-  if (userId === conversation.owner_id) return conversation.driver_id || conversation.admin_id;
-  if (userId === conversation.admin_id) return conversation.driver_id || conversation.owner_id;
-  return conversation.driver_id || conversation.owner_id || conversation.admin_id;
-}
-
 export function ChatPage() {
   const [params] = useSearchParams();
   const { profile } = useAuth();
   if (params.get('view') === 'support') {
     if (profile?.role === 'admin') return <Navigate replace to="/admin?tab=contact" />;
   }
-  return <MemberChatPage />;
+  return <MemberChatPage key={profile?.id || 'signed-out'} />;
 }
 
 function MemberChatPage() {
@@ -124,6 +114,7 @@ function MemberChatPage() {
   const [blockStatus, setBlockStatus] = useState<BlockStatus>(CLEAR_BLOCK_STATUS);
   const [otherTyping, setOtherTyping] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -134,11 +125,13 @@ function MemberChatPage() {
 
   const loadConversations = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('conversations')
       .select(`*, vehicle:vehicles(*, photos:vehicle_photos(*)), connection:connections(status), application:applications(status), driver:profiles!conversations_driver_id_fkey(${PUBLIC_PROFILE_FIELDS}), owner:profiles!conversations_owner_id_fkey(${PUBLIC_PROFILE_FIELDS}), admin:profiles!conversations_admin_id_fkey(${PUBLIC_PROFILE_FIELDS})`)
       .or(`driver_id.eq.${user.id},owner_id.eq.${user.id},admin_id.eq.${user.id}`)
       .order('last_message_at', { ascending: false, nullsFirst: false });
+    if (error) { setLoadError(true); setLoading(false); return; }
+    setLoadError(false);
     const sorted = ((data as ConversationWithRelations[]) || []).sort((a, b) => conversationActivity(b) - conversationActivity(a));
     setConversations(sorted);
     if (document.visibilityState === 'visible') void supabase.rpc('mark_chat_delivered');
@@ -149,47 +142,20 @@ function MemberChatPage() {
 
   const conversationGroups = useMemo<ConversationGroup[]>(() => {
     if (!user) return [];
-    const grouped = new Map<string, ConversationWithRelations[]>();
-    conversations.forEach((conversation) => {
-      const partnerId = conversationPartnerId(conversation, user.id);
-      const key = partnerId ? `member:${partnerId}` : `conversation:${conversation.id}`;
-      const existing = grouped.get(key) || [];
-      existing.push(conversation);
-      grouped.set(key, existing);
-    });
-    return [...grouped.entries()]
-      .map(([key, items]) => {
-        const ordered = [...items].sort((a, b) => conversationActivity(b) - conversationActivity(a));
-        return {
-          key,
-          items: ordered,
-          latest: ordered[0],
-          activeConversation: ordered.find((conversation) => !conversation.closed_at) || ordered[0],
-        };
-      })
-      .sort((a, b) => conversationActivity(b.latest) - conversationActivity(a.latest));
+    return groupConversations(conversations, user.id);
   }, [conversations, user]);
 
   const filteredConversationGroups = useMemo(() => {
     const query = conversationSearch.trim().toLowerCase();
-    if (!query || !user) return conversationGroups;
-    return conversationGroups.filter((group) => {
-      const conversation = group.latest;
-      const member = user.id === conversation.driver_id
-        ? (conversation.owner || conversation.admin)
-        : user.id === conversation.owner_id
-          ? (conversation.driver || conversation.admin)
-          : (conversation.driver || conversation.owner);
-      return [isSupportPartner(conversation, user.id, member) ? `Official ${settings.site_name} Support` : member?.full_name, conversation.vehicle?.make, conversation.vehicle?.model]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(query));
-    });
-  }, [conversationGroups, conversationSearch, user, settings.site_name]);
+    return conversationGroups.filter(group => group.key !== 'support').filter(group => !query || group.items.some(conversation => {
+      const member = conversationPartner(conversation, user?.id || '');
+      return [member?.full_name, conversation.vehicle?.make, conversation.vehicle?.model].some(value => value?.toLowerCase().includes(query));
+    }));
+  }, [conversationGroups, conversationSearch, user]);
 
   const activeGroup = useMemo(() => {
     if (!active || !user) return null;
-    const key = conversationPartnerId(active, user.id);
-    return conversationGroups.find((group) => group.key === (key ? `member:${key}` : `conversation:${active.id}`)) || null;
+    return conversationGroups.find(group => group.key === conversationInboxKey(active, user.id)) || null;
   }, [active, conversationGroups, user]);
 
   const activeConversationIds = useMemo(
@@ -210,12 +176,13 @@ function MemberChatPage() {
     if (conversationId && conversations.length > 0) {
       const c = conversations.find((x) => x.id === conversationId);
       if (c && user) {
-        const partnerId = conversationPartnerId(c, user.id);
-        const group = conversationGroups.find((item) => item.key === (partnerId ? `member:${partnerId}` : `conversation:${c.id}`));
+        const key = conversationInboxKey(c, user.id);
+        if (key === 'support') { setActive(null); navigate(supportInboxPath(), { replace: true }); return; }
+        const group = conversationGroups.find(item => item.key === key);
         setActive(group?.activeConversation || c);
-      }
+      } else setActive(null);
     }
-  }, [conversationId, conversations, conversationGroups, active, user, supportView]);
+  }, [conversationId, conversations, conversationGroups, user, supportView, navigate]);
 
   const loadMessages = useCallback(async () => {
     if (!active || activeConversationIds.length === 0) return;
@@ -393,7 +360,9 @@ function MemberChatPage() {
     }
     const savedMessage = (Array.isArray(data) ? data[0] : data) as Message | null;
     if (savedMessage) {
-      setMessages((current) => current.map((message) => message.id === optimisticId ? { ...savedMessage, sender: profile || undefined } : message));
+      // A realtime event can arrive before the send RPC resolves.
+      setMessages(current => [...current.filter(message => message.id !== optimisticId && message.id !== savedMessage.id), { ...savedMessage, sender: profile || undefined }]
+        .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at)));
     } else {
       await loadMessages();
     }
@@ -495,14 +464,6 @@ function MemberChatPage() {
 
   if (loading) return <div className="container-content py-8"><div className="card h-96 animate-pulse" /></div>;
 
-  if (conversations.length === 0) {
-    return (
-      <div className="container-content py-12">
-        <EmptyState title="No conversations yet" description="Chats open automatically once an owner accepts your application." action={<Link to="/browse-cars" className="btn-primary">Browse cars</Link>} />
-      </div>
-    );
-  }
-
   const other = active ? (user?.id === active.driver_id ? (active.owner || active.admin) : user?.id === active.owner_id ? (active.driver || active.admin) : active.driver || active.owner) : null;
   const chatClosed = !activeGroup?.items.some((conversation) => !conversation.closed_at);
   const isDirectSupportConversation = Boolean(active && isSupportPartner(active, user?.id, other));
@@ -525,11 +486,12 @@ function MemberChatPage() {
           <div className="sticky top-0 z-10 border-b border-ink-100 bg-white/90 p-3 backdrop-blur-xl dark:bg-[#141416]/90">
             <div className="flex items-center justify-between px-1 pb-3">
               <span className="flex items-center gap-2 text-sm font-semibold text-ink-900"><MessageCircle className="h-4 w-4 text-brand-600" /> Conversations</span>
-              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-700">{conversationGroups.length}</span>
+              <span className="rounded-full bg-brand-100 px-2 py-0.5 text-xs font-bold text-brand-700">{conversationGroups.filter(group => group.key !== 'support').length + (profile?.role !== 'admin' ? 1 : 0)}</span>
             </div>
             <div className="relative"><Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" /><input value={conversationSearch} onChange={(event) => setConversationSearch(event.target.value)} aria-label="Search conversations" placeholder="Search people or cars" className="input h-10 rounded-xl bg-ink-50 py-2 pl-9 pr-3 text-xs focus:bg-ink-100" /></div>
           </div>
-          {profile?.role !== 'admin' && <SupportInboxEntry search={conversationSearch} selected={supportView} />}
+          {loadError && <div role="alert" className="p-3 text-xs text-ink-600">Could not refresh conversations. Saved entries have not been removed. <button type="button" className="underline" onClick={() => void loadConversations()}>Retry</button></div>}
+          {profile?.role !== 'admin' && <SupportInboxEntry search={conversationSearch} selected={supportView} legacyActivity={conversationGroups.find(group => group.key === 'support')?.latest.last_message_at} />}
           {filteredConversationGroups.map((group) => {
             const c = group.latest;
             const otherUser = user?.id === c.driver_id ? (c.owner || c.admin) : user?.id === c.owner_id ? (c.driver || c.admin) : (c.driver || c.owner);
@@ -549,7 +511,7 @@ function MemberChatPage() {
               </button>
             );
           })}
-          {filteredConversationGroups.length === 0 && <div className="px-6 py-12 text-center"><Search className="mx-auto h-7 w-7 text-ink-300" /><p className="mt-3 text-sm font-semibold text-ink-700">No matching conversations</p><p className="mt-1 text-xs text-ink-400">Try a different person, vehicle make, or model.</p></div>}
+          {filteredConversationGroups.length === 0 && !conversationSearch && <p className="px-6 py-8 text-center text-xs text-ink-500">Member conversations appear here when you connect. Support is always available above.</p>}
         </div>
 
         {/* Chat window */}

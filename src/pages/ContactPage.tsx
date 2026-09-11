@@ -15,6 +15,8 @@ import { openContactAttachment, uploadContactAttachment } from '@/lib/contactAtt
 import { AutoGrowTextarea } from '@/components/AutoGrowTextarea';
 import { supportInboxPath } from '@/lib/supportInbox';
 import { mergeSupportHistory } from '@/lib/supportHistory';
+import { useLegacySupportMessages } from '@/lib/useLegacySupportMessages';
+import { LegacySupportContent } from '@/components/LegacySupportContent';
 
 const CONTACT_FILE_ACCEPT = 'image/*,.heic,.heif,.pdf,.txt,.doc,.docx,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
@@ -49,7 +51,9 @@ export function SupportMessagesPage({ embedded = false }: { embedded?: boolean }
   const { settings } = useSiteSettings();
   const activeId = searchParams.get('message');
   const active = threads.find((thread) => thread.id === activeId) || threads[0] || null;
-  const history = mergeSupportHistory(threads);
+  const legacy = useLegacySupportMessages(user?.id, user?.id);
+  const history = mergeSupportHistory(threads, legacy.messages, user?.id);
+  const hasHistory = Boolean(active || history.length);
   const lastEntryId = history[history.length - 1]?.id;
 
   useEffect(() => {
@@ -59,11 +63,11 @@ export function SupportMessagesPage({ embedded = false }: { embedded?: boolean }
   }, [lastEntryId]);
   useEffect(() => {
     const topic = searchParams.get('topic');
-    if (active && topic && appliedTopic.current !== topic && form.message) {
+    if (hasHistory && topic && appliedTopic.current !== topic && form.message) {
       appliedTopic.current = topic;
       setReply(form.message);
     }
-  }, [active, searchParams, form.message]);
+  }, [hasHistory, searchParams, form.message]);
 
   useEffect(() => {
     setForm((current) => ({
@@ -86,7 +90,7 @@ export function SupportMessagesPage({ embedded = false }: { embedded?: boolean }
       const next = ((data as ContactMessage[]) || []).map((thread) => ({
         ...thread,
         message: [...(thread.entries || [])].filter(entry => !entry.unsent_at).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map(entry => entry.body || entry.attachment_name || '')[0] || '',
-        entries: [...(thread.entries || [])].filter(entry => !entry.unsent_at).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+        entries: [...(thread.entries || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
       }));
       setThreads(next);
     }
@@ -168,27 +172,36 @@ export function SupportMessagesPage({ embedded = false }: { embedded?: boolean }
   };
 
   const sendReply = async () => {
-    if (!user || !active || replying || (!reply.trim() && !replyFile)) return;
+    if (!user || submissionInFlight.current || replying || (!reply.trim() && !replyFile)) return;
+    submissionInFlight.current = true;
     setReplying(true);
     try {
-      if (reply.trim()) {
+      let threadId = active?.id;
+      if (!threadId) {
+        const { data, error } = await supabase.rpc('send_member_support_message', { p_message: reply.trim() || 'Shared an attachment.' });
+        if (error || !data) throw error || new Error('Could not open your support inbox.');
+        threadId = data as string;
+      } else if (reply.trim()) {
         const { error } = await supabase.from('contact_message_entries').insert({
-          contact_message_id: active.id,
+          contact_message_id: threadId,
           sender_id: user.id,
           sender_role: 'user',
           body: reply.trim(),
         });
         if (error) throw error;
       }
-      if (replyFile) await addAttachmentEntry(active.id, replyFile, 'user');
       setReply('');
+      // A failed attachment must not resend an already-saved text on retry.
+      if (replyFile) await addAttachmentEntry(threadId, replyFile, 'user');
       nearBottom.current = true;
       setReplyFile(null);
       if (replyFileRef.current) replyFileRef.current.value = '';
       await loadThreads();
     } catch (error) {
+      await loadThreads();
       toast(`Could not send your reply: ${error instanceof Error ? error.message : 'Please try again.'}`, 'error');
     } finally {
+      submissionInFlight.current = false;
       setReplying(false);
     }
   };
@@ -214,13 +227,15 @@ export function SupportMessagesPage({ embedded = false }: { embedded?: boolean }
 
         </div>}
 
-        {user && loadingThreads ? <p role="status" className="p-4 text-sm text-ink-500">Loading your support conversation…</p> : active && user ? (
+        {legacy.error && !hasHistory && <p role="alert" className="p-4 text-xs text-ink-600">Older support history could not be loaded. <button type="button" className="underline" onClick={legacy.retry}>Retry</button></p>}
+        {user && (loadingThreads || legacy.loading) ? <p role="status" className="p-4 text-sm text-ink-500">Loading your support conversation…</p> : hasHistory && user ? (
           <div className={embedded ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'card flex h-[70dvh] min-h-[380px] min-w-0 flex-col overflow-hidden'}>
             <div className="flex shrink-0 items-start gap-3 border-b border-ink-100 p-4"><SiteLogo size={40} /><div className="min-w-0"><h2 className="text-sm font-semibold text-ink-900">Official {settings.site_name} Support</h2><p className="mt-1 text-xs text-ink-500">All your support messages · history is saved</p></div></div>
             <div ref={historyRef} onScroll={() => { const el = historyRef.current; if (el) nearBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80; }} role="region" aria-label="Support message history" tabIndex={0} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain bg-ink-50/50 p-4">
+              {legacy.error && <p role="alert" className="text-xs text-ink-600">Older support history could not be loaded. <button type="button" className="underline" onClick={legacy.retry}>Retry</button></p>}
               {history.map((entry) => {
                 const mine = entry.sender_role === 'user';
-                return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[85%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{mine ? 'You' : entry.sender_role === 'admin' ? `Official ${settings.site_name} Support` : entry.sender?.full_name || 'Guest'}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}{mine && !entry.unsent_at && <span> · {entry.read_at ? 'Read' : entry.delivered_at ? 'Delivered' : 'Sent'}</span>}</p></div></div>;
+                return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[85%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{entry.legacy?.type === 'system' ? `${settings.site_name} system` : mine ? 'You' : entry.sender_role === 'admin' ? `Official ${settings.site_name} Support` : entry.sender?.full_name || 'Guest'}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.legacy && <LegacySupportContent message={entry.legacy} />}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}{mine && !entry.unsent_at && <span> · {(entry.read_at || entry.legacy?.read) ? 'Read' : (entry.delivered_at || entry.legacy?.delivered_at) ? 'Delivered' : 'Sent'}</span>}</p></div></div>;
               })}
             </div>
             <div className="shrink-0 border-t border-ink-100 p-3">

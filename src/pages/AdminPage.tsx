@@ -24,6 +24,9 @@ import { normalizeReportWarnings } from '@/lib/reportWarnings';
 import { Users, Car, Flag, TrendingUp, ShieldCheck, MessageSquare, Check, X, Ban, Send, ArrowLeft, FileText, Search, Pencil, Trash2, Eye, CheckCircle2, XCircle, Plus, Settings as SettingsIcon, KeyRound, Save, Mail, UserPlus, LockKeyhole, Upload, ImageIcon, ImagePlus, Loader2, Headphones, CalendarDays, Palette, Megaphone, ChevronUp, ChevronDown, SlidersHorizontal, RotateCcw, Bot } from 'lucide-react';
 import { supabase, DOCUMENT_BUCKET, VEHICLE_BUCKET, SITE_ASSETS_BUCKET, CHAT_MEDIA_BUCKET } from '@/lib/supabase';
 import type { Profile, Vehicle, Report, DocumentRow, Conversation, Message, VehicleIssue, PlatformHistory, VerificationStatus, VehiclePhoto, ContactMessage, ContactMessageEntry, UserWarning } from '@/lib/types';
+import { groupSupportThreads, mergeSupportHistory } from '@/lib/supportHistory';
+import { useLegacySupportMessages } from '@/lib/useLegacySupportMessages';
+import { LegacySupportContent } from '@/components/LegacySupportContent';
 import { type SiteSettings, useSiteSettings } from '@/lib/siteSettings';
 import { applySiteTheme, DEFAULT_SITE_THEME, isSiteTheme, SITE_THEMES } from '@/lib/siteTheme';
 import { AdminPromotions, OwnerListingAllowance } from '@/components/AdminPromotions';
@@ -187,7 +190,7 @@ export function AdminPage() {
     setContactMessages(((contacts as ContactMessage[]) || []).map((message) => ({
       ...message,
       message: '',
-      entries: [...(message.entries || [])].filter(entry => !entry.unsent_at).sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
+      entries: [...(message.entries || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()),
     })));
     setLoading(false);
   }, [toast]);
@@ -209,7 +212,7 @@ export function AdminPage() {
   const pendingDocs = documents.filter((d) => !d.verified && !d.rejected);
   const pendingVehiclePhotos = vehicles.flatMap((v) => (v.photos || []).filter((photo) => !photo.approved && !photo.rejected).map((photo) => ({ ...photo, vehicle: v })));
   const pendingListings = vehicles.filter((vehicle) => vehicle.approval_status === 'pending');
-  const newContactMessages = contactMessages.filter((message) => message.status === 'new');
+  const newContactMessages = groupSupportThreads(contactMessages).filter(group => group.latest.status === 'new');
   const unsolvedReports = reports.filter((report) => report.status === 'open' || report.status === 'reviewing');
 
   const suspend = async (p: Profile, reason: string) => {
@@ -281,7 +284,8 @@ export function AdminPage() {
   };
 
   const resolveContactMessage = async (message: ContactMessage) => {
-    const { error } = await supabase.from('contact_messages').update({ status: 'resolved', resolved_at: new Date().toISOString() }).eq('id', message.id);
+    const ids = contactMessages.filter(item => message.user_id ? item.user_id === message.user_id : item.id === message.id).map(item => item.id);
+    const { error } = await supabase.from('contact_messages').update({ status: 'resolved', resolved_at: new Date().toISOString() }).in('id', ids);
     if (error) { toast('Could not resolve message: ' + error.message, 'error'); return; }
     toast('Contact message marked resolved.');
     load();
@@ -872,7 +876,7 @@ export function AdminPage() {
         {tab === 'community' && <CommunityPage embedded />}
 
         {/* ---------- Reports ---------- */}
-        {tab === 'contact' && !loading && <AdminMessageInbox messages={contactMessages} adminId={user?.id || null} siteName={siteSettings.site_name} onRefresh={load} onResolve={resolveContactMessage} onDelete={(message) => setConfirmAction({ message: `Permanently delete the message history from ${message.name}?`, label: 'Delete', onConfirm: () => deleteContactMessage(message) })} onViewUser={setViewingUser} />}
+        {tab === 'contact' && !loading && <AdminMessageInbox messages={contactMessages} adminId={user?.id || null} siteName={siteSettings.site_name} onRefresh={load} onResolve={resolveContactMessage} onDelete={(message) => setConfirmAction({ message: `Delete the latest support request from ${message.name}? Older requests and original chat history will remain saved.`, label: 'Delete', onConfirm: () => deleteContactMessage(message) })} onViewUser={setViewingUser} />}
 
         {/* ---------- Reports ---------- */}
         {tab === 'reports' && !loading && (
@@ -1941,7 +1945,7 @@ function lastContactEntry(message: ContactMessage) {
   return entries[entries.length - 1];
 }
 
-function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, onDelete, onViewUser }: {
+export function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, onDelete, onViewUser }: {
   messages: ContactMessage[];
   adminId: string | null;
   siteName: string;
@@ -1959,8 +1963,12 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
   const [attachment, setAttachment] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const active = messages.find((message) => message.id === activeId) || null;
-  const entries = [...(active?.entries || [])].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+  const replyInFlight = useRef(false);
+  const groups = groupSupportThreads(messages);
+  const activeGroup = groups.find(group => group.items.some(message => message.id === activeId));
+  const active = activeGroup?.latest || null;
+  const legacy = useLegacySupportMessages(active?.user_id, adminId || undefined);
+  const entries = mergeSupportHistory(activeGroup?.items || [], legacy.messages, active?.user_id || undefined);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -1973,7 +1981,8 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
   }, []);
 
   const sendReply = async () => {
-    if (!active || !adminId || sending || (!reply.trim() && !attachment)) return;
+    if (!active || !adminId || replyInFlight.current || sending || (!reply.trim() && !attachment)) return;
+    replyInFlight.current = true;
     setSending(true);
     try {
       if (reply.trim()) {
@@ -1985,6 +1994,7 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
         });
         if (error) throw error;
       }
+      setReply('');
       if (attachment) {
         const uploaded = await uploadContactAttachment(active.id, adminId, attachment);
         const { error } = await supabase.from('contact_message_entries').insert({
@@ -2005,8 +2015,10 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
       toast(active.user_id ? 'Reply sent. The member was notified immediately.' : 'Reply stored. Use email to deliver it to this guest.');
       await onRefresh();
     } catch (error) {
+      await onRefresh();
       toast(`Could not send reply: ${error instanceof Error ? error.message : 'Please try again.'}`, 'error');
     } finally {
+      replyInFlight.current = false;
       setSending(false);
     }
   };
@@ -2021,11 +2033,11 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
 
   return (
     <div className="admin-message-inbox grid min-h-0 grid-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-      {messages.map(thread => <SupportReceipt key={thread.id} thread={thread.id} entries={thread.entries || []} active={activeId === thread.id} />)}
+      {messages.map(thread => <SupportReceipt key={thread.id} thread={thread.id} entries={thread.entries || []} active={Boolean(activeGroup?.items.some(item => item.id === thread.id))} />)}
       <div className={cn('card min-h-0 min-w-0 overflow-y-auto', active && 'hidden lg:block')}>
         <div className="border-b border-ink-100 p-4"><h2 className="font-semibold text-ink-900">Messages</h2><p className="mt-1 text-xs text-ink-500">Direct support requests, replies, and attachments</p></div>
-        {messages.map((message) => (
-          <button key={message.id} type="button" onClick={() => setInboxParams({ tab: 'contact', message: message.id })} className={cn('flex w-full items-start gap-3 border-b border-ink-50 p-4 text-left hover:bg-ink-50', activeId === message.id && 'bg-brand-50')}>
+        {groups.map(({ latest: message }) => (
+          <button key={message.id} type="button" onClick={() => { setReply(''); setAttachment(null); setInboxParams({ tab: 'contact', message: message.id }); }} className={cn('flex w-full items-start gap-3 border-b border-ink-50 p-4 text-left hover:bg-ink-50', active?.id === message.id && 'bg-brand-50')}>
             <Avatar name={message.user?.full_name || message.name} src={message.user?.avatar_url} size={40} verified={message.user?.role === 'driver' && message.user?.is_verified} />
             <div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><p className="truncate text-sm font-semibold text-ink-900">{message.user?.full_name || message.name}</p><span className={cn('badge shrink-0 text-[10px] capitalize', message.status === 'new' ? 'badge-warning' : message.status === 'resolved' ? 'badge-success' : 'badge-brand')}>{message.status}</span></div><p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wide text-brand-700">{message.user?.role === 'owner' ? 'Car owner' : message.user?.role === 'driver' ? 'Driver' : 'Guest'}</p><p className="mt-0.5 truncate text-xs text-ink-600">{lastContactEntry(message)?.body || lastContactEntry(message)?.attachment_name || message.message}</p><p className="mt-1 text-[10px] text-ink-400">{formatDateTime(message.updated_at || message.created_at)}</p></div>
           </button>
@@ -2040,9 +2052,11 @@ function AdminMessageInbox({ messages, adminId, siteName, onRefresh, onResolve, 
             <div className="ml-auto flex flex-wrap gap-2">{active.user && <button type="button" onClick={() => onViewUser(active.user!)} className="btn-secondary px-3 py-1.5 text-xs"><Eye className="h-3.5 w-3.5" /> View user</button>}<a href={`mailto:${active.email}`} className="btn-secondary px-3 py-1.5 text-xs"><Mail className="h-3.5 w-3.5" /> Email</a>{active.status !== 'resolved' && <button type="button" onClick={() => void onResolve(active)} className="btn-secondary px-3 py-1.5 text-xs"><Check className="h-3.5 w-3.5" /> Resolve</button>}<button type="button" onClick={() => onDelete(active)} className="btn-ghost px-3 py-1.5 text-xs text-danger"><Trash2 className="h-3.5 w-3.5" /></button></div>
           </div>
           <div role="region" aria-label="Message history" tabIndex={0} className="admin-message-history min-h-0 flex-1 space-y-3 overflow-y-auto bg-ink-50/50 p-4 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ink-500">
+            {legacy.loading && <p role="status" className="text-xs text-ink-600">Loading older support history…</p>}
+            {legacy.error && <p role="alert" className="text-xs text-ink-600">Older support history could not be loaded. <button type="button" className="underline" onClick={legacy.retry}>Retry</button></p>}
             {entries.map((entry) => {
               const mine = entry.sender_role === 'admin';
-              return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[80%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{mine ? `Official ${siteName} Support` : entry.sender?.full_name || active.name}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}{mine && !entry.unsent_at && <span> · {entry.read_at ? 'Read' : entry.delivered_at ? 'Delivered' : 'Sent'}</span>}</p>{mine && entry.sender_id === adminId && !entry.unsent_at && <button className="mt-1 text-xs underline" onClick={async () => { if (!window.confirm('Unsend this message? The recipient may already have seen it. Downloaded files cannot be recalled.')) return; const { error } = await supabase.rpc('admin_unsend_support_message', { p_entry: entry.id }); if (error) toast(error.message, 'error'); else await onRefresh(); }}>Unsend</button>}</div></div>;
+              return <div key={entry.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}><div className={cn('max-w-[80%] rounded-2xl px-3 py-2 text-sm', mine ? 'bg-brand-600 text-white' : 'bg-white text-ink-900 ring-1 ring-ink-100 dark:bg-[#1d1d20]')}><p className={cn('mb-1 text-[10px] font-bold', mine ? 'text-brand-100' : 'text-violet-600')}>{entry.legacy?.type === 'system' ? `${siteName} system` : mine ? `Official ${siteName} Support` : entry.sender?.full_name || active.name}</p>{entry.body && <p className="whitespace-pre-wrap break-words">{entry.body}</p>}{entry.legacy && <LegacySupportContent message={entry.legacy} />}{entry.attachment_path && <button type="button" onClick={() => void openAttachment(entry)} className={cn('mt-1 flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-semibold', mine ? 'bg-white/15 text-white' : 'bg-brand-50 text-brand-700')}><FileText className="h-4 w-4" /><span className="min-w-0 truncate">{entry.attachment_name || 'Open attachment'}</span></button>}<p className={cn('mt-1 text-[10px]', mine ? 'text-brand-100' : 'text-ink-400')}>{formatDateTime(entry.created_at)}{mine && !entry.unsent_at && <span> · {(entry.read_at || entry.legacy?.read) ? 'Read' : (entry.delivered_at || entry.legacy?.delivered_at) ? 'Delivered' : 'Sent'}</span>}</p>{mine && entry.sender_id === adminId && !entry.unsent_at && !entry.id.startsWith('legacy:') && <button className="mt-1 text-xs underline" onClick={async () => { if (!window.confirm('Unsend this message? The recipient may already have seen it. Downloaded files cannot be recalled.')) return; const { error } = await supabase.rpc('admin_unsend_support_message', { p_entry: entry.id }); if (error) toast(error.message, 'error'); else await onRefresh(); }}>Unsend</button>}</div></div>;
             })}
           </div>
           <div className="shrink-0 border-t border-ink-100 p-3">

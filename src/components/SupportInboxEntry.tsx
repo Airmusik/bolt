@@ -7,7 +7,7 @@ import { supportInboxPath } from '@/lib/supportInbox';
 import { timeAgo } from '@/lib/utils';
 import { SiteLogo } from './SiteLogo';
 
-export function SupportInboxEntry({ search, selected = false }: { search: string; selected?: boolean }) {
+export function SupportInboxEntry({ search, selected = false, legacyActivity }: { search: string; selected?: boolean; legacyActivity?: string | null }) {
   const { user } = useAuth();
   const { settings } = useSiteSettings();
   const userId = user?.id;
@@ -26,9 +26,10 @@ export function SupportInboxEntry({ search, selected = false }: { search: string
     const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 30000);
     return () => { void supabase.removeChannel(channel); window.clearInterval(timer); };
   }, [userId, load]);
-  if (search && !`support help ${settings.site_name} ${latest?.message || ''}`.toLowerCase().includes(search.toLowerCase())) return null;
+  const activity = [latest?.updated_at, legacyActivity].filter((date): date is string => Boolean(date)).sort((a, b) => Date.parse(b) - Date.parse(a))[0];
+  if (search.trim() && !`official support help ${settings.site_name} ${latest?.message || ''}`.toLowerCase().includes(search.trim().toLowerCase())) return null;
   return <Link to={supportInboxPath(latest ? new URLSearchParams({ message: latest.id }) : '')} aria-current={selected ? 'page' : undefined} className={`mx-2 mt-2 flex items-center gap-3 rounded-xl border border-ink-100 p-3 text-left hover:bg-ink-50 ${selected ? 'bg-ink-50 ring-1 ring-brand-200' : ''}`}>
     <SiteLogo size={46} />
-    <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink-900">Official {settings.site_name} Support</p><p className="mt-1 truncate text-xs text-ink-500">{failed ? 'Open your support messages' : latest?.message || 'Contact support — replies stay here'}</p>{latest?.updated_at && <p className="mt-1 text-[10px] text-ink-400">{timeAgo(latest.updated_at)}</p>}</div>
+    <div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-ink-900">Official {settings.site_name} Support</p><p className="mt-1 truncate text-xs text-ink-500">{failed ? 'Open your support messages' : activity ? 'All support messages and saved history' : 'Contact support — replies stay here'}</p>{activity && <p className="mt-1 text-[10px] text-ink-400">{timeAgo(activity)}</p>}</div>
   </Link>;
 }
